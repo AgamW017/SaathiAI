@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SaathiAI Companion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #1a1a2e; }
+        /* Light mode WhatsApp background */
+        .chat-bg { background-color: #efeae2; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-size: cover; background-attachment: fixed; }
+        /* Dark mode WhatsApp background */
+        .dark .chat-bg { background-color: #0b141a; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); opacity: 0.9; background-blend-mode: overlay; }
+        
+        .msg-in { background-color: #ffffff; border-radius: 0 8px 8px 8px; }
+        .dark .msg-in { background-color: #202c33; color: #e9edef; }
+        .msg-out { background-color: #d9fdd3; border-radius: 8px 0 8px 8px; }
+        .dark .msg-out { background-color: #005c4b; color: #e9edef; }
+        .msg-sys { background-color: #ffeebc; border-radius: 8px; text-align: center; }
+        .dark .msg-sys { background-color: #182229; color: #8696a0; }
+        
+        /* Layout: phone shell fills remaining height properly */
+        .phone-shell { display:flex; flex-direction:column; height:100%; width: 100%; overflow:hidden; position: relative; }
+        @media (min-width: 640px) {
+            .phone-shell { height: calc(100dvh - 4rem); max-height: 850px; }
+        }
+        
+        /* Each screen hides/shows as a flex column */
+        .screen { display:none; flex-direction:column; flex:1; overflow:hidden; height: 100%; }
+        .screen.active { display:flex; }
+        
+        /* Scrollable message area inside each screen */
+        .chat-scroll { flex:1; overflow-y:auto; overflow-x:hidden; padding-bottom: 20px; }
+        
+        .tab-pill { cursor: pointer; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); transition: all 0.2s; }
+        .tab-pill.active { background: #00a884; color: white; border-color: #00a884; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+        
+        /* Textarea auto-resize helper */
+        textarea { resize: none; overflow: hidden; min-height: 24px; max-height: 100px; }
+    </style>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#10b981',
+                        'accent-1': '#3b82f6',
+                        'accent-2': '#f59e0b',
+                        'accent-3': '#ef4444',
+                        surface: {
+                            light: '#f8fafc',
+                            dark: '#1e293b'
+                        },
+                        background: {
+                            light: '#ffffff',
+                            dark: '#0f172a'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+</head>
+<body class="h-[100dvh] w-full flex flex-col items-center justify-start bg-[#1a1a2e] dark:bg-[#0f172a] sm:pt-6 overflow-hidden relative">
+
+    <!-- Global Controls -->
+    <div class="fixed top-2 right-2 z-[999] flex gap-2">
+        <button onclick="document.documentElement.classList.toggle('dark')" class="bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 px-3 py-1.5 rounded-md text-xs font-bold shadow-lg flex items-center gap-1 transition-colors">
+            <span class="material-symbols-outlined text-[14px]">light_mode</span> Theme
+        </button>
+        <button onclick="toggleLanguage()" class="bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 px-3 py-1.5 rounded-md text-xs font-bold shadow-lg flex items-center gap-1 transition-colors">
+            <span class="material-symbols-outlined text-[14px]">translate</span> <span id="lang-text">EN</span>
+        </button>
+    </div>
+    
+    <script>
+        function toggleLanguage() {
+            const el = document.getElementById('lang-text');
+            if(el.innerText === 'EN') {
+                el.innerText = 'HI';
+                document.body.classList.add('lang-hi');
+            } else {
+                el.innerText = 'EN';
+                document.body.classList.remove('lang-hi');
+            }
+        }
+    </script>
+
+    <!-- Scene Switcher -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-3 px-4 w-full max-w-md scrollbar-none z-50 shrink-0" style="scrollbar-width:none">
+        <span class="text-[10px] text-white/40 font-bold uppercase tracking-wider shrink-0">Screen:</span>
+        <button class="tab-pill active" onclick="switchScene('onboarding',this)">1. Onboarding</button>
+        <button class="tab-pill" onclick="switchScene('profile',this)">2. Profile Card</button>
+        <button class="tab-pill" onclick="switchScene('matches',this)">3. Job Matches</button>
+        <button class="tab-pill" onclick="switchScene('badge',this)">4. Skill Badge</button>
+        <button class="tab-pill" onclick="switchScene('interview',this)">5. Mock Interview</button>
+        <button class="tab-pill" onclick="switchScene('retention',this)">6. Retention</button>
+    </div>
+
+    <div class="phone-shell max-w-md bg-[#efeae2] dark:bg-[#0b141a] sm:rounded-[2rem] shadow-2xl border-0 sm:border-[8px] border-[#2c2c36] dark:border-[#1e293b]">
+        
+        <!-- Header -->
+        <header class="bg-[#00a884] dark:bg-[#202c33] text-white p-3 flex items-center gap-3 shrink-0 z-10 shadow-sm relative sm:rounded-t-2xl">
+            <span class="material-symbols-outlined cursor-pointer hover:bg-white/10 p-1 rounded-full">arrow_back</span>
+            <div class="relative">
+                <div class="w-10 h-10 bg-white dark:bg-[#111b21] rounded-full flex items-center justify-center text-[#00a884] font-bold text-xl">S</div>
+                <div class="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-[#00a884] dark:border-[#202c33] rounded-full"></div>
+            </div>
+            <div class="flex-1">
+                <h1 class="font-semibold text-lg leading-tight">SaathiAI 🟢</h1>
+                <p class="text-xs text-white/80 dark:text-white/60">Official ITI Placement Bot</p>
+            </div>
+            <span class="material-symbols-outlined cursor-pointer hover:bg-white/10 p-1 rounded-full">more_vert</span>
+        </header>
+
+        <!-- ══ SCREEN 1: ONBOARDING ══ -->
+        <div id="scene-onboarding" class="screen active">
+            <div class="chat-scroll chat-bg p-4 flex flex-col gap-4">
+            
+            <!-- System Message -->
+            <div class="self-center msg-sys text-xs px-3 py-1.5 shadow-sm mt-2 mb-2 font-medium">
+                🔒 Messages and calls are end-to-end encrypted.
+            </div>
+
+            <!-- Activation Message -->
+            <div class="msg-in p-2 shadow-sm self-start max-w-[85%] text-sm relative">
+                <div class="text-emerald-600 dark:text-emerald-400 font-semibold text-xs mb-1">ITI Varanasi Training Centre</div>
+                <p class="leading-relaxed">
+                    Ramu ji, namaste! 🙏<br><br>
+                    Aapka ITI Electrician course poora hone par badhai. Humne aapke liye <b>SaathiAI</b> activate kiya hai jo aapko naukri dhundhne mein madad karega.
+                </p>
+                <button class="mt-3 w-full bg-[#00a884] text-white py-2 rounded-md font-medium text-sm shadow-sm active:scale-95 transition-transform">
+                    SaathiAI se baat karein
+                </button>
+                <div class="text-[10px] text-gray-400 dark:text-gray-500 text-right mt-1">10:00 AM</div>
+            </div>
+
+            <!-- Outgoing Reply -->
+            <div class="msg-out p-2 shadow-sm self-end max-w-[85%] text-sm relative">
+                <p>SaathiAI se baat karein</p>
+                <div class="flex justify-end items-center gap-1 mt-1">
+                    <span class="text-[10px] text-gray-500">10:02 AM</span>
+                    <span class="material-symbols-outlined text-[14px] text-blue-500">done_all</span>
+                </div>
+            </div>
+
+            <!-- Voice Onboarding Start -->
+            <div class="msg-in p-2 shadow-sm self-start max-w-[85%] text-sm relative border-l-4 border-amber-500">
+                <p>
+                    Hello Ramu! 👋 Main SaathiAI hoon.<br>
+                    Job dhundhne ke liye, mujhe aapse kuch choti si jaankari chahiye. Aap likh kar ya <b>voice message</b> bhej kar jawab de sakte hain.<br><br>
+                    <b>Pehla sawal:</b> Aapne kaun sa trade seekha hai? (Jaise: Electrician, Fitter)
+                </p>
+                <!-- Voice message UI -->
+                <div class="flex items-center gap-2 mt-3 bg-gray-50 dark:bg-gray-800 p-2 rounded-full border border-gray-200 dark:border-gray-700">
+                    <button class="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center text-white shrink-0 shadow-sm">
+                        <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                    </button>
+                    <div class="flex-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full overflow-hidden relative">
+                        <div class="absolute left-0 top-0 bottom-0 w-[40%] bg-amber-500"></div>
+                    </div>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">0:12</span>
+                </div>
+                <div class="text-[10px] text-gray-400 text-right mt-1">10:02 AM</div>
+            </div>
+
+            <!-- User Voice Reply -->
+            <div class="msg-out p-2 shadow-sm self-end max-w-[85%] text-sm relative">
+                <div class="flex items-center gap-2 bg-[#d9fdd3]/50 dark:bg-[#005c4b]/50 p-2 rounded-full">
+                    <button class="w-8 h-8 bg-[#00a884] rounded-full flex items-center justify-center text-white shrink-0 shadow-sm">
+                        <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                    </button>
+                    <!-- Audio Waveform mockup -->
+                    <div class="flex gap-[2px] items-center h-4">
+                        <div class="w-1 h-2 bg-emerald-600/40 dark:bg-emerald-400/40 rounded-full"></div>
+                        <div class="w-1 h-4 bg-emerald-600/40 dark:bg-emerald-400/40 rounded-full"></div>
+                        <div class="w-1 h-3 bg-emerald-600/40 dark:bg-emerald-400/40 rounded-full"></div>
+                        <div class="w-1 h-1 bg-emerald-600/40 dark:bg-emerald-400/40 rounded-full"></div>
+                        <div class="w-1 h-2 bg-emerald-600/40 dark:bg-emerald-400/40 rounded-full"></div>
+                    </div>
+                    <span class="text-xs text-emerald-800 dark:text-emerald-200">0:04</span>
+                    <img src="https://ui-avatars.com/api/?name=Ramu&background=0D8ABC&color=fff&rounded=true&size=24" alt="User" class="ml-1 rounded-full">
+                </div>
+                <div class="flex justify-end items-center gap-1 mt-1">
+                    <span class="text-[10px] text-emerald-700/60 dark:text-emerald-200/60">10:04 AM</span>
+                    <span class="material-symbols-outlined text-[14px] text-blue-500">done_all</span>
+                </div>
+            </div>
+
+            <!-- Verification Gateway Card -->
+            <div class="msg-in p-0 shadow-sm self-start max-w-[85%] overflow-hidden relative">
+                <div class="bg-blue-600 p-3 text-white">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-2xl">verified_user</span>
+                        <h3 class="font-bold text-sm">DigiLocker Verification</h3>
+                    </div>
+                    <p class="text-xs text-blue-100">Aapka certificate verify karna zaroori hai taaki employers aap par trust karein.</p>
+                </div>
+                <div class="p-3">
+                    <button class="w-full border-2 border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-500 font-semibold py-1.5 rounded text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                        Connect DigiLocker
+                    </button>
+                </div>
+                <div class="p-1 flex justify-end px-2">
+                     <div class="text-[10px] text-gray-400">10:15 AM</div>
+                </div>
+            </div>
+
+            <!-- AI Job Match Delivery -->
+            <div class="msg-in p-3 shadow-sm self-start max-w-[90%] text-sm relative">
+                <div class="text-emerald-600 dark:text-emerald-400 font-bold text-xs mb-2">✨ Top 3 Matches (Varanasi)</div>
+                <p class="mb-3">Humne aapke liye 3 best jobs dhundhi hain. Jisme interest ho, uska number reply karein:</p>
+                
+                <div class="space-y-3">
+                    <div class="bg-gray-50 dark:bg-gray-800 p-2.5 rounded border border-gray-200 dark:border-gray-700">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-emerald-600 dark:text-emerald-400 text-xs">1. Ganesh Electricals</h4>
+                            <span class="material-symbols-outlined text-blue-500 text-[16px]" title="Verified">verified</span>
+                        </div>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Role: Maintenance Electrician</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400">Salary: ₹12,000 - ₹15,000</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400">Distance: 5km (Sigra)</p>
+                    </div>
+                    
+                    <div class="bg-gray-50 dark:bg-gray-800 p-2.5 rounded border border-gray-200 dark:border-gray-700">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-emerald-600 dark:text-emerald-400 text-xs">2. L&T Construction</h4>
+                            <span class="material-symbols-outlined text-blue-500 text-[16px]" title="Verified">verified</span>
+                        </div>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Role: NAPS Apprentice</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400">Stipend: ₹8,050</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400">Distance: 12km</p>
+                    </div>
+                </div>
+                
+                <div class="flex gap-2 mt-3">
+                    <button class="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-1.5 rounded border border-gray-300 dark:border-gray-600 font-medium text-xs hover:bg-gray-200 dark:hover:bg-gray-600">Reply 1</button>
+                    <button class="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-1.5 rounded border border-gray-300 dark:border-gray-600 font-medium text-xs hover:bg-gray-200 dark:hover:bg-gray-600">Reply 2</button>
+                </div>
+                <div class="text-[10px] text-gray-400 text-right mt-1">11:30 AM</div>
+            </div>
+            
+            <div class="h-2 shrink-0"></div>
+            </div><!-- end scroll -->
+        </div><!-- end screen 1 -->
+
+        <!-- ══ SCREEN 2: PROFILE STRENGTH CARD ══ -->
+        <div id="scene-profile" class="screen">
+        <div class="chat-scroll chat-bg p-4 flex flex-col gap-4">
+            <div class="self-center msg-sys text-xs px-3 py-1.5 shadow-sm mt-2 font-medium">3 June 2026</div>
+            <div class="msg-in p-3 shadow-sm self-start max-w-[90%] text-sm">
+                <div class="text-emerald-600 dark:text-emerald-400 font-bold text-xs mb-2">✅ Certificate Verified!</div>
+                <p class="mb-3">Ramu ji, aapka NSQF certificate verify ho gaya! Yeh dekhen aapki profile:</p>
+                <div class="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-xl p-4 border border-emerald-100 dark:border-emerald-800">
+                    <div class="flex items-center gap-3 mb-3">
+                        <img src="https://ui-avatars.com/api/?name=Ramu+Kumar&background=10b981&color=fff&size=60" class="w-12 h-12 rounded-full">
+                        <div>
+                            <div class="font-bold">Ramu Kumar</div>
+                            <div class="text-xs text-emerald-700 dark:text-emerald-400 font-semibold">⚡ Electrician · NSQF Level 3</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Varanasi, UP</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-gray-700 dark:text-gray-300">Profile Strength</span>
+                        <span class="text-xs font-bold text-amber-600 dark:text-amber-400">60%</span>
+                    </div>
+                    <div class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-3">
+                        <div class="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full" style="width:60%"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-1.5 text-[10px]">
+                        <div class="flex items-center gap-1 text-emerald-700 dark:text-emerald-400"><span class="text-emerald-500">✓</span> Certificate Verified (30pts)</div>
+                        <div class="flex items-center gap-1 text-emerald-700 dark:text-emerald-400"><span class="text-emerald-500">✓</span> Location Set (10pts)</div>
+                        <div class="flex items-center gap-1 text-amber-600 dark:text-amber-400"><span class="text-amber-500">○</span> Task Video (30pts)</div>
+                        <div class="flex items-center gap-1 text-gray-400"><span>○</span> Trainer Endorsement (20pts)</div>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-600 dark:text-gray-400 mt-2">Video task add karne par aapke chances 40% badhenge! 🚀</p>
+                <div class="text-[10px] text-gray-400 text-right mt-1">11:00 AM</div>
+            </div>
+            <div class="h-2 shrink-0"></div>
+        </div>
+        </div>
+
+        <!-- ══ SCREEN 3: JOB MATCHES ══ -->
+        <div id="scene-matches" class="screen">
+        <div class="chat-scroll chat-bg p-4 flex flex-col gap-4">
+            <div class="self-center msg-sys text-xs px-3 py-1.5 shadow-sm mt-2 font-medium">इस हफ्ते के नए मौके 🌟</div>
+            <div class="msg-in p-3 shadow-sm self-start max-w-[92%] text-sm">
+                <div class="text-emerald-600 dark:text-emerald-400 font-bold text-xs mb-2">✨ Top 3 Matches — Varanasi (5 June)</div>
+                <p class="text-xs mb-3">Humne aapke liye 3 best jobs dhundhi hain. Jisme interest ho reply karein:</p>
+                <div class="space-y-2">
+                    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-emerald-600 dark:text-emerald-400 text-xs">1. Ganesh Electricals</h4>
+                            <span class="text-blue-500 text-[10px] flex items-center gap-0.5 font-semibold">✓ Verified</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-2 mt-1 text-[10px] text-gray-600 dark:text-gray-400">
+                            <span>📍 5km · Sigra</span><span>💰 ₹12,000–15,000</span>
+                            <span>🕐 Day shift</span><span>⚡ Maintenance Electrician</span>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-emerald-600 dark:text-emerald-400 text-xs">2. L&T Construction</h4>
+                            <span class="text-blue-500 text-[10px] flex items-center gap-0.5 font-semibold">✓ Verified</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-2 mt-1 text-[10px] text-gray-600 dark:text-gray-400">
+                            <span>📍 12km · Lanka</span><span>💰 ₹8,050 stipend</span>
+                            <span>🎓 NAPS Apprentice</span><span>⚡ Electrical Works</span>
+                        </div>
+                    </div>
+                    <div class="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2.5 border border-amber-200 dark:border-amber-800">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-amber-700 dark:text-amber-500 text-xs">3. Shiv Electronics</h4>
+                            <span class="text-amber-600 dark:text-amber-500 text-[10px] font-semibold">⚠ Unverified</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-2 mt-1 text-[10px] text-amber-700 dark:text-amber-400">
+                            <span>📍 3km · Godaulia</span><span>💰 ₹10,000</span>
+                            <span class="col-span-2 mt-0.5">Verify before applying</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-1.5 mt-3">
+                    <button class="flex-1 bg-[#00a884] text-white py-1.5 rounded-full font-bold text-[11px] shadow-sm active:scale-95">1</button>
+                    <button class="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 font-bold text-[11px] active:scale-95">2</button>
+                    <button class="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 font-bold text-[11px] active:scale-95">3</button>
+                    <button class="flex-[1.5] bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 font-bold text-[10px] active:scale-95">और दिखाओ</button>
+                </div>
+                <div class="text-[10px] text-gray-400 text-right mt-1">Mon 9:00 AM</div>
+            </div>
+            <div class="h-2 shrink-0"></div>
+        </div>
+        </div>
+
+        <!-- ══ SCREEN 4: SKILL BADGE REVEAL ══ -->
+        <div id="scene-badge" class="screen">
+        <div class="chat-scroll chat-bg p-4 flex flex-col gap-4">
+            <div class="self-center msg-sys text-xs px-3 py-1.5 shadow-sm mt-2 font-medium">Video Assessment Complete</div>
+            <div class="msg-out p-2 shadow-sm self-end max-w-[80%] text-sm">
+                <p class="text-xs">[Video attached: circuit_fault_fix.mp4 · 1:45]</p>
+                <div class="flex justify-end items-center gap-1 mt-1">
+                    <span class="text-[10px] text-emerald-700/60 dark:text-emerald-200/60">2:30 PM</span>
+                    <span class="material-symbols-outlined text-[14px] text-blue-500">done_all</span>
+                </div>
+            </div>
+            <div class="msg-in p-2 shadow-sm self-start w-[90%] text-sm border-l-4 border-amber-500">
+                <p class="text-xs mb-2">🔍 Aapka video dekh rahe hain… ek minute</p>
+                <div class="flex gap-1">
+                    <div class="h-1 flex-1 bg-amber-500 rounded-full animate-pulse"></div>
+                    <div class="h-1 flex-1 bg-amber-400 rounded-full animate-pulse" style="animation-delay:.2s"></div>
+                    <div class="h-1 flex-1 bg-amber-300 rounded-full animate-pulse" style="animation-delay:.4s"></div>
+                </div>
+                <div class="text-[10px] text-gray-400 text-right mt-1">2:31 PM</div>
+            </div>
+            <div class="msg-in p-3 shadow-sm self-start max-w-[90%] text-sm">
+                <div class="text-center mb-3">
+                    <div class="text-4xl mb-1">⚡</div>
+                    <div class="font-bold text-lg text-emerald-600 dark:text-emerald-400">Verified Badge Earned!</div>
+                    <div class="text-xs text-emerald-700 dark:text-emerald-500 font-semibold mt-1">Overall Score: 8.3 / 10</div>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 space-y-2 mb-3 border border-gray-100 dark:border-gray-700">
+                    <div class="flex justify-between text-xs"><span class="text-gray-600 dark:text-gray-400">⚙ Tool Technique</span><span class="font-bold text-emerald-600 dark:text-emerald-400">8/10</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-gray-600 dark:text-gray-400">🛡 Safety</span><span class="font-bold text-emerald-600 dark:text-emerald-400">9/10</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-gray-600 dark:text-gray-400">💬 Explanation</span><span class="font-bold text-amber-600 dark:text-amber-400">7/10</span></div>
+                    <div class="flex justify-between text-xs"><span class="text-gray-600 dark:text-gray-400">✅ Task Completion</span><span class="font-bold text-emerald-600 dark:text-emerald-400">9/10</span></div>
+                </div>
+                <p class="text-xs italic text-gray-600 dark:text-gray-400 border-l-2 border-emerald-500 pl-2">"Aapne circuit fault sahi dhundha — bahut accha! Safety precautions aur behtar ho sakti thi."</p>
+                <div class="text-[10px] text-gray-400 text-right mt-2">2:45 PM</div>
+            </div>
+            <div class="h-2 shrink-0"></div>
+        </div>
+        </div>
+
+        <!-- ══ SCREEN 5: MOCK INTERVIEW ══ -->
+        <div id="scene-interview" class="screen">
+        <div class="chat-scroll chat-bg p-4 flex flex-col gap-4">
+            <div class="self-center bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs px-3 py-1.5 rounded-lg shadow-sm mt-2 font-semibold">🎤 Practice Interview Mode</div>
+            <div class="msg-in p-2 shadow-sm self-start max-w-[85%] text-sm">
+                <p>Practice Interview shuru karte hain! Main ek friendly MSME interviewer ki tarah sawaal poochhonga. 😊<br><br>Taiyar hain? "Haan" likhein ya mic press karein.</p>
+                <div class="text-[10px] text-gray-400 text-right mt-1">9:00 AM</div>
+            </div>
+            <div class="msg-out p-2 shadow-sm self-end max-w-[50%] text-sm">
+                <p>Haan, taiyar hoon! 💪</p>
+                <div class="flex justify-end items-center gap-1 mt-1"><span class="text-[10px] text-emerald-700/60 dark:text-emerald-200/60">9:01 AM</span><span class="material-symbols-outlined text-[14px] text-blue-500">done_all</span></div>
+            </div>
+            <div class="msg-in p-2 shadow-sm self-start max-w-[85%] text-sm border-l-4 border-amber-500">
+                <p class="text-emerald-600 dark:text-emerald-400 font-bold text-[10px] mb-1 uppercase tracking-wider">❓ Interview Question 1/3</p>
+                <p>"Apne aap ko kuch bataiye — aapne kaunsa trade seekha aur aapka sabse accha kaam kya tha?"</p>
+                <div class="flex items-center gap-2 mt-2 bg-gray-50 dark:bg-gray-800 p-2 rounded-full border border-gray-200 dark:border-gray-700">
+                    <button class="w-7 h-7 bg-amber-500 rounded-full flex items-center justify-center text-white shrink-0">
+                        <span class="material-symbols-outlined text-[16px]">play_arrow</span>
+                    </button>
+                    <div class="flex-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"><div class="h-full bg-amber-500 w-[0%]"></div></div>
+                    <span class="text-[10px] text-gray-500 dark:text-gray-400">0:08</span>
+                </div>
+                <div class="text-[10px] text-gray-400 text-right mt-1">9:01 AM</div>
+            </div>
+            <div class="msg-out p-2 shadow-sm self-end max-w-[80%] text-sm">
+                <div class="flex items-center gap-2 bg-[#d9fdd3]/50 dark:bg-[#005c4b]/50 p-2 rounded-full">
+                    <button class="w-7 h-7 bg-[#00a884] rounded-full flex items-center justify-center text-white shrink-0">
+                        <span class="material-symbols-outlined text-[16px]">play_arrow</span>
+                    </button>
+                    <div class="flex gap-[2px] items-center h-5">
+                        <div class="w-1 h-1 bg-emerald-600/40 dark:bg-emerald-400/40 rounded-full"></div><div class="w-1 h-4 bg-emerald-600/40 dark:bg-emerald-400/40 rounded-full"></div><div class="w-1 h-2 bg-emerald-600/40 dark:bg-emerald-400/40 rounded-full"></div><div class="w-1 h-3 bg-emerald-600/40 dark:bg-emerald-400/40 rounded-full"></div><div class="w-1 h-5 bg-emerald-600/40 dark:bg-emerald-400/40 rounded-full"></div><div class="w-1 h-2 bg-emerald-600/40 dark:bg-emerald-400/40 rounded-full"></div><div class="w-1 h-1 bg-emerald-600/40 dark:bg-emerald-400/40 rounded-full"></div>
+                    </div>
+                    <span class="text-[10px] text-emerald-800 dark:text-emerald-200">0:18</span>
+                </div>
+                <div class="flex justify-end items-center gap-1 mt-1"><span class="text-[10px] text-emerald-700/60 dark:text-emerald-200/60">9:03 AM</span><span class="material-symbols-outlined text-[14px] text-blue-500">done_all</span></div>
+            </div>
+            <div class="msg-in p-2 shadow-sm self-start max-w-[85%] text-sm bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500">
+                <p class="text-blue-700 dark:text-blue-400 font-bold text-[10px] mb-1 uppercase tracking-wider">💡 AI Feedback</p>
+                <p class="text-xs">"Accha jawab! Aapne apna experience mention kiya. Agali baar salary expectation bhi mention karein — interviewers appreciate karte hain." ✅</p>
+                <div class="text-[10px] text-gray-400 text-right mt-1">9:03 AM</div>
+            </div>
+            <div class="h-2 shrink-0"></div>
+        </div>
+        </div>
+
+        <!-- ══ SCREEN 6: 30-DAY RETENTION ══ -->
+        <div id="scene-retention" class="screen">
+        <div class="chat-scroll chat-bg p-4 flex flex-col gap-4">
+            <div class="self-center msg-sys text-xs px-3 py-1.5 shadow-sm mt-2 font-medium">30 days post placement 🎉</div>
+            <div class="msg-in p-3 shadow-sm self-start max-w-[88%] text-sm">
+                <p class="mb-3">Ramu ji! Aapko Ganesh Electricals join kiye 30 din ho gaye. Kaisa chal raha hai? 😊</p>
+                <div class="space-y-2">
+                    <button class="w-full text-left border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 py-2 px-3 rounded-lg text-xs font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 active:scale-95 transition-all">👍 Haan, kaam kar raha hoon</button>
+                    <button class="w-full text-left border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 py-2 px-3 rounded-lg text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 active:scale-95 transition-all">🔄 Naukri badal raha hoon</button>
+                    <button class="w-full text-left border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 py-2 px-3 rounded-lg text-xs font-semibold hover:bg-red-100 dark:hover:bg-red-900/40 active:scale-95 transition-all">😟 Naukri chhod di</button>
+                </div>
+                <div class="text-[10px] text-gray-400 text-right mt-2">Today, 9:00 AM</div>
+            </div>
+            <div class="msg-out p-2 shadow-sm self-end max-w-[70%] text-sm">
+                <p>👍 Haan, kaam kar raha hoon</p>
+                <div class="flex justify-end items-center gap-1 mt-1"><span class="text-[10px] text-emerald-700/60 dark:text-emerald-200/60">9:04 AM</span><span class="material-symbols-outlined text-[14px] text-blue-500">done_all</span></div>
+            </div>
+            <div class="msg-in p-3 shadow-sm self-start max-w-[88%] text-sm">
+                <p class="mb-2">Bahut badhiya Ramu ji! 🎊 Yeh shuruaat hai. Agli baar 90 din par hum aapko NSQF Level 4 training ke baare mein batayenge — jisse salary ₹2,000–3,000 badh sakti hai!</p>
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg p-2 text-xs text-blue-800 dark:text-blue-300">
+                    <div class="font-bold mb-1 uppercase tracking-wider text-[10px]">⚠ Wage Check</div>
+                    <div class="flex justify-between border-b border-blue-200 dark:border-blue-800/50 pb-1 mb-1"><span>State Minimum Wage (Electrician)</span><span class="font-bold">₹11,500</span></div>
+                    <div class="flex justify-between"><span>Your Current Salary</span><span class="font-bold text-emerald-600 dark:text-emerald-400">₹13,000 ✓</span></div>
+                </div>
+                <div class="text-[10px] text-gray-400 text-right mt-1">9:04 AM</div>
+            </div>
+            <div class="h-2 shrink-0"></div>
+        </div>
+        </div>
+
+        <!-- Input Area at Bottom -->
+        <footer class="bg-[#f0f2f5] dark:bg-[#202c33] p-2 flex items-end gap-2 shrink-0 border-t border-gray-200 dark:border-gray-800 w-full z-10 sm:rounded-b-[2rem]">
+            <div class="flex-1 bg-white dark:bg-[#2a3942] rounded-3xl flex items-end shadow-sm min-h-[44px] pb-1">
+                <button class="p-2.5 pb-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><span class="material-symbols-outlined text-[24px]">sentiment_satisfied</span></button>
+                <textarea rows="1" class="flex-1 bg-transparent outline-none py-3 px-1 text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" placeholder="Message" oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'"></textarea>
+                <button class="p-2 pb-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transform rotate-45"><span class="material-symbols-outlined text-[22px]">attach_file</span></button>
+                <button class="p-2.5 pb-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><span class="material-symbols-outlined text-[24px]">currency_rupee</span></button>
+            </div>
+            <button class="w-12 h-12 bg-[#00a884] rounded-full text-white flex items-center justify-center shrink-0 shadow-sm hover:bg-[#008f6f] transition-colors mb-0.5">
+                <span class="material-symbols-outlined text-[24px]">mic</span>
+            </button>
+        </footer>
+
+    </div>
+
+    <script>
+        function switchScene(id, btn) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            const activeScreen = document.getElementById('scene-' + id);
+            activeScreen.classList.add('active');
+            
+            // Scroll the active screen chat window to the bottom
+            const scrollArea = activeScreen.querySelector('.chat-scroll');
+            if (scrollArea) {
+                // setTimeout ensures layout is complete before scrolling
+                setTimeout(() => {
+                    scrollArea.scrollTop = scrollArea.scrollHeight;
+                }, 50);
+            }
+            
+            document.querySelectorAll('.tab-pill').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        // Scroll initial screen on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const initialScroll = document.querySelector('#scene-onboarding .chat-scroll');
+            if (initialScroll) {
+                setTimeout(() => {
+                    initialScroll.scrollTop = initialScroll.scrollHeight;
+                }, 100);
+            }
+        });
+    </script>
+</body>
+</html>
