@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+
+<html class="light scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ITI Varanasi Placement Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#ffffff",
+                        "surface-tint": "#0f62fe",
+                        "inverse-surface": "#393939",
+                        "on-error-container": "#750e13",
+                        "tertiary-container": "#a7f0ba",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-primary": "#78a9ff",
+                        "on-secondary-fixed": "#161616",
+                        "on-primary-container": "#161616",
+                        "surface-container-low": "#f4f4f4",
+                        "error-container": "#fff1f1",
+                        "on-tertiary": "#ffffff",
+                        "tertiary": "#198038",
+                        "secondary-fixed-dim": "#c6c6c6",
+                        "outline": "#8d8d8d",
+                        "surface-variant": "#f4f4f4",
+                        "on-tertiary-fixed-variant": "#044317",
+                        "on-primary-fixed": "#001d6c",
+                        "background": "#ffffff",
+                        "tertiary-fixed-dim": "#42be65",
+                        "primary-fixed-dim": "#78a9ff",
+                        "surface": "#ffffff",
+                        "inverse-on-surface": "#f4f4f4",
+                        "error": "#da1e28",
+                        "tertiary-fixed": "#a7f0ba",
+                        "primary": "#0f62fe",
+                        "outline-variant": "#e0e0e0",
+                        "secondary-fixed": "#e0e0e0",
+                        "on-surface": "#161616",
+                        "surface-bright": "#ffffff",
+                        "on-background": "#161616",
+                        "secondary-container": "#e0e0e0",
+                        "on-secondary-fixed-variant": "#525252",
+                        "surface-container": "#f4f4f4",
+                        "on-tertiary-fixed": "#022d0d",
+                        "primary-fixed": "#d0e2ff",
+                        "secondary": "#6f6f6f",
+                        "on-tertiary-container": "#044317",
+                        "surface-container-high": "#e0e0e0",
+                        "on-secondary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "surface-container-highest": "#c6c6c6",
+                        "primary-container": "#d0e2ff",
+                        "on-surface-variant": "#525252",
+                        "surface-dim": "#e0e0e0",
+                        "on-secondary-container": "#525252",
+                        "on-primary-fixed-variant": "#0043ce"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["IBM Plex Sans"],
+                        "display": ["IBM Plex Sans"],
+                        "body": ["IBM Plex Sans"],
+                        "label": ["IBM Plex Sans"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'IBM Plex Sans', sans-serif; background-color: #ffffff; color: #161616; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .table-row-zebra:nth-child(even) { background-color: #f4f4f4; }
+        .carbon-input-border { border-bottom: 1px solid #8d8d8d; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f4f4f4; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #8d8d8d; }
+        .view { display: none; opacity: 0; transform: translateY(6px); transition: opacity 200ms ease, transform 200ms ease; }
+        .view.is-active { display: block; }
+        .view.is-visible { opacity: 1; transform: translateY(0); }
+
+        .nav-link { color: #525252; }
+        .nav-link .material-symbols-outlined { color: #525252; }
+        .nav-link:hover { color: #0f62fe; background-color: #f4f4f4; }
+        .nav-link:hover .material-symbols-outlined { color: #0f62fe; }
+        .nav-link.nav-active { background-color: #d0e2ff; color: #0f62fe; border-right: 2px solid #0f62fe; font-weight: 600; }
+        .nav-link.nav-active .material-symbols-outlined { color: #0f62fe; font-variation-settings: 'FILL' 1; }
+        
+        /* Shimmer Effect */
+        .shimmer {
+            position: relative;
+            overflow: hidden;
+        }
+        .shimmer::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(to right, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shimmer 2.5s infinite;
+        }
+        @keyframes shimmer {
+            100% { left: 200%; }
+        }
+    </style>
+</head>
+<body class="flex min-h-screen">
+<!-- SideNavBar -->
+<nav class="bg-surface font-body text-sm font-normal h-screen w-64 fixed left-0 top-0 border-r border-outline-variant flex flex-col py-4 z-20">
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-10 h-10 bg-primary flex items-center justify-center rounded-lg shadow-sm">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">school</span>
+</div>
+<div>
+<h1 class="text-lg font-semibold text-on-surface leading-tight">ITI Varanasi</h1>
+<p class="text-xs text-secondary">Placement Portal</p>
+</div>
+</div>
+<ul class="flex flex-col flex-1 px-2 space-y-1">
+<li>
+<a class="nav-link flex items-center gap-3 px-4 py-3 rounded transition-colors cursor-pointer active:opacity-80" href="#dashboard" data-view="dashboard">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+                Dashboard
+            </a>
+</li>
+<li>
+<a class="nav-link flex items-center gap-3 px-4 py-3 rounded transition-colors cursor-pointer active:opacity-80" href="#cohorts" data-view="cohorts">
+<span class="material-symbols-outlined text-[20px]">groups</span>
+                Cohorts
+            </a>
+</li>
+<li>
+<a class="nav-link flex items-center gap-3 px-4 py-3 rounded transition-colors cursor-pointer active:opacity-80" href="#employers" data-view="employers">
+<span class="material-symbols-outlined text-[20px]">business_center</span>
+                Employers
+            </a>
+</li>
+<li>
+<a class="nav-link flex items-center gap-3 px-4 py-3 rounded transition-colors cursor-pointer active:opacity-80" href="#mis-reports" data-view="mis-reports">
+<span class="material-symbols-outlined text-[20px]">analytics</span>
+                MIS Reports
+            </a>
+</li>
+</ul>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 ml-64 min-h-screen bg-background">
+<!-- TopNavBar -->
+<header class="bg-surface font-body text-sm h-16 border-b border-outline-variant flex items-center justify-between px-6 w-full z-10 sticky top-0 shadow-sm">
+<div class="flex items-center flex-1 max-w-xl">
+<div class="relative w-full group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-secondary text-sm">search</span>
+<input class="w-full bg-surface-container hover:bg-surface-container-high h-10 pl-10 pr-4 text-sm border-none focus:ring-1 focus:ring-primary placeholder:text-secondary/70 transition-colors" placeholder="Search cohorts, students or employers..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4 ml-6">
+<button class="p-2 text-secondary hover:bg-surface-container hover:text-primary transition-colors relative rounded-full">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-2 text-secondary hover:bg-surface-container hover:text-primary transition-colors rounded-full">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="p-2 text-secondary hover:bg-surface-container hover:text-primary transition-colors rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-1"></div>
+<div class="flex items-center gap-3 cursor-pointer pl-2 group">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-semibold text-on-surface leading-none group-hover:text-primary transition-colors">V.P. Singh</p>
+<p class="text-[10px] text-secondary leading-none mt-1">Placement Officer</p>
+</div>
+<div class="w-8 h-8 rounded-full border border-outline-variant bg-surface-container flex items-center justify-center text-[10px] font-semibold text-on-surface group-hover:border-primary transition-colors">VP</div>
+</div>
+</div>
+</header>
+<section class="view is-active is-visible p-8" id="dashboard" data-view aria-hidden="false">
+<!-- Header Title -->
+<div class="mb-8">
+<div class="flex items-center gap-2 text-secondary text-xs mb-2">
+<a class="hover:text-primary hover:underline transition-colors" href="#cohorts">Cohorts</a>
+<span class="material-symbols-outlined text-[12px]">chevron_right</span>
+<span class="text-on-surface">Electrician Batch 2026</span>
+</div>
+<h1 class="text-3xl font-bold tracking-tight text-on-surface">ITI Varanasi - Cohort Overview (Electrician Batch 2026)</h1>
+</div>
+<!-- Metrics Row (Bento Style) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+<div class="bg-surface-container p-5 border-l-4 border-primary shadow-sm hover:shadow-md transition-shadow cursor-pointer group shimmer">
+<p class="text-xs font-medium text-secondary uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">Total Students</p>
+<div class="flex items-end justify-between">
+<span class="text-4xl font-light text-on-surface group-hover:text-primary transition-colors">200</span>
+<span class="material-symbols-outlined text-primary/40 text-3xl group-hover:text-primary transition-colors">groups</span>
+</div>
+</div>
+<div class="bg-surface-container p-5 border-l-4 border-tertiary shadow-sm hover:shadow-md transition-shadow cursor-pointer group shimmer">
+<p class="text-xs font-medium text-secondary uppercase tracking-wider mb-1 group-hover:text-tertiary transition-colors">Placed</p>
+<div class="flex items-end justify-between">
+<span class="text-4xl font-light text-on-surface group-hover:text-tertiary transition-colors">45</span>
+<div class="flex flex-col items-end">
+<span class="text-xs font-semibold text-tertiary">22.5%</span>
+<span class="material-symbols-outlined text-tertiary/40 text-3xl group-hover:text-tertiary transition-colors">verified</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container p-5 border-l-4 border-primary-fixed-dim shadow-sm hover:shadow-md transition-shadow cursor-pointer group shimmer">
+<p class="text-xs font-medium text-secondary uppercase tracking-wider mb-1 group-hover:text-primary-fixed-dim transition-colors">Active in SaathiAI</p>
+<div class="flex items-end justify-between">
+<span class="text-4xl font-light text-on-surface group-hover:text-primary-fixed-dim transition-colors">120</span>
+<span class="material-symbols-outlined text-primary-fixed-dim text-3xl group-hover:text-primary-fixed-dim transition-colors">forum</span>
+</div>
+</div>
+<div class="bg-error-container p-5 border-l-4 border-error shadow-sm hover:shadow-md transition-shadow cursor-pointer group shimmer">
+<p class="text-xs font-medium text-secondary uppercase tracking-wider mb-1 group-hover:text-error transition-colors">At-Risk</p>
+<div class="flex items-end justify-between">
+<span class="text-4xl font-light text-error">35</span>
+<span class="material-symbols-outlined text-error/40 text-3xl group-hover:text-error transition-colors">warning</span>
+</div>
+</div>
+</div>
+<!-- Priority Interventions Table -->
+<div class="bg-white border border-outline-variant">
+<div class="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-error">priority_high</span>
+<h3 class="text-lg font-semibold text-on-surface">Priority Interventions Required</h3>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1 text-xs border border-outline text-secondary font-medium hover:bg-surface-container hover:text-on-surface transition-colors">Filter All</button>
+<button class="px-3 py-1 text-xs border border-outline text-secondary font-medium hover:bg-surface-container hover:text-on-surface transition-colors">Export PDF</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-secondary text-[12px] uppercase tracking-wider font-semibold border-b border-outline-variant">
+<th class="px-6 py-4">Student Name</th>
+<th class="px-6 py-4">Trade</th>
+<th class="px-6 py-4">Status</th>
+<th class="px-6 py-4">AI Recommendation</th>
+<th class="px-6 py-4 text-right">Action</th>
+</tr>
+</thead>
+<tbody class="text-sm">
+<tr class="table-row-zebra border-b border-outline-variant hover:bg-primary-container/20 transition-colors">
+<td class="px-6 py-5 font-semibold text-on-surface">Ramu</td>
+<td class="px-6 py-5 text-secondary">Electrician</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium bg-error-container text-on-error-container border border-error/20">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                                        No response (14 days)
+                                    </span>
+</td>
+<td class="px-6 py-5 italic text-secondary-fixed-variant max-w-xs">
+                                    Detected communication gap. High migration reluctance profile. Check home situation.
+                                </td>
+<td class="px-6 py-5 text-right">
+<button class="inline-flex items-center gap-2 bg-primary text-white px-4 py-2 text-xs font-semibold hover:bg-blue-700 transition-all shadow-sm active:scale-95" data-student="Ramu">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">send</span>
+                                        Trigger WhatsApp Nudge
+                                    </button>
+</td>
+</tr>
+<tr class="table-row-zebra border-b border-outline-variant hover:bg-primary-container/20 transition-colors">
+<td class="px-6 py-5 font-semibold text-on-surface">Sita</td>
+<td class="px-6 py-5 text-secondary">COPA</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                        Failed 3 interviews
+                                    </span>
+</td>
+<td class="px-6 py-5 italic text-secondary-fixed-variant max-w-xs">
+                                    Consistently failing technical round. Requires immediate mock interview support.
+                                </td>
+<td class="px-6 py-5 text-right">
+<button class="inline-flex items-center gap-2 bg-primary text-white px-4 py-2 text-xs font-semibold hover:bg-blue-700 transition-all shadow-sm active:scale-95" data-student="Sita">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">send</span>
+                                        Trigger WhatsApp Nudge
+                                    </button>
+</td>
+</tr>
+<tr class="table-row-zebra border-b border-outline-variant hover:bg-primary-container/20 transition-colors">
+<td class="px-6 py-5 font-semibold text-on-surface">Karan</td>
+<td class="px-6 py-5 text-secondary">Electrician</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium bg-error-container text-on-error-container border border-error/20">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+                                        Dropout Risk
+                                    </span>
+</td>
+<td class="px-6 py-5 italic text-secondary-fixed-variant max-w-xs">
+                                    Low engagement in digital literacy modules. Verify interest in current job roles.
+                                </td>
+<td class="px-6 py-5 text-right">
+<button class="inline-flex items-center gap-2 bg-primary text-white px-4 py-2 text-xs font-semibold hover:bg-blue-700 transition-all shadow-sm active:scale-95" data-student="Karan">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">send</span>
+                                        Trigger WhatsApp Nudge
+                                    </button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-4 bg-surface-container-low flex justify-between items-center text-xs text-secondary">
+<span>Showing 3 of 35 at-risk students</span>
+<div class="flex gap-4">
+<a class="hover:text-primary underline transition-colors" href="#cohorts">View Full Table</a>
+</div>
+</div>
+</div>
+<!-- AI Analytics Preview (Decorative Enterprise Element) -->
+<div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="bg-surface-container p-6">
+<h4 class="text-sm font-bold text-on-surface mb-4 uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">psychology</span>
+                        SaathiAI Predictive Trends
+                    </h4>
+<div class="h-32 flex items-end gap-1.5 px-2">
+<div class="bg-primary/20 w-full h-[30%] relative group hover:bg-primary/40 transition-colors cursor-pointer">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] font-bold transition-opacity">Jan</div>
+</div>
+<div class="bg-primary/20 w-full h-[45%] relative group hover:bg-primary/40 transition-colors cursor-pointer"></div>
+<div class="bg-primary/20 w-full h-[60%] relative group hover:bg-primary/40 transition-colors cursor-pointer"></div>
+<div class="bg-primary/20 w-full h-[55%] relative group hover:bg-primary/40 transition-colors cursor-pointer"></div>
+<div class="bg-primary/40 w-full h-[75%] relative group hover:bg-primary/60 transition-colors cursor-pointer"></div>
+<div class="bg-primary w-full h-[85%] relative group hover:bg-blue-700 transition-colors cursor-pointer">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 opacity-100 text-[10px] font-bold">Now</div>
+</div>
+</div>
+<p class="mt-4 text-xs text-secondary leading-relaxed">Placement readiness has increased by 14% this month based on automated WhatsApp assessments. Migration willingness is highest in the COPA trade.</p>
+</div>
+<div class="bg-surface-container p-6 relative overflow-hidden group hover:shadow-md transition-shadow cursor-pointer">
+<div class="relative z-10">
+<h4 class="text-sm font-bold text-on-surface mb-4 uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-sm">map</span>
+                            Regional Placement Heatmap
+                        </h4>
+<p class="text-xs text-secondary mb-4">Top placement hubs for ITI Varanasi graduates (last 90 days).</p>
+<ul class="space-y-3">
+<li class="flex justify-between text-xs group-hover:text-primary transition-colors">
+<span class="font-medium">Noida / NCR</span>
+<span class="text-secondary font-mono group-hover:text-primary transition-colors">42%</span>
+</li>
+<li class="flex justify-between text-xs group-hover:text-primary transition-colors">
+<span class="font-medium">Pune</span>
+<span class="text-secondary font-mono group-hover:text-primary transition-colors">28%</span>
+</li>
+<li class="flex justify-between text-xs group-hover:text-primary transition-colors">
+<span class="font-medium">Varanasi (Local)</span>
+<span class="text-secondary font-mono group-hover:text-primary transition-colors">15%</span>
+</li>
+</ul>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-500">
+<span class="material-symbols-outlined text-[120px] text-tertiary">hub</span>
+</div>
+    </div>
+</div>
+<!-- FAB Panel -->
+<div class="fixed bottom-8 right-8 z-[60] flex flex-col items-end gap-3 group">
+<!-- Expanded Panel Info (Hover) -->
+<div class="bg-on-surface text-white p-4 shadow-2xl opacity-0 translate-y-4 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 w-72">
+<h5 class="text-xs font-bold uppercase tracking-widest text-primary mb-2">Automated DSSDO Export</h5>
+<p class="text-[11px] text-secondary-fixed-dim leading-relaxed mb-3">
+                This report consolidates placement data, student demographics, and SaathiAI engagement logs for state submission.
+            </p>
+<div class="flex items-center gap-2 text-[10px] font-semibold text-tertiary">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+                Logs Synced: 2 mins ago
+            </div>
+</div>
+<!-- Main FAB -->
+<button class="bg-on-surface hover:bg-zinc-800 text-white flex items-center gap-4 pl-6 pr-4 py-4 shadow-2xl transition-all active:scale-95 border-b-4 border-primary group" id="btn-generate-report">
+<div class="text-left">
+<p class="text-sm font-bold uppercase tracking-tight group-hover:text-primary transition-colors">Auto-Generate DSSDO MIS Report</p>
+<p class="text-[10px] text-secondary-fixed-dim font-medium">Aggregated from SaathiAI WhatsApp logs</p>
+</div>
+<div class="w-10 h-10 bg-primary flex items-center justify-center group-hover:bg-blue-700 transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">description</span>
+</div>
+</button>
+</div>
+<!-- Report Generated Modal -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 opacity-0 pointer-events-none transition-opacity duration-300" id="report-modal">
+<div class="bg-surface w-[480px] shadow-2xl border border-outline-variant p-6 scale-95 transition-transform duration-300" id="report-modal-content">
+<div class="flex items-start gap-4 mb-6">
+<div class="w-12 h-12 bg-tertiary-container text-tertiary flex items-center justify-center rounded-full shrink-0">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div>
+<h3 class="text-xl font-bold text-on-surface mb-1">MIS Report Generated Successfully</h3>
+<p class="text-sm text-secondary">The DSSDO placement report has been compiled from SaathiAI logs and is ready for download.</p>
+</div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant p-4 mb-6">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-bold text-on-surface uppercase tracking-wider">DSSDO_ITI_Varanasi_Q3_2026.pdf</span>
+<span class="text-xs text-secondary font-mono">2.4 MB</span>
+</div>
+<div class="flex items-center gap-2 text-[10px] text-secondary">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span>
+<span>Generated: Oct 24, 2026 14:30 IST</span>
+</div>
+</div>
+<div class="flex justify-end gap-3">
+<button class="px-4 py-2 text-sm font-semibold text-secondary hover:bg-surface-container transition-colors border border-outline" id="btn-close-modal">Close</button>
+<button class="px-4 py-2 bg-primary text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">download</span>
+                Download PDF
+            </button>
+</div>
+</div>
+</div>
+<!-- Notification Toast (Micro-interaction) -->
+<div class="fixed top-20 right-8 bg-on-tertiary-container text-white px-6 py-4 shadow-xl translate-x-[200%] transition-transform duration-500 z-[100] border-l-4 border-tertiary flex items-center gap-3" id="toast">
+<span class="material-symbols-outlined text-tertiary">check_circle</span>
+<span class="text-sm font-semibold" id="toast-message">WhatsApp nudge sent successfully.</span>
+</div>
+</section>
+<section class="view p-8" id="cohorts" data-view aria-hidden="true">
+<!-- Page Header -->
+<div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h1 class="text-[32px] font-headline font-semibold text-on-background tracking-tight leading-tight mb-2">All Cohorts (Academic Year 2025-26)</h1>
+<p class="text-secondary text-sm max-w-2xl">Manage and monitor placement progress across all active trades. View cohort health and at-risk student metrics.</p>
+</div>
+<div class="flex gap-3">
+<button class="h-10 px-4 bg-primary text-on-primary font-semibold text-sm flex items-center gap-2 hover:bg-primary-fixed-dim transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                        New Cohort
+                    </button>
+</div>
+</div>
+<!-- Filter Bar -->
+<div class="bg-surface border-b border-outline-variant p-4 mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
+<div class="flex gap-4 w-full sm:w-auto">
+<!-- Department Filter -->
+<div class="relative min-w-[160px]">
+<select class="w-full appearance-none bg-surface-container border-b border-secondary-fixed focus:border-primary focus:ring-0 h-10 pl-3 pr-10 text-sm font-body text-on-surface outline-none cursor-pointer">
+<option value="">All Departments</option>
+<option value="electrical">Electrical Group</option>
+<option value="mechanical">Mechanical Group</option>
+<option value="it">IT &amp; Computers</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-secondary text-[20px] pointer-events-none">arrow_drop_down</span>
+</div>
+<!-- Status Filter -->
+<div class="relative min-w-[140px]">
+<select class="w-full appearance-none bg-surface-container border-b border-secondary-fixed focus:border-primary focus:ring-0 h-10 pl-3 pr-10 text-sm font-body text-on-surface outline-none cursor-pointer">
+<option value="active">Active</option>
+<option value="upcoming">Upcoming</option>
+<option value="completed">Completed</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-secondary text-[20px] pointer-events-none">arrow_drop_down</span>
+</div>
+</div>
+<div class="text-sm text-secondary font-medium">
+                    Showing 4 active cohorts
+                </div>
+</div>
+<!-- Cohorts Grid - Bento Style -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+<!-- Cohort Card 1: Electrician -->
+<div class="bg-surface group hover:bg-surface-container transition-colors duration-200 border border-transparent hover:border-outline-variant relative flex flex-col h-full cursor-pointer overflow-hidden">
+<div class="p-5 flex-1 flex flex-col">
+<div class="flex justify-between items-start mb-4">
+<div>
+<div class="inline-flex items-center gap-1.5 px-2 py-1 bg-tertiary-container text-on-tertiary-container text-[11px] font-semibold uppercase tracking-wider mb-2">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Active
+                                </div>
+<h3 class="text-xl font-headline font-semibold text-on-surface">Electrician</h3>
+<p class="text-sm text-secondary mt-1">Batch 2025-A</p>
+</div>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container-high flex items-center justify-center text-secondary transition-colors">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-6 mt-2">
+<div class="flex flex-col">
+<span class="text-xs text-secondary mb-1">Batch Size</span>
+<span class="text-2xl font-light text-on-surface">40 <span class="text-sm text-secondary font-normal">Students</span></span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-secondary mb-1">At Risk</span>
+<span class="text-2xl font-light text-error flex items-baseline gap-1">
+                                    4 
+                                    <span class="material-symbols-outlined text-[16px] text-error relative top-[2px]">warning</span>
+</span>
+</div>
+</div>
+<div class="mt-auto pt-4 border-t border-outline-variant">
+<div class="flex justify-between text-xs mb-2">
+<span class="font-medium text-on-surface">Placement Progress</span>
+<span class="font-semibold text-primary">65%</span>
+</div>
+<div class="w-full h-1.5 bg-secondary-container rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 65%;"></div>
+</div>
+</div>
+</div>
+<a class="h-12 border-t border-outline-variant flex items-center px-5 group-hover:bg-primary group-hover:border-primary transition-all duration-300" href="#dashboard">
+<span class="text-sm font-semibold text-primary group-hover:text-on-primary transition-colors">View Details</span>
+<span class="material-symbols-outlined text-primary group-hover:text-on-primary ml-auto text-[20px] transition-colors">arrow_forward</span>
+</a>
+</div>
+<!-- Cohort Card 2: Fitter -->
+<div class="bg-surface group hover:bg-surface-container transition-colors duration-200 border border-transparent hover:border-outline-variant relative flex flex-col h-full cursor-pointer overflow-hidden">
+<div class="p-5 flex-1 flex flex-col">
+<div class="flex justify-between items-start mb-4">
+<div>
+<div class="inline-flex items-center gap-1.5 px-2 py-1 bg-tertiary-container text-on-tertiary-container text-[11px] font-semibold uppercase tracking-wider mb-2">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Active
+                                </div>
+<h3 class="text-xl font-headline font-semibold text-on-surface">Fitter</h3>
+<p class="text-sm text-secondary mt-1">Batch 2025-A</p>
+</div>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container-high flex items-center justify-center text-secondary transition-colors">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-6 mt-2">
+<div class="flex flex-col">
+<span class="text-xs text-secondary mb-1">Batch Size</span>
+<span class="text-2xl font-light text-on-surface">35 <span class="text-sm text-secondary font-normal">Students</span></span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-secondary mb-1">At Risk</span>
+<span class="text-2xl font-light text-error flex items-baseline gap-1">
+                                    2 
+                                    <span class="material-symbols-outlined text-[16px] text-error relative top-[2px]">warning</span>
+</span>
+</div>
+</div>
+<div class="mt-auto pt-4 border-t border-outline-variant">
+<div class="flex justify-between text-xs mb-2">
+<span class="font-medium text-on-surface">Placement Progress</span>
+<span class="font-semibold text-primary">82%</span>
+</div>
+<div class="w-full h-1.5 bg-secondary-container rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 82%;"></div>
+</div>
+</div>
+</div>
+<a class="h-12 border-t border-outline-variant flex items-center px-5 group-hover:bg-primary group-hover:border-primary transition-all duration-300" href="#dashboard">
+<span class="text-sm font-semibold text-primary group-hover:text-on-primary transition-colors">View Details</span>
+<span class="material-symbols-outlined text-primary group-hover:text-on-primary ml-auto text-[20px] transition-colors">arrow_forward</span>
+</a>
+</div>
+<!-- Cohort Card 3: COPA -->
+<div class="bg-surface group hover:bg-surface-container transition-colors duration-200 border border-transparent hover:border-outline-variant relative flex flex-col h-full cursor-pointer overflow-hidden">
+<div class="p-5 flex-1 flex flex-col">
+<div class="flex justify-between items-start mb-4">
+<div>
+<div class="inline-flex items-center gap-1.5 px-2 py-1 bg-tertiary-container text-on-tertiary-container text-[11px] font-semibold uppercase tracking-wider mb-2">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Active
+                                </div>
+<h3 class="text-xl font-headline font-semibold text-on-surface">COPA</h3>
+<p class="text-sm text-secondary mt-1">Batch 2025-A</p>
+</div>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container-high flex items-center justify-center text-secondary transition-colors">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-6 mt-2">
+<div class="flex flex-col">
+<span class="text-xs text-secondary mb-1">Batch Size</span>
+<span class="text-2xl font-light text-on-surface">60 <span class="text-sm text-secondary font-normal">Students</span></span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-secondary mb-1">At Risk</span>
+<span class="text-2xl font-light text-on-surface flex items-baseline gap-1">
+                                    0 
+                                </span>
+</div>
+</div>
+<div class="mt-auto pt-4 border-t border-outline-variant">
+<div class="flex justify-between text-xs mb-2">
+<span class="font-medium text-on-surface">Placement Progress</span>
+<span class="font-semibold text-primary">95%</span>
+</div>
+<div class="w-full h-1.5 bg-secondary-container rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 95%;"></div>
+</div>
+</div>
+</div>
+<a class="h-12 border-t border-outline-variant flex items-center px-5 group-hover:bg-primary group-hover:border-primary transition-all duration-300" href="#dashboard">
+<span class="text-sm font-semibold text-primary group-hover:text-on-primary transition-colors">View Details</span>
+<span class="material-symbols-outlined text-primary group-hover:text-on-primary ml-auto text-[20px] transition-colors">arrow_forward</span>
+</a>
+</div>
+<!-- Cohort Card 4: Welder -->
+<div class="bg-surface group hover:bg-surface-container transition-colors duration-200 border border-transparent hover:border-outline-variant relative flex flex-col h-full cursor-pointer overflow-hidden">
+<div class="p-5 flex-1 flex flex-col">
+<div class="flex justify-between items-start mb-4">
+<div>
+<div class="inline-flex items-center gap-1.5 px-2 py-1 bg-tertiary-container text-on-tertiary-container text-[11px] font-semibold uppercase tracking-wider mb-2">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Active
+                                </div>
+<h3 class="text-xl font-headline font-semibold text-on-surface">Welder</h3>
+<p class="text-sm text-secondary mt-1">Batch 2025-A</p>
+</div>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container-high flex items-center justify-center text-secondary transition-colors">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-6 mt-2">
+<div class="flex flex-col">
+<span class="text-xs text-secondary mb-1">Batch Size</span>
+<span class="text-2xl font-light text-on-surface">25 <span class="text-sm text-secondary font-normal">Students</span></span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-secondary mb-1">At Risk</span>
+<span class="text-2xl font-light text-error flex items-baseline gap-1">
+                                    8 
+                                    <span class="material-symbols-outlined text-[16px] text-error relative top-[2px]">warning</span>
+</span>
+</div>
+</div>
+<div class="mt-auto pt-4 border-t border-outline-variant">
+<div class="flex justify-between text-xs mb-2">
+<span class="font-medium text-on-surface">Placement Progress</span>
+<span class="font-semibold text-primary">40%</span>
+</div>
+<div class="w-full h-1.5 bg-secondary-container rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 40%;"></div>
+</div>
+</div>
+</div>
+<a class="h-12 border-t border-outline-variant flex items-center px-5 group-hover:bg-primary group-hover:border-primary transition-all duration-300" href="#dashboard">
+<span class="text-sm font-semibold text-primary group-hover:text-on-primary transition-colors">View Details</span>
+<span class="material-symbols-outlined text-primary group-hover:text-on-primary ml-auto text-[20px] transition-colors">arrow_forward</span>
+</a>
+</div>
+</div>
+</section>
+<section class="view p-8" id="employers" data-view aria-hidden="true">
+<div class="flex justify-between items-end mb-8">
+<div>
+<h2 class="text-3xl font-headline font-semibold text-on-background tracking-tight">Employer Partner Network</h2>
+<p class="text-sm text-secondary mt-2">Manage and monitor institutional hiring partnerships.</p>
+</div>
+<button class="bg-primary text-on-primary px-4 py-3 text-sm font-semibold hover:bg-primary-fixed-dim transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                    Add Employer
+                </button>
+</div>
+<!-- Metrics -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+<div class="bg-surface-container p-6 border-b-2 border-primary">
+<p class="text-sm text-secondary font-medium mb-1">Total Partners</p>
+<p class="text-3xl font-semibold text-on-background">142</p>
+</div>
+<div class="bg-surface-container p-6 border-b-2 border-transparent">
+<p class="text-sm text-secondary font-medium mb-1">Active Openings</p>
+<p class="text-3xl font-semibold text-on-background">310</p>
+</div>
+<div class="bg-surface-container p-6 border-b-2 border-tertiary">
+<p class="text-sm text-secondary font-medium mb-1">Hired (MTD)</p>
+<p class="text-3xl font-semibold text-on-background">54</p>
+</div>
+</div>
+<!-- Table Controls -->
+<div class="bg-surface border border-outline-variant border-b-0 p-4 flex justify-between items-center">
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 text-sm text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="filter_list">filter_list</span>
+                        Filter
+                    </button>
+<div class="h-4 w-px bg-outline-variant"></div>
+<span class="text-sm text-secondary">Showing 1-10 of 142 items</span>
+</div>
+<div class="flex gap-2">
+<button class="p-2 border border-outline-variant hover:bg-surface-container transition-colors text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span>
+</button>
+</div>
+</div>
+<!-- Data Table -->
+<div class="overflow-x-auto border border-outline-variant bg-surface">
+<table class="w-full text-left text-sm whitespace-nowrap">
+<thead class="bg-surface-container text-on-surface font-semibold border-b border-outline-variant">
+<tr>
+<th class="px-4 py-3 w-10"><input class="border-outline-variant rounded-none text-primary focus:ring-primary bg-surface h-4 w-4" type="checkbox"/></th>
+<th class="px-4 py-3 cursor-pointer hover:bg-surface-container-highest transition-colors">Company Name <span class="material-symbols-outlined text-[16px] align-middle ml-1" data-icon="arrow_upward">arrow_upward</span></th>
+<th class="px-4 py-3">Industry</th>
+<th class="px-4 py-3">Active Requirements</th>
+<th class="px-4 py-3">Relationship Status</th>
+<th class="px-4 py-3 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low transition-colors group cursor-default">
+<td class="px-4 py-3"><input class="border-outline-variant rounded-none text-primary focus:ring-primary bg-surface h-4 w-4" type="checkbox"/></td>
+<td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">Tata Motors</td>
+<td class="px-4 py-3 text-on-surface-variant">Manufacturing</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center px-2 py-0.5 bg-surface-container-highest text-on-surface text-xs font-medium">15 Fitters</span>
+<span class="inline-flex items-center px-2 py-0.5 bg-surface-container-highest text-on-surface text-xs font-medium">8 Welders</span>
+</div>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1.5 text-tertiary font-medium">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span> Tier 1
+                                </span>
+</td>
+<td class="px-4 py-3 text-right">
+<div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-primary hover:text-primary-fixed-dim text-sm font-medium">Post Job</button>
+<button class="text-secondary hover:text-on-surface text-sm font-medium">History</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="bg-surface-container-lowest hover:bg-surface-container-low transition-colors group cursor-default">
+<td class="px-4 py-3"><input class="border-outline-variant rounded-none text-primary focus:ring-primary bg-surface h-4 w-4" type="checkbox"/></td>
+<td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">Larsen &amp; Toubro</td>
+<td class="px-4 py-3 text-on-surface-variant">Infrastructure</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center px-2 py-0.5 bg-surface-container-highest text-on-surface text-xs font-medium">20 Electricians</span>
+</div>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1.5 text-tertiary font-medium">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span> Tier 1
+                                </span>
+</td>
+<td class="px-4 py-3 text-right">
+<div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-primary hover:text-primary-fixed-dim text-sm font-medium">Post Job</button>
+<button class="text-secondary hover:text-on-surface text-sm font-medium">History</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low transition-colors group cursor-default">
+<td class="px-4 py-3"><input class="border-outline-variant rounded-none text-primary focus:ring-primary bg-surface h-4 w-4" type="checkbox"/></td>
+<td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">Samsung Electronics</td>
+<td class="px-4 py-3 text-on-surface-variant">Electronics</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center px-2 py-0.5 bg-surface-container-highest text-on-surface text-xs font-medium">12 Electronic Mech.</span>
+</div>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1.5 text-on-surface-variant font-medium">
+<span class="w-2 h-2 rounded-full bg-outline"></span> Regular
+                                </span>
+</td>
+<td class="px-4 py-3 text-right">
+<div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-primary hover:text-primary-fixed-dim text-sm font-medium">Post Job</button>
+<button class="text-secondary hover:text-on-surface text-sm font-medium">History</button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="bg-surface-container-lowest hover:bg-surface-container-low transition-colors group cursor-default">
+<td class="px-4 py-3"><input class="border-outline-variant rounded-none text-primary focus:ring-primary bg-surface h-4 w-4" type="checkbox"/></td>
+<td class="px-4 py-3 font-medium text-primary cursor-pointer hover:underline">Varanasi Auto Components</td>
+<td class="px-4 py-3 text-on-surface-variant">MSME Manufacturing</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center px-2 py-0.5 bg-surface-container-highest text-on-surface text-xs font-medium">4 Turners</span>
+<span class="inline-flex items-center px-2 py-0.5 bg-surface-container-highest text-on-surface text-xs font-medium">2 Machinists</span>
+</div>
+</td>
+<td class="px-4 py-3">
+<span class="inline-flex items-center gap-1.5 text-inverse-primary font-medium">
+<span class="w-2 h-2 rounded-full bg-primary"></span> New
+                                </span>
+</td>
+<td class="px-4 py-3 text-right">
+<div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-primary hover:text-primary-fixed-dim text-sm font-medium">Post Job</button>
+<button class="text-secondary hover:text-on-surface text-sm font-medium">History</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+<!-- Pagination -->
+<div class="bg-surface border-t border-outline-variant p-4 flex items-center justify-between">
+<span class="text-sm text-secondary">Items per page: <strong>10</strong></span>
+<div class="flex items-center gap-2">
+<span class="text-sm text-secondary mr-4">1-10 of 142</span>
+<button class="p-1 text-outline hover:text-on-surface transition-colors disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[20px]" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="p-1 text-outline hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<section class="view p-8" id="mis-reports" data-view aria-hidden="true">
+<div class="max-w-7xl mx-auto space-y-8">
+<!-- Page Header -->
+<div class="flex flex-col gap-2 border-b border-outline-variant pb-6">
+<h1 class="text-2xl font-headline font-semibold text-on-background">Management Information System (MIS)</h1>
+<p class="text-sm text-secondary">Generate, download, and analyze institutional performance metrics.</p>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Section 2: AI Insights Generator (Featured / Bento Large) -->
+<div class="lg:col-span-2 bg-surface-container p-6 flex flex-col justify-between border-l-4 border-primary shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+<div class="absolute -right-12 -top-12 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors pointer-events-none"></div>
+<div class="z-10">
+<div class="flex items-center gap-3 mb-4 text-primary">
+<span class="material-symbols-outlined text-2xl">auto_awesome</span>
+<h2 class="text-lg font-headline font-semibold text-on-background">AI Insights Generator</h2>
+</div>
+<p class="text-sm text-on-surface-variant mb-6 max-w-lg leading-relaxed">
+                            Leverage advanced machine learning to synthesize disparate data sources. This engine analyzes cohort trajectories, employer engagement, and market trends to produce actionable strategic narratives.
+                        </p>
+</div>
+<div class="z-10 mt-auto flex justify-start">
+<button class="bg-primary text-on-primary h-12 px-6 font-semibold text-sm hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-sm">
+<span class="material-symbols-outlined text-sm">magic_button</span>
+                            Generate Quarterly Scheme Performance Report (AI)
+                        </button>
+</div>
+</div>
+<!-- System Stats (Extra context for Bento) -->
+<div class="bg-surface border border-outline-variant p-6 flex flex-col gap-4 shadow-sm">
+<h3 class="text-sm font-semibold text-on-background font-headline border-b border-outline-variant pb-2">Data Health</h3>
+<div class="space-y-4 flex-1">
+<div>
+<div class="flex justify-between text-xs mb-1">
+<span class="text-secondary">Sync Status</span>
+<span class="text-tertiary font-semibold">Real-time</span>
+</div>
+<div class="h-1 bg-surface-container-high w-full">
+<div class="h-full bg-tertiary w-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs mb-1">
+<span class="text-secondary">Record Completeness</span>
+<span class="text-on-background">94%</span>
+</div>
+<div class="h-1 bg-surface-container-high w-full">
+<div class="h-full bg-primary w-[94%]"></div>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant flex items-center gap-2 text-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-tertiary">check_circle</span>
+                            Last system audit passed 2 hours ago.
+                        </div>
+</div>
+</div>
+<!-- Section 1: Standard Reports (Bento Vertical) -->
+<div class="lg:col-span-1 lg:row-span-2 bg-surface border border-outline-variant p-6 flex flex-col shadow-sm">
+<div class="flex items-center justify-between mb-6 border-b border-outline-variant pb-2">
+<h2 class="text-lg font-headline font-semibold text-on-background">Standard Reports</h2>
+<span class="material-symbols-outlined text-secondary">folder_open</span>
+</div>
+<div class="flex-1 space-y-2 overflow-y-auto pr-2">
+<!-- Report Item -->
+<div class="group flex items-start gap-3 p-3 hover:bg-surface-container-low transition-colors cursor-pointer border border-transparent hover:border-outline-variant">
+<span class="material-symbols-outlined text-error mt-0.5" style="font-variation-settings: 'FILL' 1;">picture_as_pdf</span>
+<div class="flex-1">
+<h4 class="text-sm font-semibold text-on-background group-hover:text-primary transition-colors">Monthly Placement Summary</h4>
+<p class="text-xs text-secondary mt-1">Aggregated statics for current active cohorts.</p>
+</div>
+<button class="text-secondary hover:text-primary opacity-0 group-hover:opacity-100 transition-all">
+<span class="material-symbols-outlined text-lg">download</span>
+</button>
+</div>
+<!-- Report Item -->
+<div class="group flex items-start gap-3 p-3 hover:bg-surface-container-low transition-colors cursor-pointer border border-transparent hover:border-outline-variant">
+<span class="material-symbols-outlined text-tertiary mt-0.5" style="font-variation-settings: 'FILL' 1;">table_chart</span>
+<div class="flex-1">
+<h4 class="text-sm font-semibold text-on-background group-hover:text-primary transition-colors">Trade-wise Success Rate</h4>
+<p class="text-xs text-secondary mt-1">Detailed breakdown by technical discipline.</p>
+</div>
+<button class="text-secondary hover:text-primary opacity-0 group-hover:opacity-100 transition-all">
+<span class="material-symbols-outlined text-lg">download</span>
+</button>
+</div>
+<!-- Report Item -->
+<div class="group flex items-start gap-3 p-3 hover:bg-surface-container-low transition-colors cursor-pointer border border-transparent hover:border-outline-variant">
+<span class="material-symbols-outlined text-error mt-0.5" style="font-variation-settings: 'FILL' 1;">picture_as_pdf</span>
+<div class="flex-1">
+<h4 class="text-sm font-semibold text-on-background group-hover:text-primary transition-colors">Employer Engagement Audit</h4>
+<p class="text-xs text-secondary mt-1">Log of interactions and MOU statuses.</p>
+</div>
+<button class="text-secondary hover:text-primary opacity-0 group-hover:opacity-100 transition-all">
+<span class="material-symbols-outlined text-lg">download</span>
+</button>
+</div>
+<!-- Report Item -->
+<div class="group flex items-start gap-3 p-3 hover:bg-surface-container-low transition-colors cursor-pointer border border-transparent hover:border-outline-variant">
+<span class="material-symbols-outlined text-tertiary mt-0.5" style="font-variation-settings: 'FILL' 1;">table_chart</span>
+<div class="flex-1">
+<h4 class="text-sm font-semibold text-on-background group-hover:text-primary transition-colors">Diversity &amp; Inclusion Metrics</h4>
+<p class="text-xs text-secondary mt-1">Demographic analysis of placed candidates.</p>
+</div>
+<button class="text-secondary hover:text-primary opacity-0 group-hover:opacity-100 transition-all">
+<span class="material-symbols-outlined text-lg">download</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Section 3: Recent Exports (Table Layout) -->
+<div class="lg:col-span-2 bg-surface border border-outline-variant shadow-sm overflow-hidden flex flex-col">
+<div class="p-4 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
+<h2 class="text-base font-headline font-semibold text-on-background flex items-center gap-2">
+<span class="material-symbols-outlined text-lg text-secondary">history</span>
+                            Recent Exports
+                        </h2>
+<button class="text-xs font-semibold text-primary hover:underline focus:outline-none">View All</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse text-sm">
+<thead>
+<tr class="bg-surface-container border-b border-outline-variant text-xs text-on-surface-variant uppercase tracking-wider">
+<th class="py-3 px-4 font-semibold">Report Name</th>
+<th class="py-3 px-4 font-semibold">Type</th>
+<th class="py-3 px-4 font-semibold">Generated Date</th>
+<th class="py-3 px-4 font-semibold text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant bg-surface">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-3 px-4 font-semibold text-on-background group-hover:text-primary transition-colors">Q3 AI Synthesis Report</td>
+<td class="py-3 px-4 text-secondary">AI Document</td>
+<td class="py-3 px-4 text-secondary">Oct 24, 2023 14:30</td>
+<td class="py-3 px-4 text-right">
+<a class="text-primary hover:text-on-primary-fixed-variant font-semibold inline-flex items-center gap-1 focus:outline-none" href="#">
+                                            Download <span class="material-symbols-outlined text-sm">file_download</span>
+</a>
+</td>
+</tr>
+<tr class="bg-surface-container-lowest hover:bg-surface-container-low transition-colors group">
+<td class="py-3 px-4 font-semibold text-on-background group-hover:text-primary transition-colors">September Monthly Summary</td>
+<td class="py-3 px-4 text-secondary">PDF</td>
+<td class="py-3 px-4 text-secondary">Oct 01, 2023 09:15</td>
+<td class="py-3 px-4 text-right">
+<a class="text-primary hover:text-on-primary-fixed-variant font-semibold inline-flex items-center gap-1 focus:outline-none" href="#">
+                                            Download <span class="material-symbols-outlined text-sm">file_download</span>
+</a>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-3 px-4 font-semibold text-on-background group-hover:text-primary transition-colors">Fitter Trade Analysis Q2</td>
+<td class="py-3 px-4 text-secondary">Excel</td>
+<td class="py-3 px-4 text-secondary">Sep 15, 2023 11:45</td>
+<td class="py-3 px-4 text-right">
+<a class="text-primary hover:text-on-primary-fixed-variant font-semibold inline-flex items-center gap-1 focus:outline-none" href="#">
+                                            Download <span class="material-symbols-outlined text-sm">file_download</span>
+</a>
+</td>
+</tr>
+<tr class="bg-surface-container-lowest hover:bg-surface-container-low transition-colors group">
+<td class="py-3 px-4 font-semibold text-on-background group-hover:text-primary transition-colors">Annual MOU Renewal List</td>
+<td class="py-3 px-4 text-secondary">Excel</td>
+<td class="py-3 px-4 text-secondary">Aug 30, 2023 16:00</td>
+<td class="py-3 px-4 text-right">
+<a class="text-primary hover:text-on-primary-fixed-variant font-semibold inline-flex items-center gap-1 focus:outline-none" href="#">
+                                            Download <span class="material-symbols-outlined text-sm">file_download</span>
+</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<script>
+        const viewIds = ['dashboard', 'cohorts', 'employers', 'mis-reports'];
+        const views = new Map(viewIds.map((viewId) => [viewId, document.getElementById(viewId)]));
+        const navLinks = document.querySelectorAll('.nav-link');
+        let activeView = null;
+
+        const setNavActive = (viewId) => {
+            navLinks.forEach((link) => {
+                const linkView = link.getAttribute('data-view');
+                if (linkView === viewId) {
+                    link.classList.add('nav-active');
+                    link.setAttribute('aria-current', 'page');
+                } else {
+                    link.classList.remove('nav-active');
+                    link.removeAttribute('aria-current');
+                }
+            });
+        };
+
+        const initializeView = (viewId) => {
+            views.forEach((view, id) => {
+                const isActive = id === viewId;
+                view.classList.toggle('is-active', isActive);
+                view.classList.toggle('is-visible', isActive);
+                view.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+            });
+            activeView = viewId;
+            setNavActive(viewId);
+        };
+
+        const showView = (viewId, updateHistory = true) => {
+            const nextView = views.get(viewId) || views.get('dashboard');
+            const nextViewId = nextView.getAttribute('id');
+
+            if (activeView === nextViewId) {
+                return;
+            }
+
+            if (updateHistory) {
+                history.pushState(null, '', `#${nextViewId}`);
+            }
+
+            const prevView = activeView ? views.get(activeView) : null;
+
+            if (prevView) {
+                prevView.classList.remove('is-visible');
+                prevView.setAttribute('aria-hidden', 'true');
+                setTimeout(() => {
+                    prevView.classList.remove('is-active');
+                }, 180);
+            }
+
+            nextView.classList.add('is-active');
+            nextView.setAttribute('aria-hidden', 'false');
+            requestAnimationFrame(() => {
+                nextView.classList.add('is-visible');
+            });
+
+            activeView = nextViewId;
+            setNavActive(nextViewId);
+        };
+
+        const syncFromHash = () => {
+            const hashView = window.location.hash.replace('#', '') || 'dashboard';
+            const targetView = views.has(hashView) ? hashView : 'dashboard';
+
+            if (!activeView) {
+                initializeView(targetView);
+                return;
+            }
+
+            showView(targetView, false);
+        };
+
+        navLinks.forEach((link) => {
+            link.addEventListener('click', (event) => {
+                const targetView = link.getAttribute('data-view');
+                if (!targetView) {
+                    return;
+                }
+                event.preventDefault();
+                showView(targetView);
+            });
+        });
+
+        window.addEventListener('popstate', syncFromHash);
+        window.addEventListener('hashchange', syncFromHash);
+        syncFromHash();
+
+        // Micro-interaction for the WhatsApp Nudge button
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('button') && e.target.closest('button').innerText.includes('WhatsApp Nudge')) {
+                const btn = e.target.closest('button');
+                const originalContent = btn.innerHTML;
+                const studentName = btn.getAttribute('data-student') || 'Student';
+                
+                // Loading state
+                btn.disabled = true;
+                btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Processing...`;
+                
+                setTimeout(() => {
+                    btn.innerHTML = `<span class="material-symbols-outlined text-sm">done</span> Sent`;
+                    btn.classList.replace('bg-primary', 'bg-tertiary');
+                    
+                    // Show Toast
+                    toastMessage.innerText = `WhatsApp nudge sent successfully to ${studentName}.`;
+                    toast.classList.remove('translate-x-[200%]');
+                    
+                    setTimeout(() => {
+                        toast.classList.add('translate-x-[200%]');
+                        setTimeout(() => {
+                            btn.innerHTML = originalContent;
+                            btn.classList.replace('bg-tertiary', 'bg-primary');
+                            btn.disabled = false;
+                        }, 500);
+                    }, 3000);
+                }, 1500);
+            }
+        });
+
+        // Add "contains" selector polyfill logic for simple implementation
+        document.querySelectorAll('button').forEach(btn => {
+            if(btn.textContent.includes('WhatsApp Nudge')) {
+                btn.setAttribute('data-interaction', 'nudge');
+            }
+        });
+
+        // Report Generation Modal Logic
+        const btnGenerateReport = document.getElementById('btn-generate-report');
+        const reportModal = document.getElementById('report-modal');
+        const reportModalContent = document.getElementById('report-modal-content');
+        const btnCloseModal = document.getElementById('btn-close-modal');
+
+        if (btnGenerateReport && reportModal && reportModalContent && btnCloseModal) {
+            btnGenerateReport.addEventListener('click', () => {
+                // Simulate generation delay
+                btnGenerateReport.classList.add('opacity-80', 'pointer-events-none');
+                const icon = btnGenerateReport.querySelector('.material-symbols-outlined');
+                icon.innerText = 'sync';
+                icon.classList.add('animate-spin');
+
+                setTimeout(() => {
+                    btnGenerateReport.classList.remove('opacity-80', 'pointer-events-none');
+                    icon.innerText = 'description';
+                    icon.classList.remove('animate-spin');
+
+                    reportModal.classList.remove('opacity-0', 'pointer-events-none');
+                    reportModalContent.classList.remove('scale-95');
+                }, 1000);
+            });
+
+            btnCloseModal.addEventListener('click', () => {
+                reportModal.classList.add('opacity-0', 'pointer-events-none');
+                reportModalContent.classList.add('scale-95');
+            });
+        }
+    </script>
+</body></html>
