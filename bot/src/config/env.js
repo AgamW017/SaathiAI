@@ -22,9 +22,11 @@ export function loadConfig() {
     sarvam: {
       apiKey: process.env.SARVAM_API_KEY ?? '',
       model: process.env.SARVAM_MODEL ?? 'saaras:v3',
-      languageCode: process.env.SARVAM_LANGUAGE_CODE ?? 'hi-IN',
+      languageCode: process.env.SARVAM_LANGUAGE_CODE ?? 'unknown',
       sampleRate: readNumber('SARVAM_SAMPLE_RATE', 16000),
-      streamTimeoutMs: readNumber('SARVAM_STREAM_TIMEOUT_MS', 12000),
+      jobTimeoutMs: readNumber('SARVAM_JOB_TIMEOUT_MS', 120000),
+      withDiarization: (process.env.SARVAM_WITH_DIARIZATION ?? 'false').toLowerCase() === 'true',
+      numSpeakers: readNumber('SARVAM_NUM_SPEAKERS', 1),
       audioEncoding: process.env.SARVAM_AUDIO_ENCODING ?? 'audio/wav'
     },
     whatsapp: {
