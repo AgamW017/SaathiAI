@@ -28,6 +28,7 @@ export function loadConfig() {
       audioEncoding: process.env.SARVAM_AUDIO_ENCODING ?? ''
     },
     whatsapp: {
+      puppeteerExecutablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? '',
       puppeteerArgs: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
