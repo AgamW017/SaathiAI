@@ -1,0 +1,327 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { useInView } from 'react-intersection-observer';
+import Badge from '../ui/Badge.jsx';
+import DashboardMockup from '../ui/DashboardMockup.jsx';
+import SkillCard from '../ui/SkillCard.jsx';
+
+function SectionHeader({ eyebrow, headline }) {
+  const [ref, inView] = useInView({ threshold: 0.2, triggerOnce: true });
+  return (
+    <div ref={ref} style={{ marginBottom: '80px' }}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={inView ? { opacity: 1 } : {}}
+        style={{
+          fontFamily: 'var(--font-body)', fontWeight: 700,
+          fontSize: '12px', letterSpacing: '0.1em',
+          color: 'var(--color-action-flame)', textTransform: 'uppercase',
+          marginBottom: '16px',
+        }}
+      >
+        {eyebrow}
+      </motion.div>
+      <motion.h2
+        initial={{ opacity: 0, y: 20 }}
+        animate={inView ? { opacity: 1, y: 0 } : {}}
+        transition={{ delay: 0.1 }}
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: 'clamp(32px, 4vw, 48px)',
+          color: 'var(--color-ink-black)',
+          lineHeight: 1.2,
+        }}
+      >
+        {headline}
+      </motion.h2>
+    </div>
+  );
+}
+
+function FeatureRow({ badge, badgeVariant, headline, body, bullets, cta, visual, reverse }) {
+  const [ref, inView] = useInView({ threshold: 0.15, triggerOnce: true });
+
+  return (
+    <div ref={ref} style={{
+      display: 'flex', gap: '64px', alignItems: 'center',
+      flexDirection: reverse ? 'row-reverse' : 'row',
+      marginBottom: '96px',
+    }} className="feature-row">
+      <motion.div
+        initial={{ opacity: 0, x: reverse ? 40 : -40 }}
+        animate={inView ? { opacity: 1, x: 0 } : {}}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+        style={{ flex: '0 0 45%' }}
+      >
+        {visual}
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, x: reverse ? -40 : 40 }}
+        animate={inView ? { opacity: 1, x: 0 } : {}}
+        transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}
+        style={{ flex: 1 }}
+      >
+        <Badge variant={badgeVariant} style={{ marginBottom: '20px' }}>
+          {badge}
+        </Badge>
+        <h3 style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: 'clamp(26px, 3vw, 36px)',
+          color: 'var(--color-ink-black)',
+          lineHeight: 1.25, marginBottom: '16px',
+        }}>
+          {headline}
+        </h3>
+        <p style={{
+          fontFamily: 'var(--font-body)', fontSize: '17px',
+          color: 'var(--color-warm-stone)', lineHeight: 1.65,
+          marginBottom: '24px',
+        }}>
+          {body}
+        </p>
+        <ul style={{ listStyle: 'none', padding: 0, marginBottom: '24px' }}>
+          {bullets.map((b, i) => (
+            <li key={i} style={{
+              display: 'flex', alignItems: 'flex-start', gap: '10px',
+              marginBottom: '10px',
+              fontFamily: 'var(--font-body)', fontWeight: 500,
+              fontSize: '15px', color: 'var(--color-ink-black)',
+            }}>
+              <span style={{ color: 'var(--color-saathi-teal)', fontWeight: 700, marginTop: '2px' }}>•</span>
+              {b}
+            </li>
+          ))}
+        </ul>
+        {cta && (
+          <a href="#" style={{
+            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '15px',
+            color: 'var(--color-saathi-teal)', textDecoration: 'none',
+          }}>
+            {cta}
+          </a>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
+/* Mini Phone Mockup for Feature Row 1 */
+function MiniPhoneMockup() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', position: 'relative' }}>
+      <div style={{
+        position: 'absolute', inset: '-30px',
+        background: 'radial-gradient(ellipse, rgba(254,227,181,0.4) 0%, transparent 70%)',
+        zIndex: 0,
+      }} />
+      <div style={{
+        width: 280, background: '#1a1a2e',
+        borderRadius: 28, border: '7px solid #1a1a2e',
+        boxShadow: 'var(--shadow-modal)', overflow: 'hidden',
+        position: 'relative', zIndex: 1,
+      }}>
+        <div style={{ background: '#075e54', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px' }}>🤝</div>
+          <div style={{ color: '#fff', fontSize: '13px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>SaathiAI 🤝</div>
+        </div>
+        <div style={{ background: '#e5ddd5', padding: '12px', minHeight: '160px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ background: 'var(--color-bubble-ai)', borderRadius: '0 14px 14px 14px', padding: '10px 12px', fontSize: '12px', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+            ⚡ <strong>3 मौके मिले आपके लिए!</strong><br /><br />
+            1. Electrician Helper — Varanasi ₹12k<br />
+            2. Wiring Tech — Sarnath ₹14.5k<br />
+            3. Apprentice — Mirzapur ₹10k
+          </div>
+        </div>
+      </div>
+      <div style={{
+        position: 'absolute', bottom: '-16px', right: '-16px',
+        background: 'var(--color-success-surface)',
+        color: 'var(--color-success)',
+        borderRadius: '12px', padding: '7px 12px',
+        fontSize: '11px', fontFamily: 'var(--font-body)', fontWeight: 700,
+        boxShadow: 'var(--shadow-card)', zIndex: 2,
+      }}>
+        3 matches found in 24 hrs
+      </div>
+    </div>
+  );
+}
+
+/* District Console Mock */
+function DistrictConsoleMock() {
+  const bars = [
+    { label: 'Electrician', pct: 73, color: 'var(--color-saathi-teal)' },
+    { label: 'Fitter', pct: 61, color: 'var(--color-saathi-teal)' },
+    { label: 'Dressmaking ⚠', pct: 22, color: 'var(--color-caution)' },
+  ];
+
+  return (
+    <div style={{
+      background: 'var(--color-pure-white)',
+      borderRadius: '16px',
+      padding: '24px',
+      width: '100%',
+      maxWidth: 380,
+    }}>
+      <div style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '14px', color: 'var(--color-ink-black)', marginBottom: '4px' }}>
+        Varanasi District · June 2026
+      </div>
+      <div style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--color-warm-stone)', marginBottom: '20px' }}>
+        Placement rates by trade
+      </div>
+      {bars.map((b) => (
+        <div key={b.label} style={{ marginBottom: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-ink-black)', fontWeight: 500 }}>{b.label}</span>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: b.color, fontWeight: 700 }}>{b.pct}%</span>
+          </div>
+          <div style={{ background: 'var(--color-mist)', borderRadius: '4px', height: '8px', overflow: 'hidden' }}>
+            <div style={{ width: `${b.pct}%`, height: '100%', background: b.color, borderRadius: '4px', transition: 'width 1s ease' }} />
+          </div>
+        </div>
+      ))}
+      <div style={{
+        marginTop: '16px', padding: '10px 12px',
+        background: 'var(--color-cream-canvas)', borderRadius: '8px',
+        fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--color-warm-stone)',
+      }}>
+        📋 AI Policy Brief auto-generated every Monday
+      </div>
+    </div>
+  );
+}
+
+export default function SolutionSection() {
+  return (
+    <section style={{ background: 'var(--color-cream-canvas)', padding: '96px 0' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 32px' }}>
+        <SectionHeader
+          eyebrow="THE SOLUTION"
+          headline={<>One WhatsApp message.<br />Four surfaces.<br />One unified system.</>}
+        />
+
+        {/* Row 1 */}
+        <FeatureRow
+          badge="01 · LEARNER COMPANION"
+          badgeVariant="success"
+          headline="Ramu meets his career guide on WhatsApp."
+          body="A single activation message at graduation is all it takes. SaathiAI speaks Hindi and Bhojpuri via Sarvam AI. Accepts voice notes. Works on 2G. Intake, match, prepare, place — all in conversation."
+          bullets={[
+            'Voice onboarding — no typing required',
+            'DigiLocker credential verification',
+            'Top 3 job matches within 24 hours',
+            'Pre-interview mock sessions in Hindi',
+          ]}
+          cta="See the conversation flow →"
+          visual={<MiniPhoneMockup />}
+          reverse={true}
+        />
+
+        {/* Row 2 */}
+        <FeatureRow
+          badge="02 · PLACEMENT OFFICER DASHBOARD"
+          badgeVariant="teal"
+          headline="200 students. One officer. AI does the triage."
+          body="SaathiAI surfaces the 12 learners who need human intervention today — and handles the other 188 automatically. Risk scores, auto-reports, employer outreach CRM. Every critical action in ≤2 taps."
+          bullets={[
+            'AI risk scoring across full cohort',
+            'Auto-generated MIS compliance reports',
+            'Employer outreach CRM built-in',
+            'Real-time placement confirmation',
+          ]}
+          visual={<div style={{ display: 'flex', justifyContent: 'center' }}><DashboardMockup /></div>}
+          reverse={false}
+        />
+
+        {/* Row 3 */}
+        <FeatureRow
+          badge="03 · MSME EMPLOYER PORTAL"
+          badgeVariant="flame"
+          headline="The certificate MSMEs will actually trust."
+          body="SaathiAI translates a generic NSQF Level 3 certificate into a verified, plain-language skill card shared via WhatsApp link. No portal login. No CV. The MSME taps a link, sees a face, a skill claim, a video — and sends a voice note back."
+          bullets={[
+            'Video practical assessment embedded',
+            'DigiLocker + NSQF verification shown',
+            'Trainer endorsement visible',
+            'One-tap interest expression via WhatsApp',
+          ]}
+          visual={<div style={{ display: 'flex', justifyContent: 'center' }}><SkillCard /></div>}
+          reverse={true}
+        />
+
+        {/* Row 4 — District Console (full-width teal) */}
+        <DistrictRow />
+      </div>
+
+      <style>{`
+        .feature-row { flex-direction: row !important; }
+        @media (max-width: 1024px) {
+          .feature-row { flex-direction: column !important; }
+        }
+      `}</style>
+    </section>
+  );
+}
+
+function DistrictRow() {
+  const [ref, inView] = useInView({ threshold: 0.15, triggerOnce: true });
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 40 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.6 }}
+      style={{
+        background: 'radial-gradient(ellipse at 30% 50%, #00544c 0%, #004038 60%, #002d28 100%)',
+        borderRadius: '24px',
+        padding: '64px',
+        display: 'flex', gap: '64px', alignItems: 'center',
+      }}
+      className="district-row"
+    >
+      <div style={{ flex: 1 }}>
+        <span style={{
+          display: 'inline-flex', background: 'var(--color-parchment-glow)',
+          color: 'var(--color-saathi-teal)', borderRadius: '999px',
+          padding: '5px 14px', fontSize: '11px',
+          fontFamily: 'var(--font-body)', fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '0.08em',
+          marginBottom: '20px',
+        }}>
+          04 · DISTRICT CONSOLE
+        </span>
+        <h3 style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: 'clamp(24px, 2.5vw, 36px)',
+          color: '#fff', marginBottom: '16px', lineHeight: 1.25,
+        }}>
+          For the first time, DSSDs can see the truth.
+        </h3>
+        <p style={{
+          fontFamily: 'var(--font-body)', fontSize: '16px',
+          color: 'rgba(255,255,255,0.75)', lineHeight: 1.65,
+        }}>
+          Which trades are placing fastest? Which centres have &gt;60% placement?
+          Where is MSME demand unmet? The district console answers all of
+          this — automatically, weekly.
+        </p>
+      </div>
+      <div style={{ flex: '0 0 380px', display: 'flex', justifyContent: 'center' }} className="district-visual">
+        <DistrictConsoleMock />
+      </div>
+
+      <style>{`
+        .district-row { flex-direction: row !important; }
+        @media (max-width: 1024px) {
+          .district-row { flex-direction: column !important; }
+          .district-visual { flex: none !important; width: 100% !important; }
+        }
+        @media (max-width: 768px) {
+          .district-row { padding: 32px !important; }
+        }
+      `}</style>
+    </motion.div>
+  );
+}

@@ -1,0 +1,97 @@
+@import '@fontsource/dm-serif-display/400.css';
+@import '@fontsource/plus-jakarta-sans/400.css';
+@import '@fontsource/plus-jakarta-sans/500.css';
+@import '@fontsource/plus-jakarta-sans/600.css';
+@import '@fontsource/plus-jakarta-sans/700.css';
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --color-cream-canvas: #fff8f1;
+  --color-saathi-teal: #004038;
+  --color-deep-moss: #00544c;
+  --color-action-flame: #fa5d00;
+  --color-ink-black: #0f161e;
+  --color-graphite: #333942;
+  --color-warm-stone: #615f5c;
+  --color-pure-white: #ffffff;
+  --color-bone: #c0bbb6;
+  --color-mist: #d9d9d9;
+  --color-parchment-glow: #fee3b5;
+  --color-apricot-wash: #fde8ce;
+  --color-sky-tile: #bee9f4;
+  --color-success: #16a34a;
+  --color-success-surface: #dcfce7;
+  --color-risk: #dc2626;
+  --color-risk-surface: #fee2e2;
+  --color-caution: #d97706;
+  --color-caution-surface: #fef3c7;
+  --color-info: #2563eb;
+  --color-info-surface: #dbeafe;
+  --color-bubble-ai: #e8f5f0;
+  --color-bubble-learner: #dcfce7;
+
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-full: 999px;
+
+  --shadow-card: 0 2px 8px rgba(0,0,0,0.07);
+  --shadow-card-warm: 0 4px 16px rgba(250,93,0,0.10);
+  --shadow-card-teal: 0 4px 16px rgba(0,64,56,0.10);
+  --shadow-modal: 0 8px 32px rgba(0,0,0,0.15);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--color-cream-canvas);
+  color: var(--color-ink-black);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Grain texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Utility */
+.section-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+@media (max-width: 768px) {
+  .section-container {
+    padding: 0 20px;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-cream-canvas); }
+::-webkit-scrollbar-thumb { background: var(--color-bone); border-radius: 999px; }
