@@ -210,13 +210,31 @@ export class ConversationEngine {
   async handleTradeDistrict(session, text) {
     const messages = t(session.script);
     const extracted = await this.extractionService.extractProfile(text, session.collected);
-    session.collected = { ...session.collected, ...extracted };
+    const profilePatch = withoutEmptyValues(extracted);
 
-    if (!session.collected.trade) return [this.message(messages.askMissingTrade)];
-    if (!session.collected.district) return [this.message(messages.askMissingDistrict)];
+    if (session.context.awaitingProfileField === 'trade') {
+      session.collected.trade = extracted.trade ?? text.trim();
+      session.context.awaitingProfileField = null;
+    } else if (session.context.awaitingProfileField === 'district') {
+      session.collected.district = extracted.district ?? text.trim();
+      session.collected.state = extracted.state ?? session.collected.state ?? 'Uttar Pradesh';
+      session.context.awaitingProfileField = null;
+    }
+
+    session.collected = { ...session.collected, ...profilePatch };
+
+    if (!session.collected.trade) {
+      session.context.awaitingProfileField = 'trade';
+      return [this.message(messages.askMissingTrade)];
+    }
+
+    if (!session.collected.district) {
+      session.context.awaitingProfileField = 'district';
+      return [this.message(messages.askMissingDistrict)];
+    }
 
     session.step = Steps.ONBOARDING_CERTIFICATE;
-    return [this.message(messages.askCertificate)];
+    return [this.message(messages.profileBasicsCaptured(session.collected))];
   }
 
   async handleCertificateAndConfirmation(session, text) {
@@ -540,4 +558,8 @@ function formatJob(job, index, total) {
   const verification = job.verified ? 'Verified employer' : 'Unverified employer - ask your placement officer before proceeding';
 
   return `Job ${index} of ${total}\n${job.employerName}\n${job.role}\n📍 ${job.distanceKm} km - ${job.location}\n💰 ${salary}\n🕐 ${marker} - ${job.postedText}\n${verification}`;
+}
+
+function withoutEmptyValues(value) {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined && item !== null && item !== ''));
 }

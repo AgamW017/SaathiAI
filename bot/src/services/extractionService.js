@@ -156,7 +156,52 @@ function findTrade(text) {
 
 function findDistrict(text) {
   const lower = text.toLowerCase();
-  return DISTRICTS.find((district) => lower.includes(district.toLowerCase())) ?? null;
+  return DISTRICTS.find((district) => lower.includes(district.toLowerCase())) ?? inferDistrict(text);
+}
+
+function inferDistrict(text) {
+  const candidates = [
+    readMatch(text, /\b(?:district|jila|zilla)\s+(?:is\s+)?([a-zA-Z\u0900-\u097F ]{2,40})/i),
+    readMatch(text, /([a-zA-Z\u0900-\u097F ]{2,40})\s+(?:district|jila|zilla)\b/i),
+    readMatch(text, /(?:main|mai|i am in|i live in|from|se|से|में|mein|me)\s+([a-zA-Z\u0900-\u097F ]{2,40})/i),
+    readMatch(text, /([a-zA-Z\u0900-\u097F ]{2,40})\s+(?:mein|me|में)\b/i),
+    inferFromComma(text)
+  ];
+
+  return candidates.map(cleanDistrictCandidate).find(Boolean) ?? null;
+}
+
+function inferFromComma(text) {
+  const parts = text
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.length >= 2 ? parts.at(-1) : null;
+}
+
+function readMatch(text, pattern) {
+  return text.match(pattern)?.[1] ?? null;
+}
+
+function cleanDistrictCandidate(candidate) {
+  if (!candidate) return null;
+
+  const cleaned = candidate
+    .replace(/\b(rehta|rehti|rahta|rahti|hoon|hu|hun|hai|hain|aur|and|trade|course|kiya|from|se|mein|me)\b/gi, ' ')
+    .replace(/[.।]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned || cleaned.length < 2 || cleaned.length > 30) return null;
+  if (findTrade(cleaned)) return null;
+  return titleCaseWords(cleaned);
+}
+
+function titleCaseWords(value) {
+  return value
+    .split(' ')
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`)
+    .join(' ');
 }
 
 function readOjtHours(text) {

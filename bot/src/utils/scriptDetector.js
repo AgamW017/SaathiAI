@@ -23,6 +23,11 @@ const HINGLISH_WORDS = new Set([
   'madad',
   'karo',
   'batao',
+  'start',
+  'ok',
+  'okay',
+  'yes',
+  'y',
   'district',
   'trade'
 ]);
@@ -50,6 +55,10 @@ export function detectScript(text = '') {
     return { script: 'roman', confidence: Math.min(0.95, 0.45 + hinglishHits / 10) };
   }
 
+  if (words.length <= 2) {
+    return { script: 'roman', confidence: 0.45 };
+  }
+
   return { script: 'english', confidence: 0.7 };
 }
 
@@ -57,6 +66,6 @@ export function chooseScript(session, incomingText) {
   const detected = detectScript(incomingText);
   if (!session.script) return detected.script;
 
-  const userSwitchedClearly = detected.script !== session.script && detected.confidence >= 0.7;
+  const userSwitchedClearly = detected.script !== session.script && detected.confidence >= 0.85;
   return userSwitchedClearly ? detected.script : session.script;
 }

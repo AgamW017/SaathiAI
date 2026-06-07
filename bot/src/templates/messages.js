@@ -44,6 +44,8 @@ const copy = {
     askMissingTrade: 'Trade भी बता दीजिए - जैसे Electrician, Fitter, COPA, Welder, Plumber.',
     askMissingDistrict: 'आप किस जिले में रहते हैं? जिला बता दीजिए.',
     askCertificate: 'आपने यह course कहाँ से किया? PMKVY, ITI, या कोई और जगह से?',
+    profileBasicsCaptured: ({ trade, district }) =>
+      `ठीक है, note कर लिया: ${trade} - ${district}.\n\nअब बताइए, आपने यह course कहाँ से किया? PMKVY, ITI, या कोई और जगह से?`,
     confirmProfile: ({ name, trade, district, state, certificateType }) =>
       `ठीक है! मैंने समझा:\n\n👤 ${name}\n🔧 ${trade} - ${district}${state ? `, ${state}` : ''}\n🎓 ${certificateType}\n\nक्या यह सही है?`,
     askCorrection: 'क्या बदलना है? एक message में सही details भेज दीजिए.',
@@ -96,6 +98,8 @@ const copy = {
     askMissingTrade: 'Trade bhi bata dijiye - jaise Electrician, Fitter, COPA, Welder, Plumber.',
     askMissingDistrict: 'Aap kis district mein rehte hain? District bata dijiye.',
     askCertificate: 'Aapne yeh course kahan se kiya? PMKVY, ITI, ya koi aur jagah se?',
+    profileBasicsCaptured: ({ trade, district }) =>
+      `Theek hai, note kar liya: ${trade} - ${district}.\n\nAb bataiye, aapne yeh course kahan se kiya? PMKVY, ITI, ya koi aur jagah se?`,
     confirmProfile: ({ name, trade, district, state, certificateType }) =>
       `Theek hai! Maine samjha:\n\n👤 ${name}\n🔧 ${trade} - ${district}${state ? `, ${state}` : ''}\n🎓 ${certificateType}\n\nKya yeh sahi hai?`,
     askCorrection: 'Kya badalna hai? Ek message mein correct details bhej dijiye.',
@@ -146,6 +150,8 @@ const copy = {
     askMissingTrade: 'Please also tell me your trade, such as Electrician, Fitter, COPA, Welder, or Plumber.',
     askMissingDistrict: 'Which district do you live in?',
     askCertificate: 'Where did you complete this course: PMKVY, ITI, or somewhere else?',
+    profileBasicsCaptured: ({ trade, district }) =>
+      `Got it: ${trade} - ${district}.\n\nNow tell me where you completed this course: PMKVY, ITI, or somewhere else?`,
     confirmProfile: ({ name, trade, district, state, certificateType }) =>
       `Okay, I understood:\n\n👤 ${name}\n🔧 ${trade} - ${district}${state ? `, ${state}` : ''}\n🎓 ${certificateType}\n\nIs this correct?`,
     askCorrection: 'What should I change? Send the correct details in one message.',
