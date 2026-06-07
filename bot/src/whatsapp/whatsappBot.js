@@ -1,4 +1,5 @@
-import { Client, LocalAuth } from 'whatsapp-web.js';
+import WhatsAppWeb from 'whatsapp-web.js';
+const { Client, LocalAuth } = WhatsAppWeb;
 import qrcodeTerminal from 'qrcode-terminal';
 import QRCode from 'qrcode';
 import { EventTypes } from '../constants/steps.js';
@@ -81,8 +82,9 @@ export class WhatsAppBot {
         await this.client.initialize();
         return;
       } catch (error) {
+        console.error(error);
         this.logger.error({ error, attempt }, 'WhatsApp initialization failed');
-        this.dashboard.emit('log', `Initialization failed: ${error.message}`);
+        this.dashboard.emit('log', `Initialization failed: ${error}`);
         if (attempt === maxRetries) throw error;
         await sleep(10000);
       }

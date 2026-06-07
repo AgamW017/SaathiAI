@@ -22,6 +22,7 @@ const io = socketIo(server);
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
+        executablePath: '/snap/chromium/3459/usr/lib/chromium-browser/chrome',
         headless: true,
         args: [
             '--no-sandbox',
