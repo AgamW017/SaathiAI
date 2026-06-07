@@ -39,8 +39,10 @@ export class ConversationEngine {
 
     const text = await this.textFromIncoming(incoming, session);
     if (!text) {
+      const reason = session.context.lastVoiceTranscriptionError ?? 'unknown voice transcription error';
+      this.logger.warn({ phone: incoming.phone, reason }, 'Voice message could not be transcribed');
       await this.store.saveSession(session);
-      return { replies: [this.message(t(session.script).voiceUnavailable)], session };
+      return { replies: [this.message(t(session.script).voiceUnavailable, { debugReason: reason })], session };
     }
 
     session.script = chooseScript(session, text);
@@ -65,7 +67,14 @@ export class ConversationEngine {
 
   async loadOrCreateSession(phone) {
     const existingSession = await this.store.getSession(phone);
-    if (existingSession) return existingSession;
+    if (existingSession) {
+      return {
+        ...existingSession,
+        context: existingSession.context ?? {},
+        collected: existingSession.collected ?? {},
+        lastProcessedMessageIds: existingSession.lastProcessedMessageIds ?? []
+      };
+    }
 
     const learner = await this.store.getLearnerByPhone(phone);
     const session = {
@@ -104,11 +113,21 @@ export class ConversationEngine {
 
   async textFromIncoming(incoming, session) {
     if (!incoming.isVoice) return incoming.body ?? '';
+
+    if (!this.transcriptionService.isConfigured()) {
+      session.context.lastVoiceTranscriptionError = this.transcriptionService.getStatus().reason;
+      return null;
+    }
+
     const transcript = await this.transcriptionService.transcribe(incoming.media);
     if (transcript) {
+      session.context.lastVoiceTranscriptionError = null;
       session.script = chooseScript(session, transcript);
       return transcript;
     }
+
+    session.context.lastVoiceTranscriptionError =
+      this.transcriptionService.getLastError() ?? 'Sarvam returned no transcript before timeout';
     return null;
   }
 

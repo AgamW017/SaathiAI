@@ -119,6 +119,9 @@ export class WhatsAppBot {
     if (result.duplicate) return;
 
     for (const reply of result.replies) {
+      if (reply.metadata?.debugReason) {
+        this.dashboard.emit('log', `Voice transcription failed for ${result.session.phone}: ${reply.metadata.debugReason}`);
+      }
       await message.reply(reply.text);
       this.stats.incrementSentMessages();
       await this.eventLog.record({

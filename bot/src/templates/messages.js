@@ -82,8 +82,7 @@ const copy = {
       'माफ करें, मैं सिर्फ jobs और career में help करता हूँ. क्या job ढूंढने में help करूँ?',
     empathetic:
       'समझ सकता हूँ - यह time मुश्किल होता है. आप अकेले नहीं हैं.\n\nचलिए मिलकर एक नई कोशिश करते हैं - अभी आपके लिए fresh jobs देखते हैं?',
-    voiceUnavailable:
-      'Voice note मिला, लेकिन अभी STT service configured नहीं है. कृपया वही जवाब text में भेज दीजिए.',
+    voiceUnavailable: 'Voice note मिला, लेकिन मैं साफ सुन नहीं पाया. कृपया वही जवाब text में भेज दीजिए.',
     placed: (name) =>
       `🎊 बधाई हो ${name} ji! यह बहुत बड़ी बात है.\n\nपहले दिन के लिए कुछ tips चाहिए?`,
     firstDayTips:
@@ -135,8 +134,7 @@ const copy = {
     offTopic: 'Maaf karein, main sirf jobs aur career mein help karta hoon. Kya job dhoondhne mein help karoon?',
     empathetic:
       'Samajh sakta hoon - yeh time mushkil hota hai. Aap akele nahi hain.\n\nChaliye milkar ek nayi koshish karte hain - abhi fresh jobs dekhein?',
-    voiceUnavailable:
-      'Voice note mila, lekin abhi STT service configured nahi hai. Please wahi jawab text mein bhej dijiye.',
+    voiceUnavailable: 'Voice note mila, lekin main saaf sun nahi paaya. Please wahi jawab text mein bhej dijiye.',
     placed: (name) => `🎊 Badhai ho ${name} ji! Yeh bahut badi baat hai.\n\nPehle din ke liye kuch tips chahiye?`,
     firstDayTips:
       '💼 Pehle din ke liye:\n✅ 15 minutes pehle pahunchein\n✅ zaroori tools/PPE saath rakhein\n✅ Supervisor ka naam poochhein\n✅ pehle din zyada observe karein\n✅ learning notes banaate rahein\n\nAll the best! Aap kar sakte hain.'
@@ -186,8 +184,7 @@ const copy = {
     offTopic: 'Sorry, I can only help with jobs and career. Shall I help you find a job?',
     empathetic:
       'I understand. This phase can be difficult, and you are not alone.\n\nLet us try one practical next step together. Shall I look for fresh jobs?',
-    voiceUnavailable:
-      'I received your voice note, but STT is not configured yet. Please send the same answer as text.',
+    voiceUnavailable: 'I received your voice note, but I could not hear it clearly. Please send the same answer as text.',
     placed: (name) => `🎊 Congratulations ${name} ji! That is a big step.\n\nWould you like first-day tips?`,
     firstDayTips:
       '💼 For your first day:\n✅ arrive 15 minutes early\n✅ carry required tools/PPE\n✅ ask for your supervisor name\n✅ observe carefully on day one\n✅ note what you learn\n\nAll the best. You can do this.'

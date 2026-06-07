@@ -4,6 +4,7 @@ export class TranscriptionService {
   constructor({ config, logger }) {
     this.config = config;
     this.logger = logger;
+    this.lastError = null;
     this.client = config.apiKey
       ? new SarvamAIClient({
           apiSubscriptionKey: config.apiKey
@@ -15,13 +16,43 @@ export class TranscriptionService {
     return Boolean(this.client);
   }
 
-  async transcribe(media) {
-    if (!this.isConfigured()) return null;
+  getStatus() {
+    if (!this.config.apiKey) {
+      return {
+        configured: false,
+        reason: 'SARVAM_API_KEY is missing'
+      };
+    }
 
-    const socket = await this.connectSocket();
-    const transcriptPromise = this.waitForTranscript(socket);
+    return {
+      configured: true,
+      reason: null
+    };
+  }
+
+  getLastError() {
+    return this.lastError;
+  }
+
+  async transcribe(media) {
+    this.lastError = null;
+
+    if (!this.isConfigured()) {
+      this.lastError = this.getStatus().reason;
+      return null;
+    }
+
+    if (!media?.data) {
+      this.lastError = 'WhatsApp media download did not include audio data';
+      return null;
+    }
+
+    let socket;
 
     try {
+      socket = await this.connectSocket();
+      const transcriptPromise = this.waitForTranscript(socket);
+
       socket.on('open', () => {
         socket.transcribe({
           audio: media.data,
@@ -31,12 +62,17 @@ export class TranscriptionService {
       });
 
       await socket.waitForOpen();
-      return await transcriptPromise;
+      const transcript = await transcriptPromise;
+      if (!transcript) {
+        this.lastError = `No final transcript from Sarvam within ${this.config.streamTimeoutMs}ms`;
+      }
+      return transcript;
     } catch (error) {
+      this.lastError = error?.message ?? 'Unknown Sarvam transcription error';
       this.logger.warn({ error }, 'Voice transcription failed');
       return null;
     } finally {
-      closeSocket(socket);
+      if (socket) closeSocket(socket);
     }
   }
 
