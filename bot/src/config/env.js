@@ -24,8 +24,8 @@ export function loadConfig() {
       model: process.env.SARVAM_MODEL ?? 'saaras:v3',
       languageCode: process.env.SARVAM_LANGUAGE_CODE ?? 'hi-IN',
       sampleRate: readNumber('SARVAM_SAMPLE_RATE', 16000),
-      streamTimeoutMs: readNumber('SARVAM_STREAM_TIMEOUT_MS', 5000),
-      audioEncoding: process.env.SARVAM_AUDIO_ENCODING ?? ''
+      streamTimeoutMs: readNumber('SARVAM_STREAM_TIMEOUT_MS', 12000),
+      audioEncoding: process.env.SARVAM_AUDIO_ENCODING ?? 'audio/wav'
     },
     whatsapp: {
       puppeteerExecutablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? '',

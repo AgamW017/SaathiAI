@@ -1,4 +1,12 @@
 import { SarvamAIClient } from 'sarvamai';
+import ffmpegPath from 'ffmpeg-static';
+import { execFile } from 'node:child_process';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 export class TranscriptionService {
   constructor({ config, logger }) {
@@ -48,16 +56,19 @@ export class TranscriptionService {
     }
 
     let socket;
+    let preparedAudio;
 
     try {
+      preparedAudio = await this.prepareAudio(media);
+      if (!preparedAudio) return null;
       socket = await this.connectSocket();
       const transcriptPromise = this.waitForTranscript(socket);
 
       socket.on('open', () => {
         socket.transcribe({
-          audio: media.data,
+          audio: preparedAudio.data,
           sample_rate: this.config.sampleRate,
-          encoding: this.resolveEncoding(media.mimetype)
+          encoding: preparedAudio.encoding
         });
       });
 
@@ -73,6 +84,65 @@ export class TranscriptionService {
       return null;
     } finally {
       if (socket) closeSocket(socket);
+      if (preparedAudio?.cleanup) await preparedAudio.cleanup();
+    }
+  }
+
+  async prepareAudio(media) {
+    if (this.shouldConvertToWav(media.mimetype)) {
+      return this.convertToWav(media);
+    }
+
+    return {
+      data: media.data,
+      encoding: this.resolveEncoding(media.mimetype),
+      cleanup: null
+    };
+  }
+
+  shouldConvertToWav(mimetype = '') {
+    if (!ffmpegPath) {
+      this.lastError = 'ffmpeg-static did not provide an ffmpeg binary';
+      return false;
+    }
+
+    const encoding = this.resolveEncoding(mimetype);
+    return encoding !== 'audio/wav' && this.config.audioEncoding === 'audio/wav';
+  }
+
+  async convertToWav(media) {
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'saathiai-voice-'));
+    const inputPath = path.join(workDir, `input.${extensionForMime(media.mimetype)}`);
+    const outputPath = path.join(workDir, 'output.wav');
+
+    try {
+      await fs.writeFile(inputPath, Buffer.from(media.data, 'base64'));
+      await execFileAsync(ffmpegPath, [
+        '-y',
+        '-i',
+        inputPath,
+        '-ac',
+        '1',
+        '-ar',
+        String(this.config.sampleRate),
+        '-f',
+        'wav',
+        outputPath
+      ]);
+
+      const wav = await fs.readFile(outputPath);
+      return {
+        data: wav.toString('base64'),
+        encoding: 'audio/wav',
+        cleanup: async () => {
+          await fs.rm(workDir, { recursive: true, force: true });
+        }
+      };
+    } catch (error) {
+      await fs.rm(workDir, { recursive: true, force: true });
+      this.lastError = `Audio conversion to WAV failed: ${error?.message ?? 'unknown ffmpeg error'}`;
+      this.logger.warn({ error, mimetype: media.mimetype }, 'Audio conversion to WAV failed');
+      return null;
     }
   }
 
@@ -157,4 +227,13 @@ function closeSocket(socket) {
   } catch {
     // Socket is already closed or failed before opening.
   }
+}
+
+function extensionForMime(mimetype = '') {
+  const normalized = mimetype.toLowerCase();
+  if (normalized.includes('wav')) return 'wav';
+  if (normalized.includes('mpeg') || normalized.includes('mp3')) return 'mp3';
+  if (normalized.includes('webm')) return 'webm';
+  if (normalized.includes('ogg') || normalized.includes('opus')) return 'ogg';
+  return 'audio';
 }

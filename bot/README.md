@@ -44,7 +44,7 @@ The bot logs interaction events without storing full message content, matching t
 
 If `SAATHI_AI_API_URL` is set, extraction/feedback calls are sent there. Otherwise, local deterministic extractors are used for reliable development.
 
-If `SARVAM_API_KEY` is set, voice notes are streamed to Sarvam Saaras using the `sarvamai` SDK. Otherwise the bot asks the learner to send the answer as text. The default model is `saaras:v3`; configure `SARVAM_LANGUAGE_CODE`, `SARVAM_SAMPLE_RATE`, and `SARVAM_AUDIO_ENCODING` if your audio pipeline differs.
+If `SARVAM_API_KEY` is set, voice notes are converted from WhatsApp OGG/Opus to 16k WAV and streamed to Sarvam Saaras using the `sarvamai` SDK. Otherwise the bot asks the learner to send the answer as text. The default model is `saaras:v3`; configure `SARVAM_LANGUAGE_CODE`, `SARVAM_SAMPLE_RATE`, and `SARVAM_AUDIO_ENCODING` if your audio pipeline differs.
 
 ## Production Notes
 
