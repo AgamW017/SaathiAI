@@ -16,6 +16,9 @@ export class WhatsAppBot {
       authStrategy: new LocalAuth(),
       puppeteer: {
         headless: true,
+        ...(config.whatsapp.puppeteerExecutablePath
+          ? { executablePath: config.whatsapp.puppeteerExecutablePath }
+          : {}),
         args: config.whatsapp.puppeteerArgs,
         timeout: 60000
       }

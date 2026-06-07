@@ -12,6 +12,22 @@ npm start
 
 Open `http://localhost:3000` to scan the WhatsApp QR code and watch bot health/logs.
 
+## Chrome / Puppeteer
+
+`whatsapp-web.js` controls WhatsApp Web through Chrome. If startup says Chrome cannot be found, install Puppeteer's browser:
+
+```bash
+pnpm exec puppeteer browsers install chrome
+```
+
+Or point the bot to an existing Linux Chrome/Chromium binary:
+
+```env
+PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
+```
+
+Common WSL paths are `/usr/bin/google-chrome`, `/usr/bin/chromium`, or `/usr/bin/chromium-browser`.
+
 ## Architecture
 
 - `src/whatsapp/` owns `whatsapp-web.js` integration and QR/dashboard events.
