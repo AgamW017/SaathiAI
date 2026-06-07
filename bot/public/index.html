@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SaathiAI Bot Console</title>
+  <style>
+    :root { color-scheme: light; --bg: #f7f3eb; --ink: #17201b; --muted: #5d675f; --line: #d7ddd5; --green: #177245; --blue: #1f5e9f; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--ink); }
+    header { padding: 20px 24px; border-bottom: 1px solid var(--line); background: #fff; }
+    h1 { margin: 0; font-size: 22px; }
+    main { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 18px; padding: 18px; max-width: 1180px; margin: 0 auto; }
+    section { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+    h2 { margin: 0 0 12px; font-size: 16px; }
+    #qr { width: 100%; min-height: 280px; display: grid; place-items: center; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); }
+    #qr img { width: min(280px, 100%); height: auto; }
+    .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .metric { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+    .metric strong { display: block; font-size: 22px; margin-top: 6px; }
+    #logs { height: 320px; overflow: auto; font-family: Consolas, monospace; font-size: 13px; white-space: pre-wrap; color: #28342d; }
+    .status { display: inline-block; margin-top: 8px; padding: 5px 9px; border-radius: 999px; background: #e7f2ff; color: var(--blue); font-weight: 700; }
+    @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SaathiAI WhatsApp Bot Console</h1>
+    <span class="status" id="status">starting</span>
+  </header>
+  <main>
+    <section>
+      <h2>WhatsApp Login</h2>
+      <div id="qr">Waiting for QR...</div>
+    </section>
+    <section>
+      <h2>Runtime</h2>
+      <div class="stats">
+        <div class="metric">Incoming<strong id="totalMessages">0</strong></div>
+        <div class="metric">Sent<strong id="sentMessages">0</strong></div>
+        <div class="metric">API Calls<strong id="apiCalls">0</strong></div>
+        <div class="metric">Uptime<strong id="uptime">0s</strong></div>
+      </div>
+      <h2 style="margin-top:18px">Logs</h2>
+      <div id="logs"></div>
+    </section>
+  </main>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const logs = document.getElementById('logs');
+    socket.on('qr', (src) => { document.getElementById('qr').innerHTML = '<img alt="WhatsApp QR code" src="' + src + '" />'; });
+    socket.on('authenticated', () => addLog('Authenticated'));
+    socket.on('ready', () => addLog('WhatsApp client ready'));
+    socket.on('log', addLog);
+    socket.on('stats', updateStats);
+    setInterval(async () => {
+      const res = await fetch('/health');
+      const data = await res.json();
+      updateStats(data.stats);
+    }, 3000);
+    function addLog(line) {
+      logs.textContent += '[' + new Date().toLocaleTimeString() + '] ' + line + '\n';
+      logs.scrollTop = logs.scrollHeight;
+    }
+    function updateStats(stats) {
+      document.getElementById('status').textContent = stats.status;
+      document.getElementById('totalMessages').textContent = stats.totalMessages;
+      document.getElementById('sentMessages').textContent = stats.sentMessages;
+      document.getElementById('apiCalls').textContent = stats.apiCalls;
+      document.getElementById('uptime').textContent = stats.uptimeSeconds + 's';
+    }
+  </script>
+</body>
+</html>
