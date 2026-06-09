@@ -1,0 +1,6 @@
+allowBuilds:
+  ffmpeg-static: true
+  puppeteer: true
+packages:
+  - 'bot'
+  - 'frontend'
