@@ -13,13 +13,20 @@ export class DashboardServer {
     this.stats = stats;
     this.store = store;
     this.logger = logger;
+
+    // ── Single Dashboard and WebSocket server ───────────────────────────
     this.app = express();
     this.server = http.createServer(this.app);
-    this.io = new Server(this.server);
+    this.io = new Server(this.server, { cors: { origin: '*' } });
+
+    // Live state: current QR code data URL and connection status
+    this._currentQr = null;
+    this._connectionStatus = 'initializing';
   }
 
   configure() {
     this.app.use(express.static(publicDir));
+    this.app.use(express.json({ limit: '512kb' }));
 
     this.app.get('/health', (_req, res) => {
       res.json({ ok: true, stats: this.stats.snapshot() });
@@ -46,10 +53,53 @@ export class DashboardServer {
       }
     });
 
+    // ── /status — returns bot connection state + QR ────
+    this.app.get('/status', (_req, res) => {
+      res.json({
+        status: this._connectionStatus,
+        connected: this._connectionStatus === 'ready',
+        qr: this._currentQr,
+        stats: this.stats.snapshot(),
+      });
+    });
+
     this.io.on('connection', (socket) => {
       this.logger.info('Dashboard client connected');
+      socket.emit('bot_status', {
+        status: this._connectionStatus,
+        connected: this._connectionStatus === 'ready',
+        qr: this._currentQr,
+      });
       socket.emit('stats', this.stats.snapshot());
       socket.emit('log', 'Dashboard connected');
+    });
+  }
+
+  /**
+   * Updates the stored QR code and broadcasts it to WS clients.
+   */
+  setQr(qrDataUrl) {
+    this._currentQr = qrDataUrl;
+    this._connectionStatus = 'awaiting_scan';
+    this.io.emit('bot_status', {
+      status: 'awaiting_scan',
+      connected: false,
+      qr: qrDataUrl,
+    });
+  }
+
+  /**
+   * Updates the bot connection status and notifies clients.
+   */
+  setConnectionStatus(status) {
+    this._connectionStatus = status;
+    if (status === 'ready' || status === 'authenticated') {
+      this._currentQr = null; // Clear QR once connected
+    }
+    this.io.emit('bot_status', {
+      status,
+      connected: status === 'ready',
+      qr: this._currentQr,
     });
   }
 
@@ -59,6 +109,7 @@ export class DashboardServer {
 
   start() {
     this.configure();
+
     this.server.listen(this.config.port, () => {
       this.logger.info({ port: this.config.port }, 'Dashboard listening');
     });

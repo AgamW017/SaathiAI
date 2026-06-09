@@ -1,2 +1,8 @@
 */pnpm-lock.yaml
 frontend/.next
+
+./node_modules
+node_modules
+/node_modules/*
+*/node_modules
+*/.pnpm

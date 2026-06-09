@@ -32,7 +32,10 @@ export class WhatsAppBot {
       this.dashboard.emit('log', 'QR code received, scan with WhatsApp');
 
       try {
-        this.dashboard.emit('qr', await QRCode.toDataURL(qr));
+        const qrDataUrl = await QRCode.toDataURL(qr);
+        this.dashboard.emit('qr', qrDataUrl);
+        // Also notify the admin WS server
+        this.dashboard.setQr(qrDataUrl);
       } catch (error) {
         this.logger.error({ error }, 'Could not generate dashboard QR');
       }
@@ -43,6 +46,7 @@ export class WhatsAppBot {
       this.dashboard.emit('authenticated');
       this.dashboard.emit('log', 'Authentication successful');
       this.stats.setStatus('authenticated');
+      this.dashboard.setConnectionStatus('authenticated');
       this.dashboard.emit('stats', this.stats.snapshot());
     });
 
@@ -51,6 +55,7 @@ export class WhatsAppBot {
       this.dashboard.emit('ready');
       this.dashboard.emit('log', 'Client is ready and listening for messages');
       this.stats.setStatus('ready');
+      this.dashboard.setConnectionStatus('ready');
       this.dashboard.emit('stats', this.stats.snapshot());
     });
 
@@ -58,12 +63,14 @@ export class WhatsAppBot {
       this.logger.error({ message }, 'WhatsApp authentication failure');
       this.dashboard.emit('log', `Authentication failure: ${message}`);
       this.stats.setStatus('auth_failure');
+      this.dashboard.setConnectionStatus('auth_failure');
     });
 
     this.client.on('disconnected', (reason) => {
       this.logger.warn({ reason }, 'WhatsApp disconnected');
       this.dashboard.emit('log', `Disconnected: ${reason}`);
       this.stats.setStatus('disconnected');
+      this.dashboard.setConnectionStatus('disconnected');
     });
 
     this.client.on('message', (message) => {

@@ -4,3 +4,4 @@ allowBuilds:
 packages:
   - 'bot'
   - 'frontend'
+  - 'backend'
