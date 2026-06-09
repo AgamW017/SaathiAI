@@ -2,6 +2,7 @@
 
 import Navbar from '../components/Navbar.jsx';
 import Hero from '../components/sections/Hero.jsx';
+import ScrollingWorkers from '../components/ui/ScrollingWorkers.jsx';
 import CrisisStrip from '../components/sections/CrisisStrip.jsx';
 import BreakpointsSection from '../components/sections/BreakpointsSection.jsx';
 import SolutionSection from '../components/sections/SolutionSection.jsx';
@@ -18,6 +19,8 @@ export default function Page() {
       <Navbar />
       <main>
         <Hero />
+        {/* Full-width infinite marquee — placed immediately below the Hero */}
+        <ScrollingWorkers />
         <CrisisStrip />
         <BreakpointsSection />
         <SolutionSection />

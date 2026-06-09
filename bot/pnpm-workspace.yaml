@@ -1,3 +1,0 @@
-allowBuilds:
-  ffmpeg-static: true
-  puppeteer: true

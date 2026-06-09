@@ -1,0 +1,313 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@theme {
+  /* ─────────────────────────────────────────
+     BRAND COLORS
+     Workable's Forest Teal × Harvest's Flame
+  ───────────────────────────────────────── */
+  --color-cream-canvas: #fff8f1;      /* Page background — Harvest derived */
+  --color-saathi-teal: #004038;       /* Brand primary trust — Workable derived */
+  --color-deep-moss: #00544c;         /* Secondary brand tone, hover/border */
+  --color-action-flame: #fa5d00;      /* Primary CTA — Harvest derived */
+
+  /* ─────────────────────────────────────────
+     TEXT COLORS
+  ───────────────────────────────────────── */
+  --color-ink-black: #0f161e;         /* Primary text — Workable's deep near-black */
+  --color-graphite: #333942;          /* Secondary text */
+  --color-warm-stone: #615f5c;        /* Tertiary/helper text — Harvest warmth */
+
+  /* ─────────────────────────────────────────
+     NEUTRAL SURFACE COLORS
+  ───────────────────────────────────────── */
+  --color-pure-white: #ffffff;        /* Card and panel surfaces */
+  --color-bone: #c0bbb6;              /* Input borders at rest — Harvest */
+  --color-mist: #d9d9d9;              /* Subtle dividers, table row borders */
+  --color-parchment-glow: #fee3b5;    /* Warm tint — notification/in-progress bg */
+  --color-apricot-wash: #fde8ce;      /* Warm pastel card variant — Workable */
+  --color-sky-tile: #bee9f4;          /* Cool pastel card variant — Workable */
+
+  /* ─────────────────────────────────────────
+     SEMANTIC STATUS COLORS
+     Required by features.md spec
+  ───────────────────────────────────────── */
+  --color-success: #16a34a;           /* Placed, verified, complete */
+  --color-success-surface: #dcfce7;   /* Success bg tint */
+  --color-risk: #dc2626;              /* At-risk, unverified, urgent */
+  --color-risk-surface: #fee2e2;      /* Risk bg tint */
+  --color-caution: #d97706;           /* Pending, follow-up, in-progress */
+  --color-caution-surface: #fef3c7;   /* Caution bg tint */
+  --color-info: #2563eb;              /* Govt DPI, data, informational */
+  --color-info-surface: #dbeafe;      /* Info bg tint */
+
+  /* ─────────────────────────────────────────
+     WHATSAPP SIMULATION COLORS
+  ───────────────────────────────────────── */
+  --color-bubble-ai: #e8f5f0;         /* SaathiAI outgoing bubble — teal-tinted */
+  --color-bubble-learner: #dcfce7;    /* Learner reply bubble — soft green */
+
+  /* ─────────────────────────────────────────
+     TYPOGRAPHY — FONT FAMILIES
+  ───────────────────────────────────────── */
+  --font-display: 'Proxima Nova', 'Montserrat', ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body: 'Inter', 'Noto Sans', ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* ─────────────────────────────────────────
+     TYPOGRAPHY — SCALE (Latin)
+  ───────────────────────────────────────── */
+  --text-caption: 13px;
+  --leading-caption: 1.35;
+  --tracking-caption: 0.2px;
+
+  --text-body-sm: 14px;
+  --leading-body-sm: 1.50;
+
+  --text-body: 16px;
+  --leading-body: 1.50;
+
+  --text-body-lg: 18px;
+  --leading-body-lg: 1.50;
+
+  --text-subheading: 20px;
+  --leading-subheading: 1.38;
+
+  --text-heading-sm: 24px;
+  --leading-heading-sm: 1.30;
+
+  --text-heading: 32px;
+  --leading-heading: 1.25;
+
+  --text-heading-lg: 48px;
+  --leading-heading-lg: 1.15;
+
+  --text-display: 56px;
+  --leading-display: 1.14;
+
+  --text-display-lg: 72px;
+  --leading-display-lg: 1.13;
+
+  /* ─────────────────────────────────────────
+     TYPOGRAPHY — HINDI / DEVANAGARI OVERRIDES
+     Apply via .hindi class or [lang="hi"]
+  ───────────────────────────────────────── */
+  --leading-body-hi: 1.75;
+  --leading-body-sm-hi: 1.75;
+  --leading-subheading-hi: 1.60;
+  --leading-heading-hi: 1.45;
+  --leading-display-hi: 1.35;
+
+  /* ─────────────────────────────────────────
+     TYPOGRAPHY — WEIGHTS
+  ───────────────────────────────────────── */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* ─────────────────────────────────────────
+     SPACING
+     Base unit: 8px (Workable) — generous for
+     touch targets on Android (features.md: ≥44px)
+  ───────────────────────────────────────── */
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+  --spacing-40: 40px;
+  --spacing-48: 48px;
+  --spacing-64: 64px;
+  --spacing-80: 80px;
+  --spacing-96: 96px;
+  --spacing-104: 104px;
+
+  /* ─────────────────────────────────────────
+     LAYOUT
+  ───────────────────────────────────────── */
+  --page-max-width: 1200px;
+  --dashboard-max-width: 1440px;
+  --section-gap: 64px;
+  --card-padding: 24px;
+  --card-padding-desktop: 32px;
+  --element-gap: 16px;
+  --sidebar-width: 240px;
+  --nav-height: 64px;
+  --nav-height-mobile: 60px;
+  --min-touch-target: 44px;
+
+  /* ─────────────────────────────────────────
+     BORDER RADIUS
+     Soft + tactile throughout. No elements
+     below 8px. Warm approachability is the goal.
+  ───────────────────────────────────────── */
+  --radius-sm: 8px;
+  --radius-md: 16px;                  /* Buttons, cards, inputs — primary radius */
+  --radius-lg: 20px;                  /* Modals, skill card */
+  --radius-full: 999px;               /* Badges, pills, avatars only */
+
+  /* Named Radii (use these in components) */
+  --radius-buttons: 16px;
+  --radius-cards: 16px;
+  --radius-inputs: 16px;
+  --radius-modals: 20px;
+  --radius-skill-card: 20px;
+  --radius-badges: 999px;
+  --radius-avatars: 999px;
+  --radius-whatsapp-bubble: 16px;
+
+  /* ─────────────────────────────────────────
+     SHADOWS
+     Warm-tinted throughout — never cold gray
+  ───────────────────────────────────────── */
+  --shadow-sm: rgba(0, 0, 0, 0.10) 0px 1px 4px 0px;
+  --shadow-card: rgba(0, 0, 0, 0.07) 0px 2px 8px 0px;
+  --shadow-card-warm: rgba(250, 93, 0, 0.10) 0px 4px 16px 0px;
+  --shadow-card-teal: rgba(0, 64, 56, 0.10) 0px 4px 16px 0px;
+  --shadow-modal: rgba(0, 0, 0, 0.15) 0px 8px 32px 0px;
+}
+
+/* ─────────────────────────────────────────
+   HINDI TEXT OVERRIDE
+   Apply to any container rendering Hindi/Bhojpuri.
+   Overrides the default Latin line-heights from @theme.
+───────────────────────────────────────── */
+.hindi,
+[lang="hi"],
+[lang="bho"] {
+  font-family: var(--font-body);
+  line-height: var(--leading-body-hi);
+  letter-spacing: 0.01em;
+}

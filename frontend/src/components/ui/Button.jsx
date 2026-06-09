@@ -71,10 +71,10 @@ export default function Button({ variant = 'flame', size = 'md', children, onCli
     return (
       <a
         href={href}
-        style={finalStyle}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         {...rest}
+        style={{ ...finalStyle, ...rest.style }}
       >
         {children}
       </a>
@@ -83,11 +83,11 @@ export default function Button({ variant = 'flame', size = 'md', children, onCli
 
   return (
     <button
-      style={finalStyle}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       {...rest}
+      style={{ ...finalStyle, ...rest.style }}
     >
       {children}
     </button>

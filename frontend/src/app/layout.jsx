@@ -1,4 +1,9 @@
 import '../index.css';
+import '@fontsource/dm-serif-display/400.css';
+import '@fontsource/plus-jakarta-sans/400.css';
+import '@fontsource/plus-jakarta-sans/500.css';
+import '@fontsource/plus-jakarta-sans/600.css';
+import '@fontsource/plus-jakarta-sans/700.css';
 
 export const viewport = {
   themeColor: "#004038",
@@ -20,7 +25,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>
+      <body suppressHydrationWarning>
         {children}
       </body>
     </html>
