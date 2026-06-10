@@ -41,7 +41,7 @@ const TRACK_IMAGES = [...WORKER_IMAGES, ...WORKER_IMAGES, ...WORKER_IMAGES];
 
 export default function ScrollingWorkers() {
   // Pause on hover
-  const trackRef = useRef(null);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   const handleMouseEnter = () => {
     if (trackRef.current) {

@@ -50,7 +50,7 @@ const flowNodes = [
   { label: 'District Console', icon: '🗺️' },
 ];
 
-function IntegrationCard({ item, delay, triggered }) {
+function IntegrationCard({ item, delay, triggered }: { item: any; delay: number; triggered: boolean }) {
   const [hovered, setHovered] = useState(false);
 
   return (

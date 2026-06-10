@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
-import Badge from '../ui/Badge.jsx';
-import DashboardMockup from '../ui/DashboardMockup.jsx';
-import SkillCard from '../ui/SkillCard.jsx';
+import Badge from '../ui/Badge';
+import DashboardMockup from '../ui/DashboardMockup';
+import SkillCard from '../ui/SkillCard';
 
-function SectionHeader({ eyebrow, headline }) {
+function SectionHeader({ eyebrow, headline }: { eyebrow: React.ReactNode; headline: React.ReactNode }) {
   const [ref, inView] = useInView({ threshold: 0.2, triggerOnce: true });
   return (
     <div ref={ref} style={{ marginBottom: '80px' }}>
@@ -38,7 +38,7 @@ function SectionHeader({ eyebrow, headline }) {
   );
 }
 
-function FeatureRow({ badge, badgeVariant, headline, body, bullets, cta, visual, reverse }) {
+function FeatureRow({ badge, badgeVariant, headline, body, bullets, cta, visual, reverse }: { badge: string; badgeVariant: string; headline: string; body: string; bullets: string[]; cta?: string; visual: React.ReactNode; reverse: boolean }) {
   const [ref, inView] = useInView({ threshold: 0.15, triggerOnce: true });
 
   return (

@@ -2,8 +2,18 @@
 
 import * as React from "react";
 
-export class WebGLErrorBoundary extends React.Component {
-  constructor(props) {
+interface ErrorBoundaryProps {
+  children?: React.ReactNode;
+  fallback?: React.ReactNode;
+  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+export class WebGLErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
@@ -12,7 +22,7 @@ export class WebGLErrorBoundary extends React.Component {
     return { hasError: true };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
@@ -30,6 +40,10 @@ export function WebGLFallback({
   className,
   message = "Interactive WebGL content is unavailable on this device/browser.",
   style,
+}: {
+  className?: string;
+  message?: string;
+  style?: React.CSSProperties;
 }) {
   return (
     <div

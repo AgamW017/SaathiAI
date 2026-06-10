@@ -1,6 +1,6 @@
 import React from 'react';
 
-const variants = {
+const variants: Record<string, React.CSSProperties> = {
   flame: { background: 'rgba(250,93,0,0.1)', color: 'var(--color-action-flame)' },
   teal: { background: 'rgba(0,64,56,0.1)', color: 'var(--color-saathi-teal)' },
   success: { background: 'var(--color-success-surface)', color: 'var(--color-success)' },
@@ -12,7 +12,7 @@ const variants = {
   ghost: { background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.9)' },
 };
 
-export default function Badge({ variant = 'teal', children, style: extraStyle = {}, ...rest }) {
+export default function Badge({ variant = 'teal', children, style: extraStyle = {}, ...rest }: { variant?: string; children?: React.ReactNode; style?: React.CSSProperties; [key: string]: any }) {
   const variantStyle = variants[variant] || variants.teal;
   return (
     <span

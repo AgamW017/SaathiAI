@@ -44,7 +44,7 @@ const stats = [
   },
 ];
 
-function CountUp({ target, duration = 1.8, suffix = '', isRange, isLess, triggered }) {
+function CountUp({ target = 0, duration = 1.8, suffix = '', isRange, isLess, triggered }: { target?: number; duration?: number; suffix?: string; isRange?: boolean; isLess?: boolean; triggered: boolean }) {
   const motionVal = useMotionValue(0);
   const [display, setDisplay] = useState('0');
 
@@ -54,7 +54,7 @@ function CountUp({ target, duration = 1.8, suffix = '', isRange, isLess, trigger
     const controls = animate(motionVal, target, {
       duration,
       ease: 'easeOut',
-      onUpdate: (v) => setDisplay(Math.round(v).toString()),
+      onUpdate: (v: any) => setDisplay(Math.round(Number(v)).toString()),
     });
     return controls.stop;
   }, [triggered, target]);
@@ -64,7 +64,7 @@ function CountUp({ target, duration = 1.8, suffix = '', isRange, isLess, trigger
   return <span>{display}{suffix}</span>;
 }
 
-function StatCard({ stat, delay, triggered }) {
+function StatCard({ stat, delay, triggered }: { stat: any; delay: number; triggered: boolean }) {
   const [hovered, setHovered] = useState(false);
 
   return (

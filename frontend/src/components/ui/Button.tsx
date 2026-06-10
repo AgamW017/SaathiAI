@@ -1,6 +1,6 @@
 import React from 'react';
 
-const styles = {
+const styles: Record<string, React.CSSProperties> = {
   base: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -48,14 +48,14 @@ const styles = {
   },
 };
 
-export default function Button({ variant = 'flame', size = 'md', children, onClick, href, ...rest }) {
+export default function Button({ variant = 'flame', size = 'md', children, onClick, href, ...rest }: { variant?: string; size?: string; children?: React.ReactNode; onClick?: () => void; href?: string; [key: string]: any }) {
   const variantKey = size === 'lg'
     ? (variant === 'flame' ? 'flameLg' : variant === 'teal-outline' ? 'tealOutlineLg' : variant)
     : (variant === 'teal-outline' ? 'tealOutline' : variant);
 
   const style = { ...styles.base, ...(styles[variantKey] || styles.flame) };
 
-  const hoverStyle = {
+  const hoverStyle: Record<string, React.CSSProperties> = {
     flame: { background: '#e05300', boxShadow: 'var(--shadow-card-warm)', transform: 'translateY(-1px)' },
     flameLg: { background: '#e05300', boxShadow: 'var(--shadow-card-warm)', transform: 'translateY(-1px)' },
     tealOutline: { background: 'rgba(0,64,56,0.06)', transform: 'translateY(-1px)' },

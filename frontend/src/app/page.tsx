@@ -1,0 +1,36 @@
+"use client";
+
+import Navbar from '../components/Navbar';
+import Hero from '../components/sections/Hero';
+import ScrollingWorkers from '../components/ui/ScrollingWorkers';
+import CrisisStrip from '../components/sections/CrisisStrip';
+import BreakpointsSection from '../components/sections/BreakpointsSection';
+import SolutionSection from '../components/sections/SolutionSection';
+import FunnelSection from '../components/sections/FunnelSection';
+import TechStackSection from '../components/sections/TechStackSection';
+import ImpactSection from '../components/sections/ImpactSection';
+import QuoteSection from '../components/sections/QuoteSection';
+import FinalCTA from '../components/sections/FinalCTA';
+import Footer from '../components/sections/Footer';
+
+export default function Page() {
+  return (
+    <>
+      <Navbar />
+      <main>
+        <Hero />
+        {/* Full-width infinite marquee — placed immediately below the Hero */}
+        <ScrollingWorkers />
+        <CrisisStrip />
+        <BreakpointsSection />
+        <SolutionSection />
+        <FunnelSection />
+        <TechStackSection />
+        <ImpactSection />
+        <QuoteSection />
+        <FinalCTA />
+      </main>
+      <Footer />
+    </>
+  );
+}

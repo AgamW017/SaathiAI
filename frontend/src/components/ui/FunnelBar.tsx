@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export default function FunnelBar({ label, percent, color, delay = 0, animate = false, maxWidth = 400 }) {
+export default function FunnelBar({ label, percent, color, delay = 0, animate = false, maxWidth = 400 }: { label: React.ReactNode; percent: number; color: string; delay?: number; animate?: boolean; maxWidth?: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '10px' }}>
       <div style={{

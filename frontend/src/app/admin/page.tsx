@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 
 export default function AdminPage() {
-  const [botStatus, setBotStatus] = useState(null);
+  const [botStatus, setBotStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let interval;
+    let interval: NodeJS.Timeout;
 
     async function fetchStatus() {
       try {
@@ -17,7 +17,7 @@ export default function AdminPage() {
         const data = await res.json();
         setBotStatus(data);
         setError(null);
-      } catch (err) {
+      } catch (err: any) {
         setError(err.message);
       } finally {
         setLoading(false);

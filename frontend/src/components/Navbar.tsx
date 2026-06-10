@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import Button from './ui/Button.jsx';
-import { AnimatedGradient } from './ui/animated-gradient.jsx';
+import Button from './ui/Button';
+import { AnimatedGradient } from './ui/animated-gradient';
 
 // Modern custom Framer Motion component for Next.js links
 const MotionLink = motion.create(Link);
@@ -400,7 +400,7 @@ export default function Navbar() {
   );
 }
 
-function NavLink({ label, href, delay }) {
+function NavLink({ label, href, delay }: { label: string; href: string; delay: number }) {
   const [hovered, setHovered] = useState(false);
   return (
     <MotionLink

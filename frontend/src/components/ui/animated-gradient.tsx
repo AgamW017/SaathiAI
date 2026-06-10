@@ -3,13 +3,13 @@
 import { useRef, useEffect, useMemo, useState } from "react";
 import { WebGLErrorBoundary, WebGLFallback } from "./webgl-error-boundary";
 
-const PatternShapes = {
+const PatternShapes: Record<string, number> = {
   Checks: 0,
   Stripes: 1,
   Edge: 2,
 };
 
-const presets = {
+const presets: Record<string, any> = {
   Aurora: {
     color1: "#0a001a",
     color2: "#1a0b2e",
@@ -99,10 +99,16 @@ export function AnimatedGradient({
   radius = "0px",
   style,
   className,
+}: {
+  config?: any;
+  noise?: any;
+  radius?: string;
+  style?: React.CSSProperties;
+  className?: string;
 }) {
-  const canvasRef = useRef(null);
-  const containerRef = useRef(null);
-  const frameIdRef = useRef(undefined);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const frameIdRef = useRef<number | undefined>(undefined);
   const startTimeRef = useRef(0);
 
   const [isMounted, setIsMounted] = useState(false);
@@ -163,7 +169,7 @@ export function AnimatedGradient({
       gl_Position = a_position;
     }`;
 
-      const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+      const vertexShader = gl.createShader(gl.VERTEX_SHADER) as WebGLShader;
       gl.shaderSource(vertexShader, vertexShaderSource);
       gl.compileShader(vertexShader);
       if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
@@ -172,7 +178,7 @@ export function AnimatedGradient({
         return;
       }
 
-      const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+      const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER) as WebGLShader;
       gl.shaderSource(fragmentShader, FRAGMENT_SHADER);
       gl.compileShader(fragmentShader);
       if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
@@ -182,7 +188,7 @@ export function AnimatedGradient({
         return;
       }
 
-      const program = gl.createProgram();
+      const program = gl.createProgram() as WebGLProgram;
       gl.attachShader(program, vertexShader);
       gl.attachShader(program, fragmentShader);
       gl.linkProgram(program);
@@ -195,7 +201,7 @@ export function AnimatedGradient({
       }
       gl.useProgram(program);
 
-      const positionBuffer = gl.createBuffer();
+      const positionBuffer = gl.createBuffer() as WebGLBuffer;
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
       gl.bufferData(
         gl.ARRAY_BUFFER,
@@ -242,7 +248,7 @@ export function AnimatedGradient({
 
       startTimeRef.current = performance.now();
 
-      const animate = (time) => {
+      const animate = (time: number) => {
         const elapsed = (time - startTimeRef.current) / 1000;
         const speed = (params.speed / 100) * 5;
 
@@ -347,7 +353,7 @@ export function AnimatedGradient({
   );
 }
 
-function hexToRgba(hex) {
+function hexToRgba(hex: string) {
   let r = 0,
     g = 0,
     b = 0,
@@ -391,13 +397,13 @@ function hexToRgba(hex) {
   return [r, g, b, a];
 }
 
-function hslToRgb(h, s, l) {
-  let r, g, b;
+function hslToRgb(h: number, s: number, l: number) {
+  let r: number, g: number, b: number;
 
   if (s === 0) {
     r = g = b = l;
   } else {
-    const hue2rgb = (p, q, t) => {
+    const hue2rgb = (p: number, q: number, t: number) => {
       if (t < 0) t += 1;
       if (t > 1) t -= 1;
       if (t < 1 / 6) return p + (q - p) * 6 * t;

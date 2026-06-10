@@ -90,10 +90,10 @@ function TypingDots() {
 }
 
 export default function PhoneMockup() {
-  const [visibleMessages, setVisibleMessages] = useState([]);
+  const [visibleMessages, setVisibleMessages] = useState<any[]>([]);
   const [phase, setPhase] = useState(0); // 0=animating, 1=full, 2=fading
-  const chatRef = useRef(null);
-  const timerRef = useRef([]);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<NodeJS.Timeout[]>([]);
 
   const startAnimation = () => {
     setVisibleMessages([]);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
-import FunnelBar from '../ui/FunnelBar.jsx';
+import FunnelBar from '../ui/FunnelBar';
 
 const brokenPipeline = [
   { label: 'Enrolled', percent: 100 },

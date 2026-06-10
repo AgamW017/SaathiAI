@@ -45,7 +45,7 @@ const cards = [
   },
 ];
 
-function BreakpointCard({ card, delay, triggered }) {
+function BreakpointCard({ card, delay, triggered }: { card: any; delay: number; triggered: boolean }) {
   const [hovered, setHovered] = useState(false);
 
   return (
