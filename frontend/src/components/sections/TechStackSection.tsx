@@ -1,56 +1,51 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
+import { useLocale } from '../../lib/locale-context';
 
 const integrations = [
   {
     icon: '🗣️',
-    name: 'Sarvam AI',
-    role: 'Hindi + 12 Indian language voice. ASR + TTS on 2G.',
+    key: 'sarvam',
     color: '#6366f1',
   },
   {
     icon: '🏛️',
-    name: 'DigiLocker',
-    role: 'NSQF certificate verification via OAuth. Tamper-proof credentials.',
+    key: 'digilocker',
     color: '#0ea5e9',
   },
   {
     icon: '🎓',
-    name: 'SIDH',
-    role: '19 central + 74 state schemes. Enrolment, assessment, certification.',
+    key: 'sidh',
     color: 'var(--color-saathi-teal)',
   },
   {
     icon: '🏗️',
-    name: 'NAPS Portal',
-    role: 'Apprenticeship matching. 68,000+ registered employers.',
+    key: 'naps',
     color: '#f59e0b',
   },
   {
     icon: '💼',
-    name: 'NCS API',
-    role: 'Real-time job vacancy data. District-level filtering.',
+    key: 'ncs',
     color: '#10b981',
   },
   {
     icon: '💬',
-    name: 'WhatsApp Business API',
-    role: 'Zero-install delivery. Where Ramu already is.',
+    key: 'whatsapp',
     color: '#25d366',
   },
 ];
 
 const flowNodes = [
-  { label: 'Learner WhatsApp', icon: '💬' },
-  { label: 'SaathiAI Core', icon: '🤝' },
-  { label: 'SIDH + DigiLocker + NCS', icon: '🏛️' },
-  { label: 'Employer Skill Card', icon: '📋' },
-  { label: 'Officer Dashboard', icon: '📊' },
-  { label: 'District Console', icon: '🗺️' },
+  { key: 'node1', icon: '💬' },
+  { key: 'node2', icon: '🤝' },
+  { key: 'node3', icon: '🏛️' },
+  { key: 'node4', icon: '📋' },
+  { key: 'node5', icon: '📊' },
+  { key: 'node6', icon: '🗺️' },
 ];
 
-function IntegrationCard({ item, delay, triggered }: { item: any; delay: number; triggered: boolean }) {
+function IntegrationCard({ item, delay, triggered, t }: { item: any; delay: number; triggered: boolean; t: any }) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -83,13 +78,13 @@ function IntegrationCard({ item, delay, triggered }: { item: any; delay: number;
         fontSize: '16px', color: 'var(--color-ink-black)',
         marginBottom: '8px',
       }}>
-        {item.name}
+        {t('tech', `${item.key}_name`)}
       </div>
       <div style={{
         fontFamily: 'var(--font-body)', fontSize: '14px',
         color: 'var(--color-warm-stone)', lineHeight: 1.5,
       }}>
-        {item.role}
+        {t('tech', `${item.key}_role`)}
       </div>
     </motion.div>
   );
@@ -97,6 +92,7 @@ function IntegrationCard({ item, delay, triggered }: { item: any; delay: number;
 
 export default function TechStackSection() {
   const [ref, inView] = useInView({ threshold: 0.1, triggerOnce: true });
+  const { t } = useLocale();
 
   return (
     <section style={{ background: 'var(--color-cream-canvas)', padding: '80px 0' }} ref={ref}>
@@ -111,7 +107,7 @@ export default function TechStackSection() {
             textTransform: 'uppercase', marginBottom: '16px',
           }}
         >
-          BUILT ON INDIA'S DPI
+          {t('tech', 'eyebrow')}
         </motion.div>
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
@@ -124,7 +120,7 @@ export default function TechStackSection() {
             marginBottom: '48px',
           }}
         >
-          Every API that exists. Finally connected.
+          {t('tech', 'headline')}
         </motion.h2>
 
         {/* Integration grid */}
@@ -134,7 +130,7 @@ export default function TechStackSection() {
           gap: '16px', marginBottom: '64px',
         }}>
           {integrations.map((item, i) => (
-            <IntegrationCard key={i} item={item} delay={i * 0.08} triggered={inView} />
+            <IntegrationCard key={i} item={item} delay={i * 0.08} triggered={inView} t={t} />
           ))}
         </div>
 
@@ -171,7 +167,7 @@ export default function TechStackSection() {
                     color: 'var(--color-saathi-teal)', fontWeight: 600,
                     textAlign: 'center', maxWidth: '80px', lineHeight: 1.3,
                   }}>
-                    {node.label}
+                    {t('tech', node.key)}
                   </div>
                 </div>
                 {i < flowNodes.length - 1 && (

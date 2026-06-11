@@ -6,41 +6,42 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import LanguageSwitcher from '../ui/LanguageSwitcher';
+import { useLocale } from '../../lib/locale-context';
 
 // ─── Zod Schemas ────────────────────────────────────────────────────────────
 
 const loginSchema = z.object({
-  email: z.string().email('Enter a valid email address'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email('validEmail'),
+  password: z.string().min(1, 'passwordRequired'),
 });
 
 const signupSchema = z
   .object({
-    companyName: z.string().min(2, 'Company name must be at least 2 characters'),
-    contactName: z.string().min(2, 'Contact name must be at least 2 characters'),
+    companyName: z.string().min(2, 'companyNameMin'),
+    contactName: z.string().min(2, 'contactNameMin'),
     mobile: z
       .string()
-      .regex(/^\d{10}$/, 'Enter a valid 10-digit mobile number'),
-    email: z.string().email('Enter a valid email address'),
+      .regex(/^\d{10}$/, 'validMobile'),
+    email: z.string().email('validEmail'),
     password: z
       .string()
-      .min(8, 'At least 8 characters')
-      .regex(/[A-Z]/, 'At least 1 uppercase letter')
-      .regex(/[0-9]/, 'At least 1 number'),
+      .min(8, 'passwordMin')
+      .regex(/[A-Z]/, 'passwordUppercase')
+      .regex(/[0-9]/, 'passwordNumber'),
     confirmPassword: z.string(),
     udyam: z
       .string()
       .optional()
       .refine(
         (v) => !v || /^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/.test(v),
-        'Format: UDYAM-XX-00-0000000',
+        'udyamFormat',
       ),
     terms: z.literal(true, {
-      errorMap: () => ({ message: 'You must accept the terms' }),
+      errorMap: () => ({ message: 'acceptTerms' }),
     }),
   })
   .refine((d) => d.password === d.confirmPassword, {
-    message: 'Passwords do not match',
+    message: 'passwordsNotMatch',
     path: ['confirmPassword'],
   });
 
@@ -52,30 +53,30 @@ type SignupInputs = z.infer<typeof signupSchema>;
 const ROLES = [
   {
     id: 'jobseeker',
-    label: 'Job Seeker',
+    labelKey: 'role_jobseeker_label',
     emoji: '🎓',
-    hint: 'ITI / PMKVY graduate',
+    hintKey: 'role_jobseeker_hint',
     color: '#004038',
   },
   {
     id: 'employer',
-    label: 'Employer',
+    labelKey: 'role_employer_label',
     emoji: '🏢',
-    hint: 'Post jobs & hire',
+    hintKey: 'role_employer_hint',
     color: '#fa5d00',
   },
   {
     id: 'trainer',
-    label: 'Trainer',
+    labelKey: 'role_trainer_label',
     emoji: '🧑‍🏫',
-    hint: 'Training center staff',
+    hintKey: 'role_trainer_hint',
     color: '#2563eb',
   },
   {
     id: 'admin',
-    label: 'Admin',
+    labelKey: 'role_admin_label',
     emoji: '🛡️',
-    hint: 'Platform administrator',
+    hintKey: 'role_admin_hint',
     color: '#6b21a8',
   },
 ] as const;
@@ -85,15 +86,15 @@ type RoleId = (typeof ROLES)[number]['id'];
 // ─── Stat Cards Data ──────────────────────────────────────────────────────────
 
 const STATS = [
-  { value: '12M+', label: 'Graduates Guided', sub: 'ITI & PMKVY 2025' },
-  { value: '94%', label: 'Placement Rate', sub: 'Within 3 months' },
-  { value: '₹0', label: 'Cost to Learner', sub: 'Fully free forever' },
+  { valueKey: 'stat1Value', labelKey: 'stat1Label', subKey: 'stat1Sub' },
+  { valueKey: 'stat2Value', labelKey: 'stat2Label', subKey: 'stat2Sub' },
+  { valueKey: 'stat3Value', labelKey: 'stat3Label', subKey: 'stat3Sub' },
 ];
 
 // ─── Password Strength ────────────────────────────────────────────────────────
 
-function getPasswordStrength(password: string): { score: number; label: string; color: string } {
-  if (!password) return { score: 0, label: '', color: 'transparent' };
+function getPasswordStrength(password: string): { score: number; labelKey: string; color: string } {
+  if (!password) return { score: 0, labelKey: '', color: 'transparent' };
   let score = 0;
   if (password.length >= 8) score++;
   if (/[A-Z]/.test(password)) score++;
@@ -101,13 +102,13 @@ function getPasswordStrength(password: string): { score: number; label: string; 
   if (/[^A-Za-z0-9]/.test(password)) score++;
   if (password.length >= 12) score++;
 
-  const map: Record<number, { label: string; color: string }> = {
-    0: { label: 'Too weak', color: '#dc2626' },
-    1: { label: 'Weak', color: '#dc2626' },
-    2: { label: 'Fair', color: '#d97706' },
-    3: { label: 'Good', color: '#16a34a' },
-    4: { label: 'Strong', color: '#16a34a' },
-    5: { label: 'Very strong', color: '#047857' },
+  const map: Record<number, { labelKey: string; color: string }> = {
+    0: { labelKey: 'strengthTooWeak', color: '#dc2626' },
+    1: { labelKey: 'strengthWeak', color: '#dc2626' },
+    2: { labelKey: 'strengthFair', color: '#d97706' },
+    3: { labelKey: 'strengthGood', color: '#16a34a' },
+    4: { labelKey: 'strengthStrong', color: '#16a34a' },
+    5: { labelKey: 'strengthVeryStrong', color: '#047857' },
   };
 
   return { score, ...map[score] };
@@ -124,6 +125,7 @@ function StatCard({
   delay: number;
   shouldReduceMotion: boolean;
 }) {
+  const { t } = useLocale();
   return (
     <motion.div
       animate={
@@ -160,17 +162,18 @@ function StatCard({
           fontFamily: "'DM Serif Display', serif",
         }}
       >
-        {stat.value}
+        {t('login', stat.valueKey)}
       </span>
       <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>
-        {stat.label}
+        {t('login', stat.labelKey)}
       </span>
-      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>{stat.sub}</span>
+      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>{t('login', stat.subKey)}</span>
     </motion.div>
   );
 }
 
 function LeftPanel({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
+  const { t } = useLocale();
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -263,7 +266,7 @@ function LeftPanel({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
             maxWidth: '340px',
           }}
         >
-          Your AI companion for India&apos;s vocational future
+          {t('login', 'leftHeading')}
         </h1>
         <p
           style={{
@@ -274,8 +277,7 @@ function LeftPanel({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
             maxWidth: '320px',
           }}
         >
-          WhatsApp-native career guidance in Hindi. No app, no English, no bureaucracy — just
-          opportunity.
+          {t('login', 'leftBody')}
         </p>
       </div>
 
@@ -290,7 +292,7 @@ function LeftPanel({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
         }}
       >
         {STATS.map((stat, i) => (
-          <StatCard key={stat.value} stat={stat} delay={i * 0.5} shouldReduceMotion={shouldReduceMotion} />
+          <StatCard key={stat.valueKey} stat={stat} delay={i * 0.5} shouldReduceMotion={shouldReduceMotion} />
         ))}
       </div>
 
@@ -313,7 +315,7 @@ function LeftPanel({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
             textTransform: 'uppercase',
           }}
         >
-          Shiksha Hackathon 2026 · MoLE India
+          {t('login', 'leftBottom')}
         </span>
       </div>
     </motion.div>
@@ -323,6 +325,7 @@ function LeftPanel({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
 // ─── MobileStatPill ───────────────────────────────────────────────────────────
 
 function MobileStatPill({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
+  const { t } = useLocale();
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
@@ -362,10 +365,10 @@ function MobileStatPill({ shouldReduceMotion }: { shouldReduceMotion: boolean })
           <span
             style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}
           >
-            {STATS[idx].value}
+            {t('login', STATS[idx].valueKey)}
           </span>
           <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>
-            {STATS[idx].label}
+            {t('login', STATS[idx].labelKey)}
           </span>
         </motion.div>
       </AnimatePresence>
@@ -384,6 +387,7 @@ function RoleSelector({
   onSelect: (id: RoleId) => void;
   shouldReduceMotion: boolean;
 }) {
+  const { t } = useLocale();
   return (
     <div
       role="radiogroup"
@@ -446,9 +450,9 @@ function RoleSelector({
                 lineHeight: 1.2,
               }}
             >
-              {role.label}
+              {t('login', role.labelKey)}
             </span>
-            <span style={{ fontSize: '11px', color: '#615f5c' }}>{role.hint}</span>
+            <span style={{ fontSize: '11px', color: '#615f5c' }}>{t('login', role.hintKey)}</span>
           </motion.button>
         );
       })}
@@ -469,6 +473,7 @@ function FormField({
   error?: string;
   children: React.ReactNode;
 }) {
+  const { t } = useLocale();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
       <label
@@ -488,7 +493,7 @@ function FormField({
             role="alert"
             style={{ fontSize: '12px', color: '#dc2626', fontWeight: 500 }}
           >
-            {error}
+            {t('login', error, error)}
           </motion.span>
         )}
       </AnimatePresence>
@@ -547,6 +552,7 @@ function LoginForm({
   role: RoleId;
   shouldReduceMotion: boolean;
 }) {
+  const { t } = useLocale();
   const [serverError, setServerError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const formId = useId();
@@ -571,7 +577,7 @@ function LoginForm({
       console.log('Login attempt:', { ...data, role });
       // On real integration: router.push('/dashboard')
     } catch {
-      setServerError('Invalid credentials. Please try again.');
+      setServerError('invalidCredentials');
     } finally {
       setIsLoading(false);
     }
@@ -607,12 +613,12 @@ function LoginForm({
           <span
             style={{ fontSize: '12px', fontWeight: 600, color: currentRole.color }}
           >
-            Signing in as {currentRole.label}
+            {t('login', 'signingInAs')} {t('login', currentRole.labelKey)}
           </span>
         </motion.div>
       </AnimatePresence>
 
-      <FormField label="Email address" id={`${formId}-email`} error={errors.email?.message}>
+      <FormField label={t('login', 'email')} id={`${formId}-email`} error={errors.email?.message}>
         <Input
           id={`${formId}-email`}
           type="email"
@@ -623,7 +629,7 @@ function LoginForm({
         />
       </FormField>
 
-      <FormField label="Password" id={`${formId}-password`} error={errors.password?.message}>
+      <FormField label={t('login', 'password')} id={`${formId}-password`} error={errors.password?.message}>
         <Input
           id={`${formId}-password`}
           type="password"
@@ -644,7 +650,7 @@ function LoginForm({
             textDecoration: 'none',
           }}
         >
-          Forgot password?
+          {t('login', 'forgotPassword')}
         </a>
       </div>
 
@@ -660,11 +666,11 @@ function LoginForm({
             fontWeight: 500,
           }}
         >
-          {serverError}
+          {t('login', serverError, serverError)}
         </div>
       )}
 
-      <SubmitButton isLoading={isLoading} label="Sign In" color="#004038" />
+      <SubmitButton isLoading={isLoading} label={t('login', 'signIn')} color="#004038" />
     </form>
   );
 }
@@ -674,6 +680,7 @@ function LoginForm({
 type SignupState = 'form' | 'success';
 
 function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
+  const { t } = useLocale();
   const [state, setState] = useState<SignupState>('form');
   const [isLoading, setIsLoading] = useState(false);
   const [passwordVal, setPasswordVal] = useState('');
@@ -715,7 +722,7 @@ function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
     >
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
         <FormField
-          label="Company name"
+          label={t('login', 'companyName')}
           id={`${formId}-company`}
           error={errors.companyName?.message}
         >
@@ -729,21 +736,21 @@ function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
         </FormField>
 
         <FormField
-          label="Contact person"
+          label={t('login', 'contactPerson')}
           id={`${formId}-contact`}
           error={errors.contactName?.message}
         >
           <Input
             id={`${formId}-contact`}
             type="text"
-            placeholder="Full name"
+            placeholder={t('login', 'fullNamePlaceholder')}
             hasError={!!errors.contactName}
             {...register('contactName')}
           />
         </FormField>
       </div>
 
-      <FormField label="Mobile number" id={`${formId}-mobile`} error={errors.mobile?.message}>
+      <FormField label={t('login', 'mobileNumber')} id={`${formId}-mobile`} error={errors.mobile?.message}>
         <div style={{ display: 'flex', gap: '0' }}>
           <span
             style={{
@@ -774,7 +781,7 @@ function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
         </div>
       </FormField>
 
-      <FormField label="Work email" id={`${formId}-email`} error={errors.email?.message}>
+      <FormField label={t('login', 'workEmail')} id={`${formId}-email`} error={errors.email?.message}>
         <Input
           id={`${formId}-email`}
           type="email"
@@ -785,12 +792,12 @@ function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
         />
       </FormField>
 
-      <FormField label="Password" id={`${formId}-password`} error={errors.password?.message}>
+      <FormField label={t('login', 'password')} id={`${formId}-password`} error={errors.password?.message}>
         <Input
           id={`${formId}-password`}
           type="password"
           autoComplete="new-password"
-          placeholder="Min 8 chars, 1 uppercase, 1 number"
+          placeholder="••••••••"
           hasError={!!errors.password}
           {...register('password')}
           onChange={(e) => {
@@ -820,14 +827,14 @@ function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
               />
             </div>
             <span style={{ fontSize: '11px', color: strength.color, fontWeight: 500, marginTop: '2px', display: 'block' }}>
-              {strength.label}
+              {t('login', strength.labelKey)}
             </span>
           </div>
         )}
       </FormField>
 
       <FormField
-        label="Confirm password"
+        label={t('login', 'confirmPassword')}
         id={`${formId}-confirm`}
         error={errors.confirmPassword?.message}
       >
@@ -835,14 +842,14 @@ function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
           id={`${formId}-confirm`}
           type="password"
           autoComplete="new-password"
-          placeholder="Repeat password"
+          placeholder={t('login', 'repeatPasswordPlaceholder')}
           hasError={!!errors.confirmPassword}
           {...register('confirmPassword')}
         />
       </FormField>
 
       <FormField
-        label="Udyam registration no. (optional)"
+        label={t('login', 'udyamLabel')}
         id={`${formId}-udyam`}
         error={errors.udyam?.message}
       >
@@ -880,23 +887,23 @@ function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
           }}
         />
         <span style={{ fontSize: '12px', color: '#615f5c', lineHeight: 1.5 }}>
-          I agree to the{' '}
+          {t('login', 'termsAgreePrefix')}{' '}
           <a href="#" style={{ color: '#004038', fontWeight: 600, textDecoration: 'none' }}>
-            Terms of Service
+            {t('login', 'termsOfService')}
           </a>{' '}
-          and{' '}
+          {t('login', 'termsAgreeAnd')}{' '}
           <a href="#" style={{ color: '#004038', fontWeight: 600, textDecoration: 'none' }}>
-            Privacy Policy
+            {t('login', 'privacyPolicy')}
           </a>
         </span>
       </label>
-      {errors.terms && (
+      {errors.terms && errors.terms.message && (
         <span role="alert" style={{ fontSize: '12px', color: '#dc2626', fontWeight: 500 }}>
-          {errors.terms.message}
+          {t('login', errors.terms.message, errors.terms.message)}
         </span>
       )}
 
-      <SubmitButton isLoading={isLoading} label="Create Employer Account" color="#fa5d00" />
+      <SubmitButton isLoading={isLoading} label={t('login', 'createAccount')} color="#fa5d00" />
     </form>
   );
 }
@@ -912,6 +919,7 @@ function SubmitButton({
   label: string;
   color: string;
 }) {
+  const { t } = useLocale();
   return (
     <motion.button
       type="submit"
@@ -962,7 +970,7 @@ function SubmitButton({
           />
         </svg>
       )}
-      {isLoading ? 'Please wait…' : label}
+      {isLoading ? t('login', 'pleaseWait') : label}
     </motion.button>
   );
 }
@@ -970,6 +978,7 @@ function SubmitButton({
 // ─── SuccessState ─────────────────────────────────────────────────────────────
 
 function SuccessState({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
+  const { t } = useLocale();
   return (
     <motion.div
       initial={shouldReduceMotion ? {} : { opacity: 0, scale: 0.85 }}
@@ -1016,11 +1025,10 @@ function SuccessState({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
           margin: 0,
         }}
       >
-        Account created!
+        {t('login', 'accountCreated')}
       </h2>
       <p style={{ fontSize: '14px', color: '#615f5c', margin: 0, lineHeight: 1.6 }}>
-        Welcome aboard! Your employer account is under review. We'll send a verification email
-        within 24 hours.
+        {t('login', 'successBody')}
       </p>
       <a
         href="/"
@@ -1036,7 +1044,7 @@ function SuccessState({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
           textDecoration: 'none',
         }}
       >
-        Go to homepage
+        {t('login', 'goHome')}
       </a>
     </motion.div>
   );
@@ -1053,6 +1061,7 @@ function TabSwitcher({
   activeTab: TabId;
   onTabChange: (t: TabId) => void;
 }) {
+  const { t } = useLocale();
   return (
     <div
       role="tablist"
@@ -1091,7 +1100,7 @@ function TabSwitcher({
               fontFamily: 'inherit',
             }}
           >
-            {tab === 'signin' ? 'Sign In' : 'Sign Up'}
+            {tab === 'signin' ? t('login', 'signIn') : t('login', 'signUp')}
           </button>
         );
       })}
@@ -1102,6 +1111,7 @@ function TabSwitcher({
 // ─── RightPanel ──────────────────────────────────────────────────────────────
 
 function RightPanel({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
+  const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<TabId>('signin');
   const [selectedRole, setSelectedRole] = useState<RoleId>('jobseeker');
 
@@ -1146,12 +1156,12 @@ function RightPanel({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
               margin: '0 0 6px',
             }}
           >
-            {activeTab === 'signin' ? 'Welcome back' : 'Join SaathiAI'}
+            {activeTab === 'signin' ? t('login', 'welcomeBack') : t('login', 'joinSaathi')}
           </h2>
           <p style={{ fontSize: '14px', color: '#615f5c', margin: 0 }}>
             {activeTab === 'signin'
-              ? 'Sign in to continue your journey'
-              : 'Register as an Employer to post jobs'}
+              ? t('login', 'signinBody')
+              : t('login', 'signupBody')}
           </p>
         </div>
 
@@ -1200,9 +1210,7 @@ function RightPanel({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
               >
                 <span style={{ fontSize: '16px' }}>🏢</span>
                 <span style={{ fontSize: '13px', color: '#615f5c' }}>
-                  Sign up is currently available for{' '}
-                  <strong style={{ color: '#fa5d00' }}>Employers</strong> only. Job seekers sign up
-                  via WhatsApp.
+                  {t('login', 'signupEmployerOnly')}
                 </span>
               </div>
               <SignupForm shouldReduceMotion={shouldReduceMotion} />
@@ -1219,13 +1227,13 @@ function RightPanel({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
             color: '#615f5c',
           }}
         >
-          By continuing, you agree to SaathiAI&apos;s{' '}
+          {t('login', 'agreePrefix')}{' '}
           <a href="#" style={{ color: '#004038', fontWeight: 600, textDecoration: 'none' }}>
-            Terms
+            {t('login', 'terms')}
           </a>{' '}
-          &amp;{' '}
+          {t('login', 'agreeAnd')}{' '}
           <a href="#" style={{ color: '#004038', fontWeight: 600, textDecoration: 'none' }}>
-            Privacy Policy
+            {t('login', 'privacyPolicy')}
           </a>
         </p>
       </div>

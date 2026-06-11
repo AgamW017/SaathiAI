@@ -45,7 +45,7 @@ export default function FinalCTA() {
             marginBottom: '40px',
           }}
         >
-          {t('cta', 'subheading')}
+          {t('cta', 'body')}
         </motion.p>
 
         <motion.div
@@ -54,8 +54,8 @@ export default function FinalCTA() {
           transition={{ delay: 0.2 }}
           style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '40px' }}
         >
-          <Button variant="flame" size="lg">{t('cta', 'buttonPrimary')}</Button>
-          <Button variant="teal-outline" size="lg">{t('cta', 'buttonSecondary')}</Button>
+          <Button variant="flame" size="lg">{t('cta', 'btn1')}</Button>
+          <Button variant="teal-outline" size="lg">{t('cta', 'btn2')}</Button>
         </motion.div>
 
         {/* Persona chips */}
@@ -67,7 +67,7 @@ export default function FinalCTA() {
         >
           {personas.map((p) => (
             <a
-              key={p.label}
+              key={p.labelKey}
               href={p.href}
               style={{
                 background: 'var(--color-apricot-wash)',

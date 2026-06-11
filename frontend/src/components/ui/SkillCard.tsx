@@ -1,6 +1,9 @@
 import React from 'react';
+import { useLocale } from '../../lib/locale-context';
 
 export default function SkillCard() {
+  const { t } = useLocale();
+
   return (
     <div style={{
       width: 300,
@@ -32,7 +35,7 @@ export default function SkillCard() {
             Ramu Kumar
           </div>
           <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', fontFamily: 'var(--font-body)' }}>
-            Electrician · NSQF Level 3
+            {t('mockups', 'nsqfRole')}
           </div>
         </div>
       </div>
@@ -55,7 +58,7 @@ export default function SkillCard() {
             NSDC
           </span>
           <span style={{ marginLeft: 'auto', color: 'var(--color-success)', fontSize: '12px', fontWeight: 700, fontFamily: 'var(--font-body)' }}>
-            ✓ Verified
+            {t('mockups', 'digilockerVerified')}
           </span>
         </div>
 
@@ -80,14 +83,14 @@ export default function SkillCard() {
             fontSize: '10px', color: 'rgba(255,255,255,0.6)',
             fontFamily: 'var(--font-body)',
           }}>
-            Watch 60-sec skill demo
+            {t('mockups', 'demoDesc')}
           </div>
         </div>
 
         {/* Skill chips */}
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
-          {['AC Wiring', 'Panel Install', 'Safety Protocols'].map(s => (
-            <span key={s} style={{
+          {['skill1', 'skill2', 'skill3'].map((key) => (
+            <span key={key} style={{
               background: 'var(--color-apricot-wash)',
               color: 'var(--color-saathi-teal)',
               padding: '4px 10px',
@@ -96,7 +99,7 @@ export default function SkillCard() {
               fontFamily: 'var(--font-body)',
               fontWeight: 600,
             }}>
-              {s}
+              {t('mockups', key)}
             </span>
           ))}
         </div>
@@ -117,7 +120,7 @@ export default function SkillCard() {
             fontWeight: 700, flexShrink: 0,
           }}>R</div>
           <div style={{ fontSize: '11px', fontFamily: 'var(--font-body)', color: 'var(--color-warm-stone)' }}>
-            Endorsed by <strong style={{ color: 'var(--color-ink-black)' }}>Rajesh Sir</strong>, ITI Varanasi
+            {t('mockups', 'endorsedBy')}
           </div>
         </div>
 
@@ -134,7 +137,7 @@ export default function SkillCard() {
           fontWeight: 600,
           cursor: 'pointer',
         }}>
-          Express Interest via WhatsApp
+          {t('mockups', 'expressInterest')}
         </button>
       </div>
 
@@ -151,7 +154,7 @@ export default function SkillCard() {
         color: 'var(--color-success)',
         boxShadow: 'var(--shadow-card)',
       }}>
-        Loads in &lt;2s on 3G
+        {t('mockups', 'loadsFast')}
       </div>
     </div>
   );

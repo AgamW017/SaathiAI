@@ -9,7 +9,6 @@ import { useLocale } from '../../lib/locale-context';
 // ── Tile colours — one accent per language ────────────────────────────────
 const TILE_ACCENTS: Record<string, { from: string; to: string; glow: string }> = {
   hi:    { from: '#004038', to: '#00544c', glow: 'rgba(0,64,56,0.4)' },
-  'hi-HG': { from: '#1a3a5c', to: '#1e4976', glow: 'rgba(26,58,92,0.4)' },
   bn:    { from: '#3b0764', to: '#581c87', glow: 'rgba(59,7,100,0.4)' },
   mr:    { from: '#7c2d12', to: '#9a3412', glow: 'rgba(124,45,18,0.4)' },
   te:    { from: '#14532d', to: '#166534', glow: 'rgba(20,83,45,0.4)' },
@@ -25,12 +24,14 @@ function LanguageTile({
   isActive,
   onSwitch,
   inView,
+  t,
 }: {
   loc: (typeof LOCALES)[number];
   index: number;
   isActive: boolean;
   onSwitch: (code: LocaleCode) => void;
   inView: boolean;
+  t: any;
 }) {
   const [flipped, setFlipped] = useState(false);
   const accent = TILE_ACCENTS[loc.code] ?? TILE_ACCENTS['hi'];
@@ -93,7 +94,7 @@ function LanguageTile({
                 letterSpacing: '0.05em',
               }}
             >
-              ACTIVE
+              {t('languageShowcase', 'active')}
             </div>
           )}
 
@@ -222,7 +223,7 @@ function LanguageTile({
               <span style={{ fontSize: '12px', fontWeight: 600, color: '#004038' }}>
                 {formatUserCount(loc.activeUsers)}
               </span>
-              <span style={{ fontSize: '11px', color: '#615f5c' }}>active users</span>
+              <span style={{ fontSize: '11px', color: '#615f5c' }}>{t('languageShowcase', 'activeUsers')}</span>
             </div>
           </div>
 
@@ -253,7 +254,7 @@ function LanguageTile({
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = '1')}
           >
             {loc.scriptChar}
-            <span>{loc.nativeName} →</span>
+            <span>{t('languageShowcase', 'switchCTA')}</span>
           </button>
         </div>
       </motion.div>
@@ -263,7 +264,7 @@ function LanguageTile({
 
 // ── Main section ───────────────────────────────────────────────────────────
 export default function LanguageShowcase() {
-  const { locale, setLocale } = useLocale();
+  const { locale, setLocale, t } = useLocale();
   const [ref, inView] = useInView({ threshold: 0.1, triggerOnce: true });
 
   return (
@@ -342,7 +343,7 @@ export default function LanguageShowcase() {
                 textTransform: 'uppercase',
               }}
             >
-              8 Languages · One Saathi
+              {t('languageShowcase', 'eyebrow')}
             </span>
           </div>
 
@@ -355,7 +356,7 @@ export default function LanguageShowcase() {
               marginBottom: '16px',
             }}
           >
-            Your language is our language
+            {t('languageShowcase', 'heading')}
           </h2>
           <p
             style={{
@@ -366,8 +367,7 @@ export default function LanguageShowcase() {
               lineHeight: 1.65,
             }}
           >
-            SaathiAI speaks to every graduate in the language they grew up in — not the language
-            the government uses. Hover a tile to explore.
+            {t('languageShowcase', 'subheading')}
           </p>
         </motion.div>
 
@@ -388,6 +388,7 @@ export default function LanguageShowcase() {
               isActive={locale === loc.code}
               onSwitch={setLocale}
               inView={inView}
+              t={t}
             />
           ))}
         </div>
@@ -404,7 +405,7 @@ export default function LanguageShowcase() {
             color: '#615f5c',
           }}
         >
-          More languages coming soon — Odia, Punjabi, Assamese, and Bhojpuri.
+          {t('languageShowcase', 'moreComing')}
         </motion.p>
       </div>
 

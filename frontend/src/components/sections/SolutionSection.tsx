@@ -4,6 +4,7 @@ import { useInView } from 'react-intersection-observer';
 import Badge from '../ui/Badge';
 import DashboardMockup from '../ui/DashboardMockup';
 import SkillCard from '../ui/SkillCard';
+import { useLocale } from '../../lib/locale-context';
 
 function SectionHeader({ eyebrow, headline }: { eyebrow: React.ReactNode; headline: React.ReactNode }) {
   const [ref, inView] = useInView({ threshold: 0.2, triggerOnce: true });
@@ -108,6 +109,7 @@ function FeatureRow({ badge, badgeVariant, headline, body, bullets, cta, visual,
 
 /* Mini Phone Mockup for Feature Row 1 */
 function MiniPhoneMockup() {
+  const { t } = useLocale();
   return (
     <div style={{ display: 'flex', justifyContent: 'center', position: 'relative' }}>
       <div style={{
@@ -123,14 +125,11 @@ function MiniPhoneMockup() {
       }}>
         <div style={{ background: '#075e54', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px' }}>🤝</div>
-          <div style={{ color: '#fff', fontSize: '13px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>SaathiAI 🤝</div>
+          <div style={{ color: '#fff', fontSize: '13px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>{t('solution', 'miniMockupTitle')}</div>
         </div>
         <div style={{ background: '#e5ddd5', padding: '12px', minHeight: '160px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ background: 'var(--color-bubble-ai)', borderRadius: '0 14px 14px 14px', padding: '10px 12px', fontSize: '12px', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-            ⚡ <strong>3 मौके मिले आपके लिए!</strong><br /><br />
-            1. Electrician Helper — Varanasi ₹12k<br />
-            2. Wiring Tech — Sarnath ₹14.5k<br />
-            3. Apprentice — Mirzapur ₹10k
+          <div style={{ background: 'var(--color-bubble-ai)', borderRadius: '0 14px 14px 14px', padding: '10px 12px', fontSize: '12px', fontFamily: 'var(--font-body)', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+            {t('solution', 'miniMockupText')}
           </div>
         </div>
       </div>
@@ -142,7 +141,7 @@ function MiniPhoneMockup() {
         fontSize: '11px', fontFamily: 'var(--font-body)', fontWeight: 700,
         boxShadow: 'var(--shadow-card)', zIndex: 2,
       }}>
-        3 matches found in 24 hrs
+        {t('solution', 'miniMockupBadge')}
       </div>
     </div>
   );
@@ -150,10 +149,11 @@ function MiniPhoneMockup() {
 
 /* District Console Mock */
 function DistrictConsoleMock() {
+  const { t } = useLocale();
   const bars = [
-    { label: 'Electrician', pct: 73, color: 'var(--color-saathi-teal)' },
-    { label: 'Fitter', pct: 61, color: 'var(--color-saathi-teal)' },
-    { label: 'Dressmaking ⚠', pct: 22, color: 'var(--color-caution)' },
+    { label: t('solution', 'consoleTrade1'), pct: 73, color: 'var(--color-saathi-teal)' },
+    { label: t('solution', 'consoleTrade2'), pct: 61, color: 'var(--color-saathi-teal)' },
+    { label: t('solution', 'consoleTrade3'), pct: 22, color: 'var(--color-caution)' },
   ];
 
   return (
@@ -165,10 +165,10 @@ function DistrictConsoleMock() {
       maxWidth: 380,
     }}>
       <div style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '14px', color: 'var(--color-ink-black)', marginBottom: '4px' }}>
-        Varanasi District · June 2026
+        {t('solution', 'consoleDistrict')}
       </div>
       <div style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--color-warm-stone)', marginBottom: '20px' }}>
-        Placement rates by trade
+        {t('solution', 'consoleSub')}
       </div>
       {bars.map((b) => (
         <div key={b.label} style={{ marginBottom: '14px' }}>
@@ -186,49 +186,50 @@ function DistrictConsoleMock() {
         background: 'var(--color-cream-canvas)', borderRadius: '8px',
         fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--color-warm-stone)',
       }}>
-        📋 AI Policy Brief auto-generated every Monday
+        {t('solution', 'consoleFooter')}
       </div>
     </div>
   );
 }
 
 export default function SolutionSection() {
+  const { t } = useLocale();
   return (
     <section style={{ background: 'var(--color-cream-canvas)', padding: '96px 0' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 32px' }}>
         <SectionHeader
-          eyebrow="THE SOLUTION"
-          headline={<>One WhatsApp message.<br />Four surfaces.<br />One unified system.</>}
+          eyebrow={t('solution', 'eyebrow')}
+          headline={<span style={{ whiteSpace: 'pre-line' }}>{t('solution', 'headline')}</span>}
         />
 
         {/* Row 1 */}
         <FeatureRow
-          badge="01 · LEARNER COMPANION"
+          badge={t('solution', 'badge1')}
           badgeVariant="success"
-          headline="Ramu meets his career guide on WhatsApp."
-          body="A single activation message at graduation is all it takes. SaathiAI speaks Hindi and Bhojpuri via Sarvam AI. Accepts voice notes. Works on 2G. Intake, match, prepare, place — all in conversation."
+          headline={t('solution', 'badge1_headline')}
+          body={t('solution', 'badge1_body')}
           bullets={[
-            'Voice onboarding — no typing required',
-            'DigiLocker credential verification',
-            'Top 3 job matches within 24 hours',
-            'Pre-interview mock sessions in Hindi',
+            t('solution', 'badge1_bullet1'),
+            t('solution', 'badge1_bullet2'),
+            t('solution', 'badge1_bullet3'),
+            t('solution', 'badge1_bullet4'),
           ]}
-          cta="See the conversation flow →"
+          cta={t('solution', 'badge1_cta')}
           visual={<MiniPhoneMockup />}
           reverse={true}
         />
 
         {/* Row 2 */}
         <FeatureRow
-          badge="02 · PLACEMENT OFFICER DASHBOARD"
+          badge={t('solution', 'badge2')}
           badgeVariant="teal"
-          headline="200 students. One officer. AI does the triage."
-          body="SaathiAI surfaces the 12 learners who need human intervention today — and handles the other 188 automatically. Risk scores, auto-reports, employer outreach CRM. Every critical action in ≤2 taps."
+          headline={t('solution', 'badge2_headline')}
+          body={t('solution', 'badge2_body')}
           bullets={[
-            'AI risk scoring across full cohort',
-            'Auto-generated MIS compliance reports',
-            'Employer outreach CRM built-in',
-            'Real-time placement confirmation',
+            t('solution', 'badge2_bullet1'),
+            t('solution', 'badge2_bullet2'),
+            t('solution', 'badge2_bullet3'),
+            t('solution', 'badge2_bullet4'),
           ]}
           visual={<div style={{ display: 'flex', justifyContent: 'center' }}><DashboardMockup /></div>}
           reverse={false}
@@ -236,15 +237,15 @@ export default function SolutionSection() {
 
         {/* Row 3 */}
         <FeatureRow
-          badge="03 · MSME EMPLOYER PORTAL"
+          badge={t('solution', 'badge3')}
           badgeVariant="flame"
-          headline="The certificate MSMEs will actually trust."
-          body="SaathiAI translates a generic NSQF Level 3 certificate into a verified, plain-language skill card shared via WhatsApp link. No portal login. No CV. The MSME taps a link, sees a face, a skill claim, a video — and sends a voice note back."
+          headline={t('solution', 'badge3_headline')}
+          body={t('solution', 'badge3_body')}
           bullets={[
-            'Video practical assessment embedded',
-            'DigiLocker + NSQF verification shown',
-            'Trainer endorsement visible',
-            'One-tap interest expression via WhatsApp',
+            t('solution', 'badge3_bullet1'),
+            t('solution', 'badge3_bullet2'),
+            t('solution', 'badge3_bullet3'),
+            t('solution', 'badge3_bullet4'),
           ]}
           visual={<div style={{ display: 'flex', justifyContent: 'center' }}><SkillCard /></div>}
           reverse={true}
@@ -265,6 +266,7 @@ export default function SolutionSection() {
 }
 
 function DistrictRow() {
+  const { t } = useLocale();
   const [ref, inView] = useInView({ threshold: 0.15, triggerOnce: true });
 
   return (
@@ -290,22 +292,20 @@ function DistrictRow() {
           textTransform: 'uppercase', letterSpacing: '0.08em',
           marginBottom: '20px',
         }}>
-          04 · DISTRICT CONSOLE
+          {t('solution', 'badge4')}
         </span>
         <h3 style={{
           fontFamily: 'var(--font-display)',
           fontSize: 'clamp(24px, 2.5vw, 36px)',
           color: '#fff', marginBottom: '16px', lineHeight: 1.25,
         }}>
-          For the first time, DSSDs can see the truth.
+          {t('solution', 'badge4_headline')}
         </h3>
         <p style={{
           fontFamily: 'var(--font-body)', fontSize: '16px',
           color: 'rgba(255,255,255,0.75)', lineHeight: 1.65,
         }}>
-          Which trades are placing fastest? Which centres have &gt;60% placement?
-          Where is MSME demand unmet? The district console answers all of
-          this — automatically, weekly.
+          {t('solution', 'badge4_body')}
         </p>
       </div>
       <div style={{ flex: '0 0 380px', display: 'flex', justifyContent: 'center' }} className="district-visual">

@@ -202,7 +202,7 @@ export default function Navbar() {
               >
                 <LanguageSwitcher variant="compact" placement="down" />
                 <MotionLink
-                  href="/signin"
+                  href="/login"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
@@ -366,7 +366,7 @@ export default function Navbar() {
                   </div>
 
                   <Link
-                    href="/signin"
+                    href="/login"
                     onClick={() => setMobileMenuOpen(false)}
                     style={{
                       fontFamily: 'var(--font-body)',

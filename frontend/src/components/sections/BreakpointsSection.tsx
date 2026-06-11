@@ -1,46 +1,47 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
+import { useLocale } from '../../lib/locale-context';
 
-const cards = [
+const getCards = (t: any) => [
   {
     num: '01',
     color: 'var(--color-saathi-teal)',
-    stat: '8–23%',
-    title: 'PMKVY Placement Rate',
-    body: 'No placement cell. No guidance. Ramu gets a certificate and walks into a vacuum.',
+    stat: t('breakpoints', 'card1_stat'),
+    title: t('breakpoints', 'card1_title'),
+    body: t('breakpoints', 'card1_body'),
     icon: '🎓',
   },
   {
     num: '02',
     color: 'var(--color-action-flame)',
-    stat: '71%',
-    title: 'MSMEs Say Skilling Didn\'t Help',
-    body: 'Multiple papers, no digital thread. Employers distrust NSQF certificates — burned by bad hires before.',
+    stat: t('breakpoints', 'card2_stat'),
+    title: t('breakpoints', 'card2_title'),
+    body: t('breakpoints', 'card2_body'),
     icon: '📄',
   },
   {
     num: '03',
     color: '#d97706',
-    stat: '↓ Declining',
-    title: 'NCS Portal Registrations FY26',
-    body: 'Desktop-first, text-heavy, English-centric. No AI nudge, no voice, no Hindi. Ramu can\'t use it.',
+    stat: t('breakpoints', 'card3_stat'),
+    title: t('breakpoints', 'card3_title'),
+    body: t('breakpoints', 'card3_body'),
     icon: '📉',
   },
   {
     num: '04',
     color: 'var(--color-info)',
-    stat: '22%',
-    title: 'New Hires Quit Within 90 Days',
-    body: 'MSMEs hire via referral. High screening costs. They don\'t trust formal credentials — they use their own tests.',
+    stat: t('breakpoints', 'card4_stat'),
+    title: t('breakpoints', 'card4_title'),
+    body: t('breakpoints', 'card4_body'),
     icon: '🔄',
   },
   {
     num: '05',
     color: 'var(--color-risk)',
-    stat: '<1%',
-    title: 'Trainee Feedback Ever Submitted',
-    body: 'Placement officers use WhatsApp + logbooks. DSSDs have no district-level placement dashboard.',
+    stat: t('breakpoints', 'card5_stat'),
+    title: t('breakpoints', 'card5_title'),
+    body: t('breakpoints', 'card5_body'),
     icon: '📊',
   },
 ];
@@ -109,7 +110,9 @@ function BreakpointCard({ card, delay, triggered }: { card: any; delay: number; 
 }
 
 export default function BreakpointsSection() {
+  const { t } = useLocale();
   const [ref, inView] = useInView({ threshold: 0.1, triggerOnce: true });
+  const cards = getCards(t);
 
   return (
     <section style={{ background: 'var(--color-pure-white)', padding: '96px 0' }} ref={ref}>
@@ -126,7 +129,7 @@ export default function BreakpointsSection() {
               textTransform: 'uppercase', marginBottom: '16px',
             }}
           >
-            THE FIVE REAL BREAKPOINTS
+            {t('breakpoints', 'eyebrow')}
           </motion.div>
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
@@ -137,10 +140,11 @@ export default function BreakpointsSection() {
               fontSize: 'clamp(32px, 3.5vw, 44px)',
               color: 'var(--color-ink-black)',
               marginBottom: '20px',
+              whiteSpace: 'pre-line',
             }}
           >
-            Where Ramu's journey breaks.
-            <br />Every time.
+            {t('breakpoints', 'heading1')}
+            <br />{t('breakpoints', 'heading2')}
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -152,8 +156,7 @@ export default function BreakpointsSection() {
               maxWidth: 560, margin: '0 auto', lineHeight: 1.6,
             }}
           >
-            Our research mapped the exact moments the education-to-employment
-            pipeline collapses for India's 15,000 ITIs and PMKVY centres.
+            {t('breakpoints', 'subheading')}
           </motion.p>
         </div>
 

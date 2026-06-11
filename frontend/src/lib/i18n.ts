@@ -21,16 +21,6 @@ export const LOCALES = [
     switchConfirm: 'भाषा बदल गई ✓',
   },
   {
-    code: 'hi-HG',
-    nativeName: 'Hinglish',
-    englishName: 'Hinglish',
-    scriptChar: 'H',
-    samplePhrase1: 'Naukri ke liye ready ho? 💪',
-    samplePhrase2: 'Pehli naukri yahan se milegi',
-    activeUsers: 210000,
-    switchConfirm: 'Language badal gayi ✓',
-  },
-  {
     code: 'bn',
     nativeName: 'বাংলা',
     englishName: 'Bengali',

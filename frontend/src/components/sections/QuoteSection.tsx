@@ -1,9 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
+import { useLocale } from '../../lib/locale-context';
 
 export default function QuoteSection() {
   const [ref, inView] = useInView({ threshold: 0.2, triggerOnce: true });
+  const { t } = useLocale();
 
   return (
     <section style={{ background: 'var(--color-pure-white)', padding: '80px 0' }} ref={ref}>
@@ -35,9 +37,7 @@ export default function QuoteSection() {
             marginBottom: '32px',
           }}
         >
-          "India's vocational system is generating certified,
-          cognitively capable human capital that the market
-          cannot discover, verify, trust, or integrate."
+          {t('quote', 'body')}
         </motion.blockquote>
 
         <motion.p
@@ -50,10 +50,10 @@ export default function QuoteSection() {
             lineHeight: 1.5, marginBottom: '40px',
           }}
         >
-          — Structural Bottlenecks in India's Education-to-Employment Pathways, 2026
+          {t('quote', 'citation')}
           <br />
           <span style={{ fontWeight: 400, fontSize: '13px' }}>
-            (Synthesized from World Bank · STRIVE Tracer Study · CAG Audit · India Skills Report 2026)
+            {t('quote', 'sources')}
           </span>
         </motion.p>
 
@@ -72,7 +72,7 @@ export default function QuoteSection() {
             fontFamily: 'var(--font-body)', fontWeight: 500,
             fontSize: '18px', color: 'var(--color-saathi-teal)',
           }}>
-            SaathiAI is the discovery, verification, and trust layer that's missing.
+            {t('quote', 'bottomNote')}
           </p>
         </motion.div>
       </div>
