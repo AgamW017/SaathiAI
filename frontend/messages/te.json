@@ -1,0 +1,71 @@
+{
+  "nav": {
+    "signIn": "సైన్ ఇన్",
+    "tryFree": "SaathiAI ఉచితంగా ప్రయత్నించండి →",
+    "impact": "ప్రభావం",
+    "howItWorks": "ఇది ఎలా పనిచేస్తుంది"
+  },
+  "hero": {
+    "eyebrow": "శిక్షా హ్యాకథాన్ 2026 · సమస్య 3.5",
+    "headline1": "1.2 కోటి graduates.",
+    "headline2": "దారి చూపేవారు ఎవరూ లేరు.",
+    "headline3": "ఇప్పటివరకూ.",
+    "body": "SaathiAI ఒక WhatsApp-ఆధారిత AI తోడు — ప్రతి ITI మరియు PMKVY graduate కి వారి ఫోన్‌లో, తెలుగులో, శిక్షణ పూర్తయిన వెంటనే అందుబాటులో ఉంటుంది. App download అవసరం లేదు. ఇంగ్లీష్ అక్కరలేదు. ఎటువంటి అవస్థలూ లేవు.",
+    "cta1": "ఇది ఎలా పనిచేస్తుందో చూడండి →",
+    "cta2": "Demo చూడండి ▶"
+  },
+  "trust": {
+    "whatsapp": "✓ WhatsApp ఆధారిత",
+    "languages": "✓ 12 భారతీయ భాషలు",
+    "offline": "✓ Offline లో కూడా పనిచేస్తుంది",
+    "digilocker": "✓ DigiLocker ధృవీకరించబడింది"
+  },
+  "crisis": {
+    "heading": "ఈ సంఖ్యలు చెప్తున్నాయి — ఇది ఎంత అత్యవసరమో.",
+    "stat1Label": "PMKVY placement రేటు",
+    "stat1Plain": "4 లో 3 మంది trained — వృథా అయ్యారు.",
+    "stat2Label": "కొత్త employees 90 రోజుల్లో మానేస్తున్నారు",
+    "stat2Plain": "Blue-collar attrition — నియోగదాతలు నష్టపోతున్నారు.",
+    "stat3Label": "MSMEs ప్రభుత్వ శిక్షణ పనికి రాలేదని చెప్తున్నారు",
+    "stat3Plain": "Manufacturing MSME survey — చాలామంది నిరాశగా ఉన్నారు.",
+    "stat4Label": "Trainees feedback ఇచ్చారు",
+    "stat4Plain": "దాదాపు శూన్యం = కనిపించని సమస్య.",
+    "stat5Label": "రోజులు — కొందరికి certificate కోసం వేచి ఉండాల్సి వచ్చింది",
+    "stat5Plain": "3+ సంవత్సరాలు — career మొదలే కాలేదు."
+  },
+  "impact": {
+    "eyebrow": "పెద్ద ఎత్తున సాధించగలిగే మార్పు",
+    "heading": "SaathiAI భారతదేశంలో కేవలం 10% vocational graduates కు సేవ అందిస్తే —",
+    "stat1Label": "ఏటా అదనపు placements",
+    "stat2Label": "కుటుంబ ఆదాయంలో పెరుగుదల (అంచనా)",
+    "stat3Label": "90-రోజుల retention లో మెరుగుదల"
+  },
+  "cta": {
+    "heading": "Prototype చూడటానికి సిద్ధంగా ఉన్నారా?",
+    "body": "నాలుగు surfaces చూడండి: WhatsApp companion, placement officer dashboard, employer skill card, మరియు district console.",
+    "btn1": "Prototype చూడండి →",
+    "btn2": "Research చదవండి"
+  },
+  "login": {
+    "welcomeBack": "తిరిగి స్వాగతం",
+    "signinBody": "మీ ప్రయాణాన్ని కొనసాగించడానికి సైన్ ఇన్ చేయండి",
+    "joinSaathi": "SaathiAI లో చేరండి",
+    "signupBody": "jobs post చేయడానికి Employer గా నమోదు చేయండి",
+    "email": "ఇమెయిల్ చిరునామా",
+    "password": "పాస్‌వర్డ్",
+    "signIn": "సైన్ ఇన్",
+    "signUp": "సైన్ అప్",
+    "forgotPassword": "పాస్‌వర్డ్ మర్చిపోయారా?",
+    "createAccount": "Employer account తయారు చేయండి"
+  },
+  "languageSwitcher": {
+    "label": "భాష ఎంచుకోండి",
+    "switchConfirm": "భాష మారింది ✓"
+  },
+  "showcase": {
+    "samplePhrase1": "ఉద్యోగానికి సిద్ధంగా ఉన్నారా?",
+    "samplePhrase2": "మీ మొదటి ఉద్యోగం ఇక్కడ నుండే మొదలవుతుంది",
+    "activeUsers": "చురుకైన వినియోగదారులు",
+    "switchCTA": "ఈ భాషకు మారండి"
+  }
+}

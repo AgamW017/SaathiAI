@@ -1,0 +1,71 @@
+{
+  "nav": {
+    "signIn": "உள்நுழைக",
+    "tryFree": "SaathiAI இலவசமாக முயற்சிக்க →",
+    "impact": "தாக்கம்",
+    "howItWorks": "இது எப்படி வேலை செய்கிறது"
+  },
+  "hero": {
+    "eyebrow": "சிக்ஷா ஹேக்கத்தான் 2026 · சவால் 3.5",
+    "headline1": "1.2 கோடி graduates.",
+    "headline2": "வழிகாட்ட யாரும் இல்லை.",
+    "headline3": "இதுவரை.",
+    "body": "SaathiAI என்பது ஒரு WhatsApp-அடிப்படையிலான AI தோழன் — ஒவ்வொரு ITI மற்றும் PMKVY graduate-க்கும் அவர்களின் போனில், தமிழில், பயிற்சி முடிந்த உடனே அருகில் இருக்கிறது. App தேவையில்லை. ஆங்கிலம் வேண்டாம். எந்த சிக்கலும் இல்லை.",
+    "cta1": "இது எப்படி வேலை செய்கிறதென பாருங்கள் →",
+    "cta2": "Demo பாருங்கள் ▶"
+  },
+  "trust": {
+    "whatsapp": "✓ WhatsApp-அடிப்படையிலானது",
+    "languages": "✓ 12 இந்திய மொழிகள்",
+    "offline": "✓ Offline-லும் செயல்படும்",
+    "digilocker": "✓ DigiLocker சரிபார்க்கப்பட்டது"
+  },
+  "crisis": {
+    "heading": "இந்த எண்கள் சொல்கின்றன — இது எவ்வளவு அவசரமென.",
+    "stat1Label": "PMKVY placement விகிதம்",
+    "stat1Plain": "4-ல் 3 பேர் trained — வீணானார்கள்.",
+    "stat2Label": "புதிய ஊழியர்கள் 90 நாளில் விட்டுவிடுகிறார்கள்",
+    "stat2Plain": "Blue-collar வேலைவிலகல் — முதலாளிகள் இழக்கிறார்கள்.",
+    "stat3Label": "MSMEs அரசு பயிற்சி உதவியில்லை என்கின்றன",
+    "stat3Plain": "Manufacturing MSME கணக்கெடுப்பு — பெரும்பாலோர் ஏமாற்றம்.",
+    "stat4Label": "Trainees கருத்து தெரிவித்தனர்",
+    "stat4Plain": "கிட்டத்தட்ட பூஜ்ஜியம் = தெரியாத பிரச்சனை.",
+    "stat5Label": "நாட்கள் — சிலர் சான்றிதழுக்காக காத்திருந்தனர்",
+    "stat5Plain": "3+ ஆண்டுகள் — தொழில் தொடங்கவே முடியவில்லை."
+  },
+  "impact": {
+    "eyebrow": "பெரிய அளவில் எதிர்பார்க்கப்படும் தாக்கம்",
+    "heading": "SaathiAI இந்தியாவின் 10% vocational graduates-க்கு சேவை செய்தால் —",
+    "stat1Label": "ஆண்டுக்கு கூடுதல் placements",
+    "stat2Label": "குடும்ப வருமான உயர்வு (மதிப்பீடு)",
+    "stat3Label": "90-நாள் retention மேம்பாடு"
+  },
+  "cta": {
+    "heading": "Prototype பார்க்க தயாரா?",
+    "body": "நான்கு surfaces பாருங்கள்: WhatsApp companion, placement officer dashboard, employer skill card, மற்றும் district console.",
+    "btn1": "Prototype பாருங்கள் →",
+    "btn2": "Research படியுங்கள்"
+  },
+  "login": {
+    "welcomeBack": "மீண்டும் வரவேற்கிறோம்",
+    "signinBody": "உங்கள் பயணத்தை தொடர உள்நுழையுங்கள்",
+    "joinSaathi": "SaathiAI-ல் சேருங்கள்",
+    "signupBody": "வேலைகள் பதிவிட Employer ஆக பதிவு செய்யுங்கள்",
+    "email": "மின்னஞ்சல் முகவரி",
+    "password": "கடவுச்சொல்",
+    "signIn": "உள்நுழைக",
+    "signUp": "பதிவு செய்க",
+    "forgotPassword": "கடவுச்சொல் மறந்துவிட்டதா?",
+    "createAccount": "Employer கணக்கை உருவாக்குங்கள்"
+  },
+  "languageSwitcher": {
+    "label": "மொழியை தேர்ந்தெடுங்கள்",
+    "switchConfirm": "மொழி மாற்றப்பட்டது ✓"
+  },
+  "showcase": {
+    "samplePhrase1": "வேலைக்கு தயாரா?",
+    "samplePhrase2": "உங்கள் முதல் வேலை இங்கிருந்தே தொடங்கும்",
+    "activeUsers": "செயலில் உள்ள பயனர்கள்",
+    "switchCTA": "இந்த மொழிக்கு மாறுங்கள்"
+  }
+}

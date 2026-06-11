@@ -5,6 +5,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import LanguageSwitcher from '../ui/LanguageSwitcher';
 
 // ─── Zod Schemas ────────────────────────────────────────────────────────────
 
@@ -1119,8 +1120,21 @@ function RightPanel({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
         padding: 'clamp(24px, 5vw, 64px)',
         minHeight: '100vh',
         overflowY: 'auto',
+        position: 'relative',
       }}
     >
+      {/* Language switcher — top-right corner */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '20px',
+          right: '20px',
+          zIndex: 10,
+        }}
+      >
+        <LanguageSwitcher variant="compact" placement="down" />
+      </div>
+
       <div style={{ width: '100%', maxWidth: '440px' }}>
         {/* Header */}
         <div style={{ marginBottom: '32px' }}>

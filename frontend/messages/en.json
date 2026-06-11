@@ -1,0 +1,71 @@
+{
+  "nav": {
+    "signIn": "Sign In",
+    "tryFree": "Try SaathiAI Free →",
+    "impact": "Impact",
+    "howItWorks": "How It Works"
+  },
+  "hero": {
+    "eyebrow": "Shiksha Hackathon 2026 · Problem 3.5",
+    "headline1": "12 million graduates.",
+    "headline2": "No one to guide them.",
+    "headline3": "Until now.",
+    "body": "SaathiAI is a WhatsApp-native AI companion that meets every ITI and PMKVY graduate exactly where they are: on their phone, in their language, the moment training ends. No app download. No English barrier. No bureaucracy.",
+    "cta1": "See how it works →",
+    "cta2": "Watch the demo ▶"
+  },
+  "trust": {
+    "whatsapp": "✓ WhatsApp-native",
+    "languages": "✓ 9 language options",
+    "offline": "✓ Resilient on low bandwidth",
+    "digilocker": "✓ DigiLocker verified"
+  },
+  "crisis": {
+    "heading": "The numbers make the urgency impossible to ignore.",
+    "stat1Label": "PMKVY placement rate",
+    "stat1Plain": "Three out of four trained learners still do not land jobs.",
+    "stat2Label": "New hires leave within 90 days",
+    "stat2Plain": "Blue-collar churn stays painfully high for employers.",
+    "stat3Label": "MSMEs say skilling did not help them hire",
+    "stat3Plain": "Trust in formal certificates remains weak.",
+    "stat4Label": "Trainee feedback ever submitted",
+    "stat4Plain": "Near-zero feedback means the system stays blind.",
+    "stat5Label": "Days some graduates waited for certificates",
+    "stat5Plain": "Career momentum can stall for more than three years."
+  },
+  "impact": {
+    "eyebrow": "Projected impact at scale",
+    "heading": "If SaathiAI serves even 10% of India's vocational graduates",
+    "stat1Label": "additional placements every year",
+    "stat2Label": "increase in household income (estimated)",
+    "stat3Label": "improvement in 90-day retention"
+  },
+  "cta": {
+    "heading": "Ready to explore the prototype?",
+    "body": "See all four surfaces: the WhatsApp companion, placement officer dashboard, employer skill card, and district console.",
+    "btn1": "View the prototype →",
+    "btn2": "Read the research"
+  },
+  "login": {
+    "welcomeBack": "Welcome back",
+    "signinBody": "Sign in to continue your journey",
+    "joinSaathi": "Join SaathiAI",
+    "signupBody": "Register as an employer to post jobs",
+    "email": "Email address",
+    "password": "Password",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "forgotPassword": "Forgot password?",
+    "createAccount": "Create Employer Account"
+  },
+  "languageSwitcher": {
+    "label": "Select language",
+    "switchConfirm": "Language changed ✓"
+  },
+  "showcase": {
+    "samplePhrase1": "Ready for your next job?",
+    "samplePhrase2": "Your first opportunity starts here",
+    "activeUsers": "active users",
+    "switchCTA": "Switch to this language"
+  }
+}

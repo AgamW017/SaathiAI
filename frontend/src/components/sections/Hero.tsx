@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import Button from '../ui/Button';
 import PhoneMockup from '../ui/PhoneMockup';
+import { useLocale } from '../../lib/locale-context';
 
 const fadeUp = (delay: number) => ({
   initial: { opacity: 0, y: 30 },
@@ -17,6 +18,8 @@ const trustPills = [
 ];
 
 export default function Hero() {
+  const { t } = useLocale();
+
   return (
     <section style={{
       minHeight: 'calc(100vh - 68px)',
@@ -62,7 +65,7 @@ export default function Hero() {
             color: 'var(--color-action-flame)',
             textTransform: 'uppercase', marginBottom: '24px',
           }}>
-            SHIKSHA HACKATHON 2026 · PROBLEM STATEMENT 3.5
+            {t('hero', 'eyebrow')}
           </motion.div>
 
           <motion.h1 {...fadeUp(0.2)} style={{
@@ -72,8 +75,8 @@ export default function Hero() {
             color: 'var(--color-ink-black)',
             marginBottom: '8px',
           }}>
-            12 million graduates.
-            <br />No one to guide them.
+            {t('hero', 'headline1')}
+            <br />{t('hero', 'headline2')}
           </motion.h1>
 
           <motion.div {...fadeUp(0.35)} style={{
@@ -84,7 +87,7 @@ export default function Hero() {
             fontStyle: 'italic',
             marginBottom: '28px',
           }}>
-            Until now.
+            {t('hero', 'headline3')}
           </motion.div>
 
           <motion.p {...fadeUp(0.45)} style={{
@@ -92,15 +95,12 @@ export default function Hero() {
             color: 'var(--color-warm-stone)', lineHeight: 1.65,
             maxWidth: 480, marginBottom: '36px',
           }}>
-            SaathiAI is a WhatsApp-native AI companion that meets every
-            ITI and PMKVY graduate exactly where they are — on their
-            phone, in Hindi, the moment training ends. No app download.
-            No English required. No bureaucracy.
+            {t('hero', 'body')}
           </motion.p>
 
           <motion.div {...fadeUp(0.55)} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '36px' }}>
-            <Button variant="flame">See How It Works →</Button>
-            <Button variant="teal-outline">Watch Demo ▶</Button>
+            <Button variant="flame">{t('hero', 'cta1')}</Button>
+            <Button variant="teal-outline">{t('hero', 'cta2')}</Button>
           </motion.div>
 
           {/* Trust strip */}
@@ -116,7 +116,10 @@ export default function Hero() {
                 color: 'var(--color-ink-black)',
                 whiteSpace: 'nowrap',
               }}>
-                {pill}
+                {pill === trustPills[0] && t('trust', 'whatsapp')}
+                {pill === trustPills[1] && t('trust', 'languages')}
+                {pill === trustPills[2] && t('trust', 'offline')}
+                {pill === trustPills[3] && t('trust', 'digilocker')}
               </span>
             ))}
           </motion.div>

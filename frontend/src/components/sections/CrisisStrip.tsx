@@ -1,43 +1,44 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, animate } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
+import { useLocale } from '../../lib/locale-context';
 
 const stats = [
   {
     number: '8–23%',
-    label: 'PMKVY Placement Rate',
-    plain: "That's 3 out of 4 trained — wasted.",
+    labelKey: 'stat1Label',
+    plainKey: 'stat1Plain',
     source: 'PMKVY 2.0 & 3.0 data',
     isRange: true,
   },
   {
     number: '22',
     suffix: '%',
-    label: 'New Hires Quit Within 90 Days',
-    plain: 'Entry-level blue-collar attrition — employers burned.',
+    labelKey: 'stat2Label',
+    plainKey: 'stat2Plain',
     source: 'HR retention surveys',
     countTo: 22,
   },
   {
     number: '71',
     suffix: '%',
-    label: 'MSMEs Say Govt Skilling Didn\'t Help',
-    plain: 'Manufacturing MSME survey — majority unconvinced.',
+    labelKey: 'stat3Label',
+    plainKey: 'stat3Plain',
     source: 'KPMG MSME Report',
     countTo: 71,
   },
   {
     number: '<1',
     suffix: '%',
-    label: 'Trainees Submitted Feedback',
-    plain: 'Near-zero feedback = invisible problem.',
+    labelKey: 'stat4Label',
+    plainKey: 'stat4Plain',
     source: 'CAG Audit, Sep 2022',
     isLess: true,
   },
   {
     number: '1270',
-    label: 'Days Some Graduates Waited for Certificate',
-    plain: '3+ years — career stuck at the starting line.',
+    labelKey: 'stat5Label',
+    plainKey: 'stat5Plain',
     source: 'CAG Audit: Assessment Delay',
     countTo: 1270,
     suffix: '',
@@ -66,6 +67,7 @@ function CountUp({ target = 0, duration = 1.8, suffix = '', isRange, isLess, tri
 
 function StatCard({ stat, delay, triggered }: { stat: any; delay: number; triggered: boolean }) {
   const [hovered, setHovered] = useState(false);
+  const { t } = useLocale();
 
   return (
     <motion.div
@@ -105,14 +107,14 @@ function StatCard({ stat, delay, triggered }: { stat: any; delay: number; trigge
         fontSize: '14px', color: '#fff',
         lineHeight: 1.4, marginBottom: '8px',
       }}>
-        {stat.label}
+        {t('crisis', stat.labelKey)}
       </div>
       <div style={{
         fontFamily: 'var(--font-body)', fontSize: '11px',
         color: 'rgba(255,255,255,0.5)', lineHeight: 1.4,
         marginBottom: '4px', fontStyle: 'italic',
       }}>
-        {stat.plain}
+        {t('crisis', stat.plainKey)}
       </div>
       <div style={{
         fontFamily: 'var(--font-body)', fontSize: '10px',
@@ -126,6 +128,7 @@ function StatCard({ stat, delay, triggered }: { stat: any; delay: number; trigge
 
 export default function CrisisStrip() {
   const [ref, inView] = useInView({ threshold: 0.15, triggerOnce: true });
+  const { t } = useLocale();
 
   return (
     <section style={{
@@ -144,7 +147,7 @@ export default function CrisisStrip() {
             marginBottom: '48px',
           }}
         >
-          The numbers that make this urgent.
+          {t('crisis', 'heading')}
         </motion.h2>
 
         <div style={{

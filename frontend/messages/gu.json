@@ -1,0 +1,71 @@
+{
+  "nav": {
+    "signIn": "સાઇન ઇન",
+    "tryFree": "SaathiAI મફ્ત અજમાવો →",
+    "impact": "પ્રભાવ",
+    "howItWorks": "આ કેવી રીતે કામ કરે છે"
+  },
+  "hero": {
+    "eyebrow": "શિક્ષા હૅકાથૉન 2026 · સમસ્યા 3.5",
+    "headline1": "1.2 કરોડ graduates.",
+    "headline2": "માર્ગ બતાવનાર કોઈ નહિ.",
+    "headline3": "અત્યાર સુધી.",
+    "body": "SaathiAI એ WhatsApp-આધારિત AI સાથી છે — દરેક ITI અને PMKVY graduate ની પડખે, તેમના ફોન પર, ગુજરાતીમાં, તાલીમ પૂરી થતાં જ. કોઈ app download નહિ. અંગ્રેજી ની જરૂર નહિ. કોઈ ઝંઝટ નહિ.",
+    "cta1": "આ કેવી રીતે કામ કરે છે જુઓ →",
+    "cta2": "Demo જુઓ ▶"
+  },
+  "trust": {
+    "whatsapp": "✓ WhatsApp-આધારિત",
+    "languages": "✓ 12 ભારતીય ભાષાઓ",
+    "offline": "✓ Offline પણ ચાલે",
+    "digilocker": "✓ DigiLocker ચકાસાયેલ"
+  },
+  "crisis": {
+    "heading": "આ આંકડા બોલે છે — આ કેટલું જરૂરી છે.",
+    "stat1Label": "PMKVY placement દર",
+    "stat1Plain": "4 માં 3 trained — વ્યર્થ.",
+    "stat2Label": "નવા કર્મચારીઓ 90 દિવસમાં નોકરી છોડે",
+    "stat2Plain": "Blue-collar attrition — નિયોક્તા ખોટ ખાય.",
+    "stat3Label": "MSMEs કહે છે સરકારી training ફળ ન આવ્યી",
+    "stat3Plain": "Manufacturing MSME સર્વે — મોટા ભાગ અસંતુષ્ટ.",
+    "stat4Label": "Trainees એ feedback આપ્યું",
+    "stat4Plain": "લગભગ શૂન્ય = અદ્રશ્ય સમસ્યા.",
+    "stat5Label": "દિવસ — કેટલાકે certificate ની રાહ જોઈ",
+    "stat5Plain": "3+ વર્ષ — career શરૂ જ ન થઈ."
+  },
+  "impact": {
+    "eyebrow": "મોટા પ્રમાણ પર અંદાજિત પ્રભાવ",
+    "heading": "જો SaathiAI ભારતના ફક્ત 10% vocational graduates ને serve કરે —",
+    "stat1Label": "વર્ષે વધારાના placements",
+    "stat2Label": "ઘરની આવકમાં વધારો (અંદાજ)",
+    "stat3Label": "90-દિવસ retention માં સુધારો"
+  },
+  "cta": {
+    "heading": "Prototype જોવા તૈયાર છો?",
+    "body": "ચારેય surfaces જુઓ: WhatsApp companion, placement officer dashboard, employer skill card, અને district console.",
+    "btn1": "Prototype જુઓ →",
+    "btn2": "Research વાંચો"
+  },
+  "login": {
+    "welcomeBack": "પાછા આવ્યા, સ્વાગત છે",
+    "signinBody": "તમારી સફર ચાલુ રાખવા સાઇન ઇન કરો",
+    "joinSaathi": "SaathiAI સાથે જોડાઓ",
+    "signupBody": "નોકરી post કરવા Employer તરીકે નોંધણી કરો",
+    "email": "ઇ-મેઇલ સરનામું",
+    "password": "પાસવર્ડ",
+    "signIn": "સાઇન ઇન",
+    "signUp": "સાઇન અપ",
+    "forgotPassword": "પાસવર્ડ ભૂલી ગયા?",
+    "createAccount": "Employer ખાતું બનાવો"
+  },
+  "languageSwitcher": {
+    "label": "ભાષા પસંદ કરો",
+    "switchConfirm": "ભાષા બદલાઈ ✓"
+  },
+  "showcase": {
+    "samplePhrase1": "નોકરી માટે તૈયાર છો?",
+    "samplePhrase2": "તમારી પ્રથમ નોકરી અહીંથી શરૂ થાય છે",
+    "activeUsers": "સક્રિય વપરાશકર્તા",
+    "switchCTA": "આ ભાષામાં બદલો"
+  }
+}

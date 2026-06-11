@@ -2,16 +2,18 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import Button from '../ui/Button';
+import { useLocale } from '../../lib/locale-context';
 
 const personas = [
-  { label: '🎓 For Learners', href: '#' },
-  { label: '📊 For Officers', href: '#' },
-  { label: '🏭 For MSMEs', href: '#' },
-  { label: '🏛️ For Districts', href: '#' },
+  { labelKey: 'learner', href: '#' },
+  { labelKey: 'officer', href: '#' },
+  { labelKey: 'msme', href: '#' },
+  { labelKey: 'district', href: '#' },
 ];
 
 export default function FinalCTA() {
   const [ref, inView] = useInView({ threshold: 0.2, triggerOnce: true });
+  const { t } = useLocale();
 
   return (
     <section style={{ background: 'var(--color-cream-canvas)', padding: '96px 0' }} ref={ref}>
@@ -30,7 +32,7 @@ export default function FinalCTA() {
             marginBottom: '20px', lineHeight: 1.15,
           }}
         >
-          Ready to see the prototype?
+          {t('cta', 'heading')}
         </motion.h2>
 
         <motion.p
@@ -43,8 +45,7 @@ export default function FinalCTA() {
             marginBottom: '40px',
           }}
         >
-          Explore all four surfaces: the WhatsApp companion, placement
-          officer dashboard, employer skill card, and district console.
+          {t('cta', 'subheading')}
         </motion.p>
 
         <motion.div
@@ -53,8 +54,8 @@ export default function FinalCTA() {
           transition={{ delay: 0.2 }}
           style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '40px' }}
         >
-          <Button variant="flame" size="lg">Explore the Prototype →</Button>
-          <Button variant="teal-outline" size="lg">Read the Research</Button>
+          <Button variant="flame" size="lg">{t('cta', 'buttonPrimary')}</Button>
+          <Button variant="teal-outline" size="lg">{t('cta', 'buttonSecondary')}</Button>
         </motion.div>
 
         {/* Persona chips */}
@@ -85,7 +86,7 @@ export default function FinalCTA() {
                 e.currentTarget.style.boxShadow = '';
               }}
             >
-              {p.label}
+              {t('cta', p.labelKey)}
             </a>
           ))}
         </motion.div>

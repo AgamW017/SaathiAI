@@ -1,0 +1,71 @@
+{
+  "nav": {
+    "signIn": "ಸೈನ್ ಇನ್",
+    "tryFree": "SaathiAI ಉಚಿತವಾಗಿ ಪ್ರಯತ್ನಿಸಿ →",
+    "impact": "ಪ್ರಭಾವ",
+    "howItWorks": "ಇದು ಹೇಗೆ ಕೆಲಸ ಮಾಡುತ್ತದೆ"
+  },
+  "hero": {
+    "eyebrow": "ಶಿಕ್ಷಾ ಹ್ಯಾಕಥಾನ್ 2026 · ಸಮಸ್ಯೆ 3.5",
+    "headline1": "1.2 ಕೋಟಿ graduates.",
+    "headline2": "ಮಾರ್ಗದರ್ಶನ ನೀಡಲು ಯಾರೂ ಇಲ್ಲ.",
+    "headline3": "ಇಲ್ಲಿಯವರೆಗೆ.",
+    "body": "SaathiAI ಒಂದು WhatsApp-ಆಧಾರಿತ AI ಸಾಥಿ — ಪ್ರತಿ ITI ಮತ್ತು PMKVY graduate ಗೆ ಅವರ ಫೋನ್‌ನಲ್ಲಿ, ಕನ್ನಡದಲ್ಲಿ, ತರಬೇತಿ ಮುಗಿದ ತಕ್ಷಣ ಸಿಗುತ್ತದೆ. App ಅಗತ್ಯವಿಲ್ಲ. ಇಂಗ್ಲಿಷ್ ಬೇಡ. ಯಾವ ತೊಂದರೆಯೂ ಇಲ್ಲ.",
+    "cta1": "ಇದು ಹೇಗೆ ಕೆಲಸ ಮಾಡುತ್ತದೆ ನೋಡಿ →",
+    "cta2": "Demo ನೋಡಿ ▶"
+  },
+  "trust": {
+    "whatsapp": "✓ WhatsApp ಆಧಾರಿತ",
+    "languages": "✓ 12 ಭಾರತೀಯ ಭಾಷೆಗಳು",
+    "offline": "✓ Offline ನಲ್ಲೂ ಕೆಲಸ ಮಾಡುತ್ತದೆ",
+    "digilocker": "✓ DigiLocker ಪರಿಶೀಲಿಸಲಾಗಿದೆ"
+  },
+  "crisis": {
+    "heading": "ಈ ಸಂಖ್ಯೆಗಳು ಹೇಳುತ್ತವೆ — ಇದು ಎಷ್ಟು ತುರ್ತು ಎಂದು.",
+    "stat1Label": "PMKVY placement ದರ",
+    "stat1Plain": "4 ರಲ್ಲಿ 3 trained — ವ್ಯರ್ಥ.",
+    "stat2Label": "ಹೊಸ ಉದ್ಯೋಗಿಗಳು 90 ದಿನಗಳಲ್ಲಿ ಕೆಲಸ ಬಿಡುತ್ತಾರೆ",
+    "stat2Plain": "Blue-collar ಅಟ್ರಿಷನ್ — ಉದ್ಯೋಗದಾತರು ಸೋತರು.",
+    "stat3Label": "MSMEs ಸರ್ಕಾರಿ ತರಬೇತಿ ಸಹಾಯ ಮಾಡಲಿಲ್ಲ ಎನ್ನುತ್ತಾರೆ",
+    "stat3Plain": "Manufacturing MSME ಸಮೀಕ್ಷೆ — ಹೆಚ್ಚಿನವರು ಅಸಮಾಧಾನ.",
+    "stat4Label": "Trainees ಅಭಿಪ್ರಾಯ ನೀಡಿದ್ದಾರೆ",
+    "stat4Plain": "ಬಹುತೇಕ ಶೂನ್ಯ = ಕಾಣದ ಸಮಸ್ಯೆ.",
+    "stat5Label": "ದಿನಗಳು — ಕೆಲವರಿಗೆ ಪ್ರಮಾಣಪತ್ರಕ್ಕಾಗಿ ಕಾಯಬೇಕಾಯಿತು",
+    "stat5Plain": "3+ ವರ್ಷ — ಕೆರಿಯರ್ ಶುರುವೇ ಆಗಲಿಲ್ಲ."
+  },
+  "impact": {
+    "eyebrow": "ದೊಡ್ಡ ಪ್ರಮಾಣದಲ್ಲಿ ನಿರೀಕ್ಷಿತ ಪ್ರಭಾವ",
+    "heading": "SaathiAI ಭಾರತದ ಕೇವಲ 10% vocational graduates ಗೆ ಸೇವೆ ನೀಡಿದರೆ —",
+    "stat1Label": "ವಾರ್ಷಿಕ ಹೆಚ್ಚುವರಿ placements",
+    "stat2Label": "ಕುಟುಂಬದ ಆದಾಯದಲ್ಲಿ ಹೆಚ್ಚಳ (ಅಂದಾಜು)",
+    "stat3Label": "90-ದಿನ retention ಸುಧಾರಣೆ"
+  },
+  "cta": {
+    "heading": "Prototype ನೋಡಲು ಸಿದ್ಧರಾ?",
+    "body": "ನಾಲ್ಕು surfaces ನೋಡಿ: WhatsApp companion, placement officer dashboard, employer skill card, ಮತ್ತು district console.",
+    "btn1": "Prototype ನೋಡಿ →",
+    "btn2": "Research ಓದಿ"
+  },
+  "login": {
+    "welcomeBack": "ಮರಳಿ ಸ್ವಾಗತ",
+    "signinBody": "ನಿಮ್ಮ ಪ್ರಯಾಣ ಮುಂದುವರಿಸಲು ಸೈನ್ ಇನ್ ಮಾಡಿ",
+    "joinSaathi": "SaathiAI ಗೆ ಸೇರಿ",
+    "signupBody": "ಉದ್ಯೋಗಗಳನ್ನು post ಮಾಡಲು Employer ಆಗಿ ನೋಂದಣಿ ಮಾಡಿ",
+    "email": "ಇಮೇಲ್ ವಿಳಾಸ",
+    "password": "ಪಾಸ್‌ವರ್ಡ್",
+    "signIn": "ಸೈನ್ ಇನ್",
+    "signUp": "ಸೈನ್ ಅಪ್",
+    "forgotPassword": "ಪಾಸ್‌ವರ್ಡ್ ಮರೆತಿರಾ?",
+    "createAccount": "Employer ಖಾತೆ ತೆರೆಯಿರಿ"
+  },
+  "languageSwitcher": {
+    "label": "ಭಾಷೆ ಆಯ್ಕೆ ಮಾಡಿ",
+    "switchConfirm": "ಭಾಷೆ ಬದಲಾಯಿತು ✓"
+  },
+  "showcase": {
+    "samplePhrase1": "ಉದ್ಯೋಗಕ್ಕೆ ಸಿದ್ಧರಾ?",
+    "samplePhrase2": "ನಿಮ್ಮ ಮೊದಲ ಕೆಲಸ ಇಲ್ಲಿಂದ ಶುರುವಾಗುತ್ತದೆ",
+    "activeUsers": "ಸಕ್ರಿಯ ಬಳಕೆದಾರರು",
+    "switchCTA": "ಈ ಭಾಷೆಗೆ ಬದಲಿಸಿ"
+  }
+}
