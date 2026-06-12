@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocale } from '../../lib/locale-context';
 
 function SaathiLogoWhite() {
   return (
@@ -12,6 +13,8 @@ function SaathiLogoWhite() {
 }
 
 export default function Footer() {
+  const { t } = useLocale();
+
   return (
     <footer style={{
       background: 'var(--color-ink-black)',
@@ -27,7 +30,7 @@ export default function Footer() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
             <SaathiLogoWhite />
             <span style={{
-              fontFamily: 'var(--font-display)', fontSize: '20px', color: '#fff',
+              fontFamily: 'var(--font-body)', fontSize: '20px', color: '#fff',
             }}>
               SaathiAI
             </span>
@@ -37,8 +40,8 @@ export default function Footer() {
             color: 'rgba(255,255,255,0.5)', lineHeight: 1.6,
             maxWidth: 320,
           }}>
-            Built for Shiksha Hackathon 2026 · Problem Statement 3.5
-            <br />An AI career companion for India's vocational graduates.
+            {t('footer', 'desc1')}
+            <br />{t('footer', 'desc2')}
           </p>
         </div>
 
@@ -48,9 +51,8 @@ export default function Footer() {
             fontFamily: 'var(--font-body)', fontSize: '13px',
             color: 'rgba(255,255,255,0.4)', lineHeight: 1.7,
           }}>
-            <strong style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>Data sources:</strong>
-            <br />India Skills Report 2026 · CAG PMKVY Audit · STRIVE Tracer Study ·
-            World Bank · KPMG MSME Report · NSDC data · NCS portal analytics
+            <strong style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{t('footer', 'sourcesTitle')}</strong>
+            <br />{t('footer', 'sourcesList')}
           </p>
         </div>
       </div>
@@ -65,7 +67,7 @@ export default function Footer() {
           fontFamily: 'var(--font-body)', fontSize: '12px',
           color: 'rgba(255,255,255,0.3)',
         }}>
-          © 2026 SaathiAI · Built with ❤️ for Bharat
+          {t('footer', 'copyright')}
         </p>
       </div>
     </footer>

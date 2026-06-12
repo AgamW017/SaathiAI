@@ -1,75 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const conversation = [
-  {
-    id: 1,
-    type: 'ai',
-    delay: 600,
-    content: (
-      <span>
-        🎓 <em>Badhaai ho Ramu ji!</em> आपने Electrician (NSQF Level 3) complete कर लिया।
-        <br />मैं SaathiAI हूँ — आपका career साथी। आपके लिए 3 काम के मौके ढूंढ रहा हूँ... 🔍
-      </span>
-    ),
-  },
-  {
-    id: 2,
-    type: 'typing',
-    delay: 1800,
-  },
-  {
-    id: 3,
-    type: 'ai',
-    delay: 3400,
-    content: (
-      <span style={{ lineHeight: 1.7 }}>
-        ⚡ <strong>आपके लिए 3 मौके मिले:</strong>
-        <br /><br />
-        1. <strong>Electrician Helper</strong> — Varanasi
-        <br />&nbsp;&nbsp;&nbsp;₹12,000/mo · 3.2 km दूर · NAPS
-        <br /><br />
-        2. <strong>Wiring Technician</strong> — Sarnath
-        <br />&nbsp;&nbsp;&nbsp;₹14,500/mo · 8.1 km दूर
-        <br /><br />
-        3. <strong>Apprentice Electrician</strong> — Mirzapur
-        <br />&nbsp;&nbsp;&nbsp;₹10,000/mo · NSDC verified
-        <br /><br />
-        किसमें interest है? 1, 2 या 3 लिखें 👇
-      </span>
-    ),
-  },
-  {
-    id: 4,
-    type: 'user',
-    delay: 5200,
-    content: <span>1</span>,
-  },
-  {
-    id: 5,
-    type: 'ai',
-    delay: 6400,
-    content: (
-      <span>
-        ✅ <strong>Perfect choice!</strong> Interview के लिए ready करते हैं...
-        <br />
-        <span style={{
-          display: 'inline-block',
-          marginTop: '10px',
-          background: 'var(--color-saathi-teal)',
-          color: '#fff',
-          padding: '8px 16px',
-          borderRadius: '12px',
-          fontSize: '13px',
-          fontWeight: 600,
-          fontFamily: 'var(--font-body)',
-        }}>
-          Mock Interview शुरू करें ▶
-        </span>
-      </span>
-    ),
-  },
-];
+import { useLocale } from '../../lib/locale-context';
 
 function TypingDots() {
   return (
@@ -89,18 +20,71 @@ function TypingDots() {
   );
 }
 
+function formatMessage(text: string) {
+  if (!text) return '';
+  const parts = text.split('*');
+  return parts.map((part, i) => {
+    const isBold = i % 2 === 1;
+    const subparts = part.split('_');
+    const content = subparts.map((sub, j) => {
+      if (j % 2 === 1) {
+        return <em key={j}>{sub}</em>;
+      }
+      return sub;
+    });
+    if (isBold) {
+      return <strong key={i}>{content}</strong>;
+    }
+    return <span key={i}>{content}</span>;
+  });
+}
+
 export default function PhoneMockup() {
+  const { t } = useLocale();
   const [visibleMessages, setVisibleMessages] = useState<any[]>([]);
   const [phase, setPhase] = useState(0); // 0=animating, 1=full, 2=fading
   const chatRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<NodeJS.Timeout[]>([]);
+
+  // Store metadata keys instead of translated elements
+  const conversation = [
+    {
+      id: 1,
+      type: 'ai',
+      delay: 600,
+      contentKey: 'msg1',
+    },
+    {
+      id: 2,
+      type: 'typing',
+      delay: 1800,
+    },
+    {
+      id: 3,
+      type: 'ai',
+      delay: 3400,
+      contentKey: 'msg2',
+    },
+    {
+      id: 4,
+      type: 'user',
+      delay: 5200,
+      contentKey: 'msg3',
+    },
+    {
+      id: 5,
+      type: 'ai',
+      delay: 6400,
+      contentKey: 'msg4',
+    },
+  ];
 
   const startAnimation = () => {
     setVisibleMessages([]);
     setPhase(0);
 
     conversation.forEach((msg) => {
-      const t = setTimeout(() => {
+      const t1 = setTimeout(() => { //t is the name of useLocale switcher as well.
         if (msg.type === 'typing') {
           setVisibleMessages(prev => [...prev, msg]);
           const hideTyping = setTimeout(() => {
@@ -111,7 +95,7 @@ export default function PhoneMockup() {
           setVisibleMessages(prev => [...prev.filter(m => m.type !== 'typing'), msg]);
         }
       }, msg.delay);
-      timerRef.current.push(t);
+      timerRef.current.push(t1);
     });
 
     // After full conversation, wait then restart
@@ -152,7 +136,7 @@ export default function PhoneMockup() {
           whiteSpace: 'nowrap',
         }}
       >
-        🔒 DigiLocker Verified
+        {t('phone', 'verifiedBadge')}
       </motion.div>
 
       <motion.div
@@ -167,7 +151,7 @@ export default function PhoneMockup() {
           boxShadow: 'var(--shadow-card)',
         }}
       >
-        📍 Varanasi, UP
+        {t('phone', 'locationBadge')}
       </motion.div>
 
       <motion.div
@@ -182,7 +166,7 @@ export default function PhoneMockup() {
           boxShadow: 'var(--shadow-card)',
         }}
       >
-        ⭐ 94% Match
+        {t('phone', 'matchBadge')}
       </motion.div>
 
       {/* Phone frame */}
@@ -227,10 +211,10 @@ export default function PhoneMockup() {
             fontSize: '16px',
           }}>🤝</div>
           <div>
-            <div style={{ color: '#fff', fontSize: '15px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>SaathiAI 🤝</div>
+            <div style={{ color: '#fff', fontSize: '15px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>{t('phone', 'chatName')} 🤝</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80' }} />
-              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '11px', fontFamily: 'var(--font-body)' }}>Online</span>
+              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '11px', fontFamily: 'var(--font-body)' }}>{t('phone', 'statusOnline')}</span>
             </div>
           </div>
         </div>
@@ -283,7 +267,33 @@ export default function PhoneMockup() {
                       lineHeight: 1.55,
                     }}
                   >
-                    {msg.content}
+                    {msg.contentKey === 'msg4' ? (
+                      <span>
+                        {formatMessage(t('phone', 'msg4'))}
+                        <br />
+                        <span style={{
+                          display: 'inline-block',
+                          marginTop: '10px',
+                          background: 'var(--color-saathi-teal)',
+                          color: '#fff',
+                          padding: '8px 16px',
+                          borderRadius: '12px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          fontFamily: 'var(--font-body)',
+                        }}>
+                          {t('phone', 'mockInterviewBtn')}
+                        </span>
+                      </span>
+                    ) : msg.contentKey === 'msg2' ? (
+                      <span style={{ lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+                        {formatMessage(t('phone', 'msg2'))}
+                      </span>
+                    ) : (
+                      <span>
+                        {formatMessage(t('phone', msg.contentKey))}
+                      </span>
+                    )}
                   </div>
                 )}
               </motion.div>

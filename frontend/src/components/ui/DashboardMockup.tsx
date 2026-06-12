@@ -1,33 +1,36 @@
 import React, { useState } from 'react';
+import { useLocale } from '../../lib/locale-context';
 
 const priorities = [
   {
     color: 'var(--color-risk)',
     bg: 'var(--color-risk-surface)',
     name: 'Ramu Kumar',
-    sub: '14 days no response · Intervene',
-    action: 'Call',
+    subKey: 'ramuDesc',
+    actionKey: 'callAction',
     actionBg: 'var(--color-risk)',
   },
   {
     color: 'var(--color-caution)',
     bg: 'var(--color-caution-surface)',
     name: 'Priya Sharma',
-    sub: 'Interview tomorrow · Brief her',
-    action: 'Send',
+    subKey: 'priyaDesc',
+    actionKey: 'sendAction',
     actionBg: 'var(--color-caution)',
   },
   {
     color: 'var(--color-success)',
     bg: 'var(--color-success-surface)',
     name: 'Arjun Verma',
-    sub: 'Placed! ✓ · Confirm',
-    action: 'Confirm',
+    subKey: 'arjunDesc',
+    actionKey: 'confirmAction',
     actionBg: 'var(--color-success)',
   },
 ];
 
 export default function DashboardMockup() {
+  const { t } = useLocale();
+
   return (
     <div style={{ position: 'relative' }}>
       <div style={{
@@ -48,7 +51,7 @@ export default function DashboardMockup() {
             fontFamily: 'var(--font-body)', fontWeight: 700,
             fontSize: '15px', color: 'var(--color-ink-black)',
           }}>
-            Priority Actions
+            {t('mockups', 'priorityActions')}
           </span>
           <span style={{
             background: 'var(--color-risk-surface)',
@@ -56,7 +59,7 @@ export default function DashboardMockup() {
             borderRadius: '999px', padding: '3px 10px',
             fontSize: '11px', fontFamily: 'var(--font-body)', fontWeight: 700,
           }}>
-            3 urgent
+            {t('mockups', 'urgentCount')}
           </span>
         </div>
 
@@ -85,7 +88,7 @@ export default function DashboardMockup() {
                   {p.name}
                 </div>
                 <div style={{ fontSize: '11px', fontFamily: 'var(--font-body)', color: 'var(--color-warm-stone)', marginTop: '2px' }}>
-                  {p.sub}
+                  {t('mockups', p.subKey)}
                 </div>
               </div>
               <button style={{
@@ -95,7 +98,7 @@ export default function DashboardMockup() {
                 fontFamily: 'var(--font-body)', fontWeight: 600,
                 cursor: 'pointer', flexShrink: 0,
               }}>
-                {p.action}
+                {t('mockups', p.actionKey)}
               </button>
             </div>
           ))}
@@ -109,7 +112,7 @@ export default function DashboardMockup() {
           fontFamily: 'var(--font-body)',
           color: 'var(--color-warm-stone)',
         }}>
-          12 of 200 learners need attention today
+          {t('mockups', 'dashboardFooter')}
         </div>
       </div>
 
@@ -122,7 +125,7 @@ export default function DashboardMockup() {
         fontSize: '12px', fontFamily: 'var(--font-body)', fontWeight: 700,
         boxShadow: 'var(--shadow-card)',
       }}>
-        ↓ 60% less manual work
+        {t('mockups', 'lessManual')}
       </div>
     </div>
   );

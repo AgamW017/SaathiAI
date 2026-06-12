@@ -1,38 +1,39 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef } from "react";
+import { useLocale } from "../../lib/locale-context";
 
 // Six high-quality AI-generated images of Indian vocational workers
 const WORKER_IMAGES = [
   {
     src: "/images/worker_electrician.png",
-    label: "Electrician",
-    trade: "ITI Electrical",
+    labelKey: "worker1_label",
+    tradeKey: "worker1_trade",
   },
   {
     src: "/images/worker_weaver.png",
-    label: "Weaver Artisan",
-    trade: "Handloom Craft",
+    labelKey: "worker2_label",
+    tradeKey: "worker2_trade",
   },
   {
     src: "/images/worker_carpenter.png",
-    label: "Carpenter",
-    trade: "Wood Craft",
+    labelKey: "worker3_label",
+    tradeKey: "worker3_trade",
   },
   {
     src: "/images/worker_tailor.png",
-    label: "Tailor",
-    trade: "PMKVY Apparel",
+    labelKey: "worker4_label",
+    tradeKey: "worker4_trade",
   },
   {
     src: "/images/worker_mechanic.png",
-    label: "Auto Mechanic",
-    trade: "ITI Motor Vehicle",
+    labelKey: "worker5_label",
+    tradeKey: "worker5_trade",
   },
   {
     src: "/images/worker_beautician.png",
-    label: "Beautician",
-    trade: "PMKVY Beauty & Wellness",
+    labelKey: "worker6_label",
+    tradeKey: "worker6_trade",
   },
 ];
 
@@ -40,6 +41,7 @@ const WORKER_IMAGES = [
 const TRACK_IMAGES = [...WORKER_IMAGES, ...WORKER_IMAGES, ...WORKER_IMAGES];
 
 export default function ScrollingWorkers() {
+  const { t } = useLocale();
   // Pause on hover
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -252,7 +254,7 @@ export default function ScrollingWorkers() {
             <div key={idx} className="saathi-marquee-item">
               <img
                 src={worker.src}
-                alt={`${worker.label} — ${worker.trade}`}
+                alt={`${t('scrolling', worker.labelKey)} — ${t('scrolling', worker.tradeKey)}`}
                 loading={idx < 6 ? "eager" : "lazy"}
                 decoding="async"
               />
@@ -260,8 +262,8 @@ export default function ScrollingWorkers() {
               <div className="saathi-marquee-overlay" />
               {/* Label badge */}
               <div className="saathi-marquee-label">
-                <span className="saathi-marquee-label-name">{worker.label}</span>
-                <span className="saathi-marquee-label-trade">{worker.trade}</span>
+                <span className="saathi-marquee-label-name">{t('scrolling', worker.labelKey)}</span>
+                <span className="saathi-marquee-label-trade">{t('scrolling', worker.tradeKey)}</span>
               </div>
             </div>
           ))}
@@ -278,9 +280,7 @@ export default function ScrollingWorkers() {
             whiteSpace: "nowrap",
           }}
         >
-          A continuous gallery of Indian vocational workers — electricians,
-          weavers, carpenters, tailors, mechanics, and beauticians — happily
-          engaged in their skilled trades.
+          {t('scrolling', 'galleryCaption')}
         </p>
       </section>
     </>

@@ -4,14 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import Button from './ui/Button';
 import { AnimatedGradient } from './ui/animated-gradient';
+import LanguageSwitcher from './ui/LanguageSwitcher';
+import { useLocale } from '../lib/locale-context';
 
 // Modern custom Framer Motion component for Next.js links
 const MotionLink = motion.create(Link);
-
-const navLinks = [
-  { name: 'Impact', path: '/impact' },
-  { name: 'How It Works', path: '/how-it-works' },
-];
 
 function SaathiLogo() {
   return (
@@ -49,6 +46,12 @@ function SaathiLogo() {
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { t } = useLocale();
+
+  const navLinks = [
+    { name: t('nav', 'impact'), path: '/impact' },
+    { name: t('nav', 'howItWorks'), path: '/how-it-works' },
+  ];
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
@@ -104,7 +107,6 @@ export default function Navbar() {
                 : '0 2px 16px -8px rgba(0, 64, 56, 0.08)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
-              overflow: 'hidden',
               transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
               pointerEvents: 'auto',
               /* Base fill so the AnimatedGradient has something opaque to sit on */
@@ -198,8 +200,9 @@ export default function Navbar() {
                   flexShrink: 0,
                 }}
               >
+                <LanguageSwitcher variant="compact" placement="down" />
                 <MotionLink
-                  href="/signin"
+                  href="/login"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
@@ -218,7 +221,7 @@ export default function Navbar() {
                     backgroundColor: 'rgba(250,93,0,0.06)',
                   }}
                 >
-                  Sign in
+                  {t('nav', 'signIn')}
                 </MotionLink>
 
                 <motion.div
@@ -239,7 +242,7 @@ export default function Navbar() {
                       color: 'white',
                     }}
                   >
-                    Try SaathiAI Free →
+                    {t('nav', 'tryFree')}
                   </Button>
                 </motion.div>
               </div>
@@ -357,8 +360,13 @@ export default function Navbar() {
                     }}
                   />
 
+                  {/* Language switcher in mobile menu */}
+                  <div style={{ padding: '4px 0 8px' }}>
+                    <LanguageSwitcher variant="full" placement="up" />
+                  </div>
+
                   <Link
-                    href="/signin"
+                    href="/login"
                     onClick={() => setMobileMenuOpen(false)}
                     style={{
                       fontFamily: 'var(--font-body)',
@@ -371,7 +379,7 @@ export default function Navbar() {
                       display: 'block',
                     }}
                   >
-                    Sign in
+                    {t('nav', 'signIn')}
                   </Link>
 
                   <Button
@@ -388,7 +396,7 @@ export default function Navbar() {
                       marginTop: '4px',
                     }}
                   >
-                    Try SaathiAI Free →
+                    {t('nav', 'tryFree')}
                   </Button>
                 </div>
               </motion.div>

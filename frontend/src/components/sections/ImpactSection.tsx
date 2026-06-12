@@ -1,15 +1,17 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
+import { useLocale } from '../../lib/locale-context';
 
 const impactStats = [
-  { number: '1.2M', label: 'additional placements per year' },
-  { number: '₹8,400 Cr', label: 'added to household incomes (est.)' },
-  { number: '3.4×', label: 'improvement in 90-day retention' },
+  { number: '1.2M', labelKey: 'stat1Label' },
+  { number: '₹8,400 Cr', labelKey: 'stat2Label' },
+  { number: '3.4×', labelKey: 'stat3Label' },
 ];
 
 export default function ImpactSection() {
   const [ref, inView] = useInView({ threshold: 0.15, triggerOnce: true });
+  const { t } = useLocale();
 
   return (
     <section style={{
@@ -45,7 +47,7 @@ export default function ImpactSection() {
             marginBottom: '24px',
           }}
         >
-          PROJECTED IMPACT AT SCALE
+          {t('impact', 'eyebrow')}
         </motion.div>
 
         <motion.h2
@@ -58,8 +60,7 @@ export default function ImpactSection() {
             color: '#fff', lineHeight: 1.2, marginBottom: '64px',
           }}
         >
-          If SaathiAI serves just 10% of India's
-          <br />annual vocational graduates —
+          {t('impact', 'heading')}
         </motion.h2>
 
         {/* Stats row */}
@@ -89,7 +90,7 @@ export default function ImpactSection() {
                 fontSize: '16px', color: 'rgba(255,255,255,0.8)',
                 lineHeight: 1.4,
               }}>
-                {stat.label}
+                {t('impact', stat.labelKey)}
               </div>
             </motion.div>
           ))}
@@ -106,9 +107,7 @@ export default function ImpactSection() {
             maxWidth: 660, margin: '0 auto',
           }}
         >
-          Based on 12M annual PMKVY/ITI graduates · 10% reach assumption ·
-          avg. ₹7,000/month wage uplift vs informal sector · 90-day retention
-          improvement from 19% to 65% baseline (STRIVE Tracer Study + HR survey data)
+          {t('impact', 'fineprint')}
         </motion.p>
       </div>
     </section>

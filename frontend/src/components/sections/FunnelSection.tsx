@@ -2,25 +2,29 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import FunnelBar from '../ui/FunnelBar';
+import { useLocale } from '../../lib/locale-context';
 
-const brokenPipeline = [
-  { label: 'Enrolled', percent: 100 },
-  { label: 'Completed Course', percent: 82 },
-  { label: 'Got Certified', percent: 58 },
-  { label: 'Found a Job', percent: 43 },
-  { label: 'Still Employed (90d)', percent: 19 },
+const getBrokenPipeline = (t: any) => [
+  { label: t('funnel', 'leftStep1'), percent: 100 },
+  { label: t('funnel', 'leftStep2'), percent: 82 },
+  { label: t('funnel', 'leftStep3'), percent: 58 },
+  { label: t('funnel', 'leftStep4'), percent: 43 },
+  { label: t('funnel', 'leftStep5'), percent: 19 },
 ];
 
-const saathiPathway = [
-  { label: 'Enrolled', percent: 100 },
-  { label: 'Completed (nudge reminders)', percent: 95 },
-  { label: 'Certified (credential support)', percent: 88 },
-  { label: 'Placed (AI-matched in 24hrs)', percent: 75 },
-  { label: 'Retained at 90 Days (follow-up)', percent: 65 },
+const getSaathiPathway = (t: any) => [
+  { label: t('funnel', 'rightStep1'), percent: 100 },
+  { label: t('funnel', 'rightStep2'), percent: 95 },
+  { label: t('funnel', 'rightStep3'), percent: 88 },
+  { label: t('funnel', 'rightStep4'), percent: 75 },
+  { label: t('funnel', 'rightStep5'), percent: 65 },
 ];
 
 export default function FunnelSection() {
+  const { t } = useLocale();
   const [ref, inView] = useInView({ threshold: 0.15, triggerOnce: true });
+  const brokenPipeline = getBrokenPipeline(t);
+  const saathiPathway = getSaathiPathway(t);
 
   return (
     <section style={{ background: 'var(--color-pure-white)', padding: '96px 0' }} ref={ref}>
@@ -37,7 +41,7 @@ export default function FunnelSection() {
               marginBottom: '16px',
             }}
           >
-            THE DROPOUT FUNNEL — BEFORE & AFTER SAATHIAI
+            {t('funnel', 'eyebrow')}
           </motion.div>
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
@@ -49,7 +53,7 @@ export default function FunnelSection() {
               color: 'var(--color-ink-black)',
             }}
           >
-            From 19% real yield to a system that actually works.
+            {t('funnel', 'headline')}
           </motion.h2>
         </div>
 
@@ -77,7 +81,7 @@ export default function FunnelSection() {
                 fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
                 marginBottom: '12px',
               }}>
-                THE BROKEN PIPELINE
+                {t('funnel', 'leftTitle')}
               </span>
             </div>
             {brokenPipeline.map((bar, i) => (
@@ -95,7 +99,7 @@ export default function FunnelSection() {
               fontFamily: 'var(--font-body)', color: 'var(--color-bone)',
               fontStyle: 'italic',
             }}>
-              PMKVY data · STRIVE Tracer Study · HR retention surveys
+              {t('funnel', 'leftSource')}
             </div>
           </div>
 
@@ -104,7 +108,7 @@ export default function FunnelSection() {
             fontFamily: 'var(--font-display)', fontSize: '48px',
             color: 'var(--color-bone)', textAlign: 'center',
           }}>
-            vs
+            {t('funnel', 'vs')}
           </div>
 
           {/* Right — SaathiAI */}
@@ -119,7 +123,7 @@ export default function FunnelSection() {
                 fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
                 marginBottom: '12px',
               }}>
-                THE SAATHIAI PATHWAY
+                {t('funnel', 'rightTitle')}
               </span>
             </div>
             {saathiPathway.map((bar, i) => (
@@ -151,9 +155,11 @@ export default function FunnelSection() {
             fontFamily: 'var(--font-body)', fontSize: '18px',
             color: 'var(--color-ink-black)', lineHeight: 1.5,
           }}>
-            From 19% to 65% — that's{' '}
-            <strong style={{ color: 'var(--color-action-flame)' }}>3.4× more lives changed</strong>
-            {' '}per training cohort.
+            {t('funnel', 'callout1')}
+            <strong style={{ color: 'var(--color-action-flame)' }}>
+              {t('funnel', 'calloutHighlight')}
+            </strong>
+            {t('funnel', 'callout2')}
           </p>
         </motion.div>
       </div>
