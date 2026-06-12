@@ -8,7 +8,8 @@ import type { Database } from './types.js';
  */
 export const supabase = createClient<Database>(
   config.supabase.url,
-  config.supabase.serviceKey,
+  // config.supabase.serviceKey,
+  config.supabase.secretKey,
   {
     auth: {
       autoRefreshToken: false,

@@ -17,9 +17,10 @@ export const config = {
 
   supabase: {
     url: requireEnv('SUPABASE_URL'),
-    serviceKey: requireEnv('SUPABASE_SERVICE_KEY'),
+    // serviceKey: requireEnv('SUPABASE_SERVICE_KEY'),
+    secretKey: requireEnv('SUPABASE_SECRET_KEY'), 
     // anon key is used for oauth flows only
-    anonKey: process.env.SUPABASE_ANON_KEY ?? '',
+    // anonKey: process.env.SUPABASE_ANON_KEY ?? '',
   },
 
   jwt: {

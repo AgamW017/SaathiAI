@@ -29,7 +29,7 @@ Backend API records events → Supabase
 
 ```bash
 cp .env.example .env.local
-# Fill in SUPABASE_URL, SUPABASE_SERVICE_KEY, JWT_SECRET, BOT_INTERNAL_SECRET
+# Fill in SUPABASE_URL, SUPABASE_SECRET_KEY, JWT_SECRET, BOT_INTERNAL_SECRET
 ```
 
 **Generate a JWT secret:**
@@ -246,7 +246,7 @@ pnpm run types:gen
 |---|---|---|
 | `BACKEND_PORT` | No (default: 4000) | Server port |
 | `SUPABASE_URL` | **Yes** | Supabase project URL |
-| `SUPABASE_SERVICE_KEY` | **Yes** | Service role key (bypasses RLS) |
+| `SUPABASE_SECRET_KEY` | **Yes** | Service role key (bypasses RLS) |
 | `SUPABASE_ANON_KEY` | No | Anon key (OAuth only) |
 | `DATABASE_URL` | Yes (for migrations) | Direct Postgres connection |
 | `JWT_SECRET` | **Yes** | 64-byte hex secret for JWT signing |

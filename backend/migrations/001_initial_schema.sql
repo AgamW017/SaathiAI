@@ -194,3 +194,13 @@ CREATE TRIGGER trg_applications_updated_at
 CREATE TRIGGER trg_skill_cards_updated_at
   BEFORE UPDATE ON public.skill_cards
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+GRANT ALL PRIVILEGES ON TABLE public.users TO service_role;
+GRANT ALL PRIVILEGES ON TABLE public.learners TO service_role;
+GRANT ALL PRIVILEGES ON TABLE public.sessions TO service_role;
+GRANT ALL PRIVILEGES ON TABLE public.jobs TO service_role;
+GRANT ALL PRIVILEGES ON TABLE public.applications TO service_role;
+GRANT ALL PRIVILEGES ON TABLE public.skill_cards TO service_role;
+GRANT ALL PRIVILEGES ON TABLE public.placements TO service_role;
+GRANT ALL PRIVILEGES ON TABLE public.events TO service_role;
