@@ -15,6 +15,7 @@ import { InterviewService } from './services/interviewService.js';
 import { ConversationEngine } from './conversation/conversationEngine.js';
 import { WhatsAppBot } from './whatsapp/whatsappBot.js';
 
+
 const config = loadConfig();
 const logger = createLogger(config);
 const stats = new RuntimeStats();

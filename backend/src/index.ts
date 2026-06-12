@@ -3,17 +3,16 @@ import 'express-async-errors';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { createExpressMiddleware } from '@trpc/server/adapters/express';
 
 import { config } from './config/env.js';
 import { logger } from './config/logger.js';
 import { requestLogger } from './middleware/logger.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
-import { authRouter } from './routes/auth.js';
-import { learnersRouter } from './routes/learners.js';
-import { placementsRouter } from './routes/placements.js';
-import { dashboardRouter } from './routes/dashboard.js';
 import { internalRouter } from './routes/internal.js';
+import { appRouter } from './trpc/router.js';
+import { createContext } from './trpc/context.js';
 
 const app = express();
 
@@ -28,11 +27,19 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true, version: '1.0.0', timestamp: new Date().toISOString() });
 });
 
-// ─── API routes ────────────────────────────────────────────────────────────
-app.use('/auth', authRouter);
-app.use('/learners', learnersRouter);
-app.use('/placements', placementsRouter);
-app.use('/dashboard', dashboardRouter);
+// ─── tRPC router ───────────────────────────────────────────────────────────
+app.use(
+  '/trpc',
+  createExpressMiddleware({
+    router: appRouter,
+    createContext,
+    onError({ path, error }) {
+      logger.error({ path, error }, 'tRPC error');
+    },
+  })
+);
+
+// ─── Internal REST routes (bot webhooks — not migrated to tRPC) ────────────
 app.use('/admin', internalRouter);
 app.use('/internal', internalRouter);
 

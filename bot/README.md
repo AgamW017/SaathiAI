@@ -5,9 +5,9 @@ Modular WhatsApp companion bot for learner onboarding, skill-card generation, jo
 ## Quick Start
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env
-npm start
+pnpm start
 ```
 
 Open `http://localhost:3000` to scan the WhatsApp QR code and watch bot health/logs.

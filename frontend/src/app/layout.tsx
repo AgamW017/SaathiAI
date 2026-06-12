@@ -5,6 +5,7 @@ import '@fontsource/plus-jakarta-sans/500.css';
 import '@fontsource/plus-jakarta-sans/600.css';
 import '@fontsource/plus-jakarta-sans/700.css';
 import { LocaleProvider } from '../lib/locale-context';
+import { TRPCProvider } from '../lib/trpc/provider';
 
 export const viewport = {
   themeColor: "#004038",
@@ -27,11 +28,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body suppressHydrationWarning>
-        <LocaleProvider>
-          {children}
-        </LocaleProvider>
+        <TRPCProvider>
+          <LocaleProvider>
+            {children}
+          </LocaleProvider>
+        </TRPCProvider>
       </body>
     </html>
   );
 }
-

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config/env.js';
 import type { Database } from './types.js';
+import WebSocket from 'ws';
 
 /**
  * Service-role Supabase client — bypasses RLS.
@@ -8,12 +9,14 @@ import type { Database } from './types.js';
  */
 export const supabase = createClient<Database>(
   config.supabase.url,
-  // config.supabase.serviceKey,
   config.supabase.secretKey,
   {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+    },
+    realtime: {
+      transport: WebSocket as unknown as any,
     },
   }
 );

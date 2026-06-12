@@ -1,0 +1,163 @@
+import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
+import { router, publicProcedure, protectedProcedure } from '../trpc.js';
+import {
+  loginWithEmailPassword,
+  refreshAccessToken,
+  revokeSession,
+  signupUser,
+} from '../../services/authService.js';
+
+// ─── Schemas ──────────────────────────────────────────────────────────────────
+
+/**
+ * Sign-in input: role-agnostic — caller passes identifier (email or phone) + password.
+ * The server looks up the user and validates the role matches.
+ */
+const SigninInput = z.object({
+  identifier: z.string().min(5, 'Email or phone required'),
+  password: z.string().min(1, 'Password required'),
+  role: z.enum(['learner', 'employer', 'officer', 'dssdo', 'admin']),
+});
+
+/**
+ * Signup is role-specific. We use a discriminated union so each role collects
+ * only the fields it needs.
+ *
+ * Roles → allowed login methods:
+ *   learner   → phone only
+ *   employer  → email (phone optional)
+ *   officer   → email only
+ *   dssdo     → email only
+ *   admin     → email only
+ */
+const SignupInput = z.discriminatedUnion('role', [
+  z.object({
+    role: z.literal('learner'),
+    phone: z.string().regex(/^\+?[0-9]{10,13}$/, 'Valid phone required'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    full_name: z.string().min(2, 'Name required'),
+  }),
+  z.object({
+    role: z.literal('employer'),
+    email: z.string().email('Valid email required'),
+    phone: z.string().regex(/^\+?[0-9]{10,13}$/).optional(),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    company_name: z.string().min(2, 'Company name required'),
+    contact_name: z.string().min(2, 'Contact name required'),
+    udyam: z
+      .string()
+      .regex(/^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/, 'Invalid Udyam format')
+      .optional(),
+  }),
+  z.object({
+    role: z.literal('officer'),
+    email: z.string().email('Valid email required'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    full_name: z.string().min(2, 'Name required'),
+    iti_name: z.string().optional(),
+    district: z.string().optional(),
+  }),
+  z.object({
+    role: z.literal('dssdo'),
+    email: z.string().email('Valid email required'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    full_name: z.string().min(2, 'Name required'),
+    district: z.string().optional(),
+  }),
+  z.object({
+    role: z.literal('admin'),
+    email: z.string().email('Valid email required'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    full_name: z.string().min(2, 'Name required'),
+  }),
+]);
+
+// ─── Router ───────────────────────────────────────────────────────────────────
+
+export const authRouter = router({
+  /**
+   * Sign in — accepts email OR phone + password.
+   * Role is used to determine which identifier field to use:
+   *   learner → phone
+   *   others  → email (employer may also use phone)
+   */
+  signin: publicProcedure.input(SigninInput).mutation(async ({ input }) => {
+    const { identifier, password, role } = input;
+
+    // Determine if identifier is a phone number or email
+    const isPhone = /^\+?[0-9]{10,13}$/.test(identifier);
+
+    if (role === 'learner' && !isPhone) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Job seekers must log in with their phone number',
+      });
+    }
+    if ((role === 'officer' || role === 'dssdo' || role === 'admin') && isPhone) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Trainers and DSDO officers must log in with their email',
+      });
+    }
+
+    const email = isPhone ? undefined : identifier;
+    const phone = isPhone ? identifier : undefined;
+
+    try {
+      const result = await loginWithEmailPassword(email, phone, password);
+      // Validate the role in DB matches what was selected
+      if (result.user.role !== role) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: `This account is registered as "${result.user.role}", not "${role}"`,
+        });
+      }
+      return result;
+    } catch (err: any) {
+      if (err instanceof TRPCError) throw err;
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: err.message ?? 'Invalid credentials',
+      });
+    }
+  }),
+
+  /**
+   * Sign up — role-specific input, creates Supabase user + DB profile.
+   * Only employer signup is surfaced on the frontend currently.
+   */
+  signup: publicProcedure.input(SignupInput).mutation(async ({ input }) => {
+    try {
+      return await signupUser(input);
+    } catch (err: any) {
+      if (err instanceof TRPCError) throw err;
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: err.message ?? 'Signup failed',
+      });
+    }
+  }),
+
+  /** Refresh an expired access token using a valid refresh token */
+  refresh: publicProcedure
+    .input(z.object({ refresh_token: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      try {
+        return await refreshAccessToken(input.refresh_token);
+      } catch (err: any) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid or expired refresh token' });
+      }
+    }),
+
+  /** Sign out — invalidates the Supabase session */
+  signout: protectedProcedure.mutation(async ({ ctx }) => {
+    await revokeSession(ctx.user.sub);
+    return { success: true };
+  }),
+
+  /** Get the current authenticated user's profile */
+  me: protectedProcedure.query(({ ctx }) => {
+    return { user: ctx.user };
+  }),
+});
