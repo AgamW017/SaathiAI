@@ -14,6 +14,7 @@ export class ConversationEngine {
     this.interviewService = interviewService;
     this.transcriptionService = transcriptionService;
     this.logger = logger;
+    this.aiClient = extractionService.aiClient;
   }
 
   async processIncoming(incoming) {
@@ -41,14 +42,17 @@ export class ConversationEngine {
     if (!text) {
       const reason = session.context.lastVoiceTranscriptionError ?? 'unknown voice transcription error';
       this.logger.warn({ phone: incoming.phone, reason }, 'Voice message could not be transcribed');
+      const fallbackReplies = [this.message(t(session.script).voiceUnavailable, { debugReason: reason, intent: 'voice_transcription_failed' })];
+      const draftedReplies = await this.draftReplies(session, fallbackReplies, '');
       await this.store.saveSession(session);
-      return { replies: [this.message(t(session.script).voiceUnavailable, { debugReason: reason })], session };
+      return { replies: draftedReplies, session };
     }
 
     session.script = chooseScript(session, text);
     session.lastInteractionAt = new Date().toISOString();
 
     const replies = await this.routeText(session, text);
+    const finalReplies = await this.draftReplies(session, replies, text);
     await this.persistSessionAndLearner(session);
 
     if (session.step !== stepBefore) {
@@ -62,7 +66,7 @@ export class ConversationEngine {
       });
     }
 
-    return { replies, session };
+    return { replies: finalReplies, session };
   }
 
   async loadOrCreateSession(phone) {
@@ -221,22 +225,34 @@ export class ConversationEngine {
 
   async handleName(session, text) {
     const messages = t(session.script);
-    session.collected.name = text.trim();
+    const extraction = await this.extractionService.extractName(text, { script: session.script });
+    this.addAiFlags(session, extraction.flags, 'name');
+
+    if (!extraction.name) {
+      return [this.message(messages.askName, { intent: 'clarify_name', facts: { reason: 'name_not_clear' } })];
+    }
+
+    session.collected.name = extraction.name;
     session.step = Steps.ONBOARDING_TRADE;
-    return [this.message(messages.askTradeDistrict(session.collected.name))];
+    return [this.message(messages.askTradeDistrict(session.collected.name), { intent: 'ask_trade_district' })];
   }
 
   async handleTradeDistrict(session, text) {
     const messages = t(session.script);
     const extracted = await this.extractionService.extractProfile(text, session.collected);
-    const profilePatch = withoutEmptyValues(extracted);
+    this.addAiFlags(session, extracted.flags, 'profile');
+    const profilePatch = withoutEmptyValues({
+      trade: extracted.trade,
+      district: extracted.district,
+      state: extracted.state
+    });
 
     if (session.context.awaitingProfileField === 'trade') {
-      session.collected.trade = extracted.trade ?? text.trim();
+      session.collected.trade = extracted.trade ?? null;
       session.context.awaitingProfileField = null;
     } else if (session.context.awaitingProfileField === 'district') {
-      session.collected.district = extracted.district ?? text.trim();
-      session.collected.state = extracted.state ?? session.collected.state ?? 'Uttar Pradesh';
+      session.collected.district = extracted.district ?? null;
+      session.collected.state = extracted.state ?? session.collected.state ?? null;
       session.context.awaitingProfileField = null;
     }
 
@@ -244,16 +260,16 @@ export class ConversationEngine {
 
     if (!session.collected.trade) {
       session.context.awaitingProfileField = 'trade';
-      return [this.message(messages.askMissingTrade)];
+      return [this.message(messages.askMissingTrade, { intent: 'clarify_trade', facts: { extraction } })];
     }
 
     if (!session.collected.district) {
       session.context.awaitingProfileField = 'district';
-      return [this.message(messages.askMissingDistrict)];
+      return [this.message(messages.askMissingDistrict, { intent: 'clarify_district', facts: { extraction } })];
     }
 
     session.step = Steps.ONBOARDING_CERTIFICATE;
-    return [this.message(messages.profileBasicsCaptured(session.collected))];
+    return [this.message(messages.profileBasicsCaptured(session.collected), { intent: 'ask_certificate', facts: session.collected })];
   }
 
   async handleCertificateAndConfirmation(session, text) {
@@ -261,33 +277,47 @@ export class ConversationEngine {
 
     if (session.context.profileCorrection) {
       const extracted = await this.extractionService.extractProfile(text, session.collected);
-      session.collected = { ...session.collected, ...extracted };
+      this.addAiFlags(session, extracted.flags, 'profile_correction');
+      session.collected = {
+        ...session.collected,
+        ...withoutEmptyValues({
+          trade: extracted.trade,
+          district: extracted.district,
+          state: extracted.state
+        })
+      };
       if (/pmkvy|iti|jss|government|skill|course|college/i.test(text)) {
-        session.collected.certificateType = await this.extractionService.extractCertificate(text);
+        const certificate = await this.extractionService.extractCertificate(text);
+        this.addAiFlags(session, certificate.flags, 'certificate_correction');
+        session.collected.certificateType = certificate.certificateType;
+        session.collected.certificateNormalizedType = certificate.normalizedType;
       }
       session.context.profileCorrection = false;
       session.context.profileConfirmation = true;
-      return [this.message(this.profileConfirmationText(session))];
+      return [this.message(this.profileConfirmationText(session), { intent: 'confirm_profile', facts: session.collected })];
     }
 
     if (session.context.profileConfirmation) {
       if (isAffirmative(text)) {
         session.context.profileConfirmation = false;
         session.step = Steps.SKILL_EXTRACTION;
-        return [this.message(messages.askSkills)];
+        return [this.message(messages.askSkills, { intent: 'ask_skills' })];
       }
 
       if (isNegative(text)) {
         session.context.profileCorrection = true;
-        return [this.message(messages.askCorrection)];
+        return [this.message(messages.askCorrection, { intent: 'ask_profile_correction' })];
       }
 
-      return [this.message(this.profileConfirmationText(session))];
+      return [this.message(this.profileConfirmationText(session), { intent: 'confirm_profile', facts: session.collected })];
     }
 
-    session.collected.certificateType = await this.extractionService.extractCertificate(text);
+    const certificate = await this.extractionService.extractCertificate(text);
+    this.addAiFlags(session, certificate.flags, 'certificate');
+    session.collected.certificateType = certificate.certificateType;
+    session.collected.certificateNormalizedType = certificate.normalizedType;
     session.context.profileConfirmation = true;
-    return [this.message(this.profileConfirmationText(session))];
+    return [this.message(this.profileConfirmationText(session), { intent: 'confirm_profile', facts: session.collected })];
   }
 
   async handleSkillExtraction(session, text) {
@@ -297,7 +327,7 @@ export class ConversationEngine {
       if (wantsToAddSkill(text)) {
         session.context.skillConfirmation = false;
         session.context.skillAddition = true;
-        return [this.message(messages.askSkills)];
+        return [this.message(messages.askSkills, { intent: 'ask_more_skills' })];
       }
 
       if (isNegative(text) || isAffirmative(text)) {
@@ -307,6 +337,7 @@ export class ConversationEngine {
     }
 
     const extraction = await this.extractionService.extractSkills(text, session.collected.skills ?? []);
+    this.addAiFlags(session, extraction.flags, 'skills');
     session.collected.skills = extraction.skills;
     session.collected.ojtHours = extraction.ojtHours;
     session.collected.specificProjects = extraction.specificProjects;
@@ -314,12 +345,17 @@ export class ConversationEngine {
 
     if (session.collected.skills.length < 2 && !session.context.skillDetailPrompted) {
       session.context.skillDetailPrompted = true;
-      return [this.message(messages.askMoreSkillDetail)];
+      return [this.message(messages.askMoreSkillDetail, { intent: 'clarify_skills', facts: { extraction } })];
     }
 
     session.context.skillAddition = false;
     session.context.skillConfirmation = true;
-    return [this.message(withOptions(messages.skillsSummary(session.collected.skills), [messages.labels.noMoreSkills, messages.labels.addSkills]))];
+    return [
+      this.message(withOptions(messages.skillsSummary(session.collected.skills), [messages.labels.noMoreSkills, messages.labels.addSkills]), {
+        intent: 'confirm_skills',
+        facts: { skills: session.collected.skills }
+      })
+    ];
   }
 
   async createSkillCard(session) {
@@ -338,9 +374,9 @@ export class ConversationEngine {
     session.context.jobsReady = true;
 
     return [
-      this.message(messages.cardProcessing),
-      this.message(messages.cardReady(card.url)),
-      this.message(withOptions(messages.askJobsReady, [messages.labels.showJobs, messages.labels.later]))
+      this.message(messages.cardProcessing, { intent: 'card_processing' }),
+      this.message(messages.cardReady(card.url), { intent: 'card_ready', facts: { cardUrl: card.url } }),
+      this.message(withOptions(messages.askJobsReady, [messages.labels.showJobs, messages.labels.later]), { intent: 'ask_jobs_ready' })
     ];
   }
 
@@ -535,9 +571,33 @@ export class ConversationEngine {
     return { type: 'text', text, metadata };
   }
 
+  async draftReplies(session, replies, incomingText) {
+    const drafted = [];
+    for (const reply of replies) {
+      const draftedReply = await this.aiClient.draftReply({
+        script: session.script ?? 'roman',
+        intent: reply.metadata?.intent ?? 'conversation_reply',
+        brief: reply.text,
+        facts: {
+          ...(reply.metadata?.facts ?? {}),
+          incomingText
+        },
+        session
+      });
+      this.addAiFlags(session, draftedReply.flags, 'reply');
+      drafted.push({ ...reply, text: draftedReply.text });
+    }
+    return drafted;
+  }
+
+  addAiFlags(session, flags = [], source = 'unknown') {
+    if (!flags.length) return;
+    const enriched = flags.map((flag) => ({ ...flag, source, at: new Date().toISOString() }));
+    session.context.aiFlags = [...(session.context.aiFlags ?? []), ...enriched].slice(-50);
+  }
+
   async persistSessionAndLearner(session) {
-    await this.store.saveSession(session);
-    await this.store.upsertLearner(session.phone, {
+    const learner = await this.store.upsertLearner(session.phone, {
       id: session.learnerId,
       script: session.script,
       step: session.step,
@@ -545,6 +605,8 @@ export class ConversationEngine {
       cardUrl: session.cardUrl,
       ...session.collected
     });
+    session.learnerId = learner.id;
+    await this.store.saveSession(session);
   }
 
   isDuplicate(session, messageId) {
@@ -569,14 +631,27 @@ function stepToInterviewIndex(step) {
 }
 
 function formatJob(job, index, total) {
-  const salary =
-    job.salaryMin === job.salaryMax
-      ? `Rs.${job.salaryMin.toLocaleString('en-IN')} / month`
-      : `Rs.${job.salaryMin.toLocaleString('en-IN')} - Rs.${job.salaryMax.toLocaleString('en-IN')} / month`;
-  const marker = job.type === 'apprenticeship' ? 'Government registered apprenticeship' : `${job.openings} openings`;
+  const salary = formatSalary(job);
+  const distance = Number.isFinite(job.distanceKm) ? `${job.distanceKm} km - ` : '';
+  const marker =
+    job.type === 'apprenticeship'
+      ? 'Government registered apprenticeship'
+      : job.openings
+        ? `${job.openings} openings`
+        : 'Open role';
   const verification = job.verified ? 'Verified employer' : 'Unverified employer - ask your placement officer before proceeding';
 
-  return `Job ${index} of ${total}\n${job.employerName}\n${job.role}\n📍 ${job.distanceKm} km - ${job.location}\n💰 ${salary}\n🕐 ${marker} - ${job.postedText}\n${verification}`;
+  return `Job ${index} of ${total}\n${job.employerName}\n${job.role}\n📍 ${distance}${job.location}\n💰 ${salary}\n🕐 ${marker} - ${job.postedText}\n${verification}`;
+}
+
+function formatSalary(job) {
+  if (job.salaryRangeText) return job.salaryRangeText;
+  if (Number.isFinite(job.salaryMin) && Number.isFinite(job.salaryMax)) {
+    return job.salaryMin === job.salaryMax
+      ? `Rs.${job.salaryMin.toLocaleString('en-IN')} / month`
+      : `Rs.${job.salaryMin.toLocaleString('en-IN')} - Rs.${job.salaryMax.toLocaleString('en-IN')} / month`;
+  }
+  return 'Salary to be confirmed';
 }
 
 function withoutEmptyValues(value) {

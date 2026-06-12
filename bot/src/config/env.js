@@ -15,9 +15,13 @@ export function loadConfig() {
     botDisplayName: process.env.BOT_DISPLAY_NAME ?? 'SaathiAI',
     dataDir: path.resolve(rootDir, process.env.DATA_DIR ?? './data/runtime'),
     jobDataPath: path.resolve(rootDir, process.env.JOB_DATA_PATH ?? './data/jobs.json'),
-    ai: {
-      baseUrl: process.env.SAATHI_AI_API_URL ?? '',
-      apiKey: process.env.SAATHI_AI_API_KEY ?? ''
+    supabase: {
+      url: process.env.SUPABASE_URL ?? '',
+      serviceKey: process.env.SUPABASE_SERVICE_KEY ?? ''
+    },
+    gemini: {
+      apiKey: process.env.GEMINI_API_KEY ?? '',
+      model: process.env.GEMINI_MODEL ?? 'gemini-3.5-flash'
     },
     sarvam: {
       apiKey: process.env.SARVAM_API_KEY ?? '',

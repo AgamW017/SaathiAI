@@ -42,7 +42,24 @@ The bot logs interaction events without storing full message content, matching t
 
 `PUBLIC_BASE_URL` controls generated skill-card URLs.
 
-If `SAATHI_AI_API_URL` is set, extraction/feedback calls are sent there. Otherwise, local deterministic extractors are used for reliable development.
+Learners, skill cards, applications, jobs, and events are always read/written through the backend Supabase Postgres schema. Bot-only runtime state, such as active WhatsApp sessions and duplicate message IDs, stays in local JSON under `DATA_DIR`.
+
+The bot is server-side, so it can use the service-role key, but keep it only in `.env`:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-role-key
+PUBLIC_BASE_URL=http://localhost:3000
+```
+
+Gemini is required. SaathiAI uses Gemini for final learner-facing replies, name validation, trade/location classification, certificate normalization, skill extraction, interview feedback, and ambiguity/risk flags:
+
+```env
+GEMINI_API_KEY=your-google-ai-studio-key
+GEMINI_MODEL=gemini-3.5-flash
+```
+
+The bot will fail fast at startup if `GEMINI_API_KEY` is missing.
 
 If `SARVAM_API_KEY` is set, voice notes are converted from WhatsApp OGG/Opus to 16k WAV and uploaded to Sarvam Saaras through `speechToTextJob`. Otherwise the bot asks the learner to send the answer as text. The default model is `saaras:v3`; configure `SARVAM_LANGUAGE_CODE`, `SARVAM_SAMPLE_RATE`, and `SARVAM_AUDIO_ENCODING` if your audio pipeline differs.
 
