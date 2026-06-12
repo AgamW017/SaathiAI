@@ -1,10 +1,12 @@
 import { loadConfig } from './config/env.js';
 import { createLogger } from './logger.js';
 import { JsonStore } from './storage/jsonStore.js';
+import { SupabaseStore } from './storage/supabaseStore.js';
+import { BotStore } from './storage/botStore.js';
 import { EventLog } from './storage/eventLog.js';
 import { RuntimeStats } from './runtime/stats.js';
 import { DashboardServer } from './dashboard/server.js';
-import { ExternalAiClient } from './services/externalAiClient.js';
+import { GeminiClient } from './services/geminiClient.js';
 import { ExtractionService } from './services/extractionService.js';
 import { TranscriptionService } from './services/transcriptionService.js';
 import { SkillCardService } from './services/skillCardService.js';
@@ -19,14 +21,16 @@ const stats = new RuntimeStats();
 
 logger.info('Initializing SaathiAI WhatsApp Bot with Web Interface');
 
-const store = new JsonStore({ dataDir: config.dataDir, jobDataPath: config.jobDataPath });
+const aiClient = new GeminiClient(config.gemini);
+const runtimeStore = new JsonStore({ dataDir: config.dataDir, jobDataPath: config.jobDataPath });
+const backendStore = new SupabaseStore({ supabase: config.supabase, publicBaseUrl: config.publicBaseUrl });
+const store = new BotStore({ runtimeStore, backendStore });
 await store.init();
 
 const eventLog = new EventLog(store);
 const dashboard = new DashboardServer({ config, stats, store, logger });
 dashboard.start();
 
-const aiClient = new ExternalAiClient(config.ai);
 const extractionService = new ExtractionService({ aiClient, logger });
 const transcriptionService = new TranscriptionService({ config: config.sarvam, logger });
 const skillCardService = new SkillCardService({ store, publicBaseUrl: config.publicBaseUrl });

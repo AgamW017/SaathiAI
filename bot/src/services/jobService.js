@@ -12,12 +12,12 @@ export class JobService {
 
     const hardMatches = jobs
       .filter((job) => normalize(job.trade) === normalizedTrade)
-      .filter((job) => normalize(job.district) === normalizedDistrict && job.distanceKm <= 25)
+      .filter((job) => matchesDistrict(job, normalizedDistrict) && withinDistance(job, 25))
       .sort(compareJobs);
 
     const expandedMatches = jobs
       .filter((job) => normalize(job.trade) === normalizedTrade)
-      .filter((job) => normalize(job.district) === normalizedDistrict && job.distanceKm <= 50)
+      .filter((job) => matchesDistrict(job, normalizedDistrict) && withinDistance(job, 50))
       .sort(compareJobs);
 
     const fallbackTradeMatches = jobs
@@ -42,8 +42,14 @@ export class JobService {
 }
 
 function compareJobs(a, b) {
-  if (a.distanceKm !== b.distanceKm) return a.distanceKm - b.distanceKm;
-  if (a.salaryMax !== b.salaryMax) return b.salaryMax - a.salaryMax;
+  const distanceA = Number.isFinite(a.distanceKm) ? a.distanceKm : Number.MAX_SAFE_INTEGER;
+  const distanceB = Number.isFinite(b.distanceKm) ? b.distanceKm : Number.MAX_SAFE_INTEGER;
+  if (distanceA !== distanceB) return distanceA - distanceB;
+
+  const salaryA = Number.isFinite(a.salaryMax) ? a.salaryMax : 0;
+  const salaryB = Number.isFinite(b.salaryMax) ? b.salaryMax : 0;
+  if (salaryA !== salaryB) return salaryB - salaryA;
+
   return Number(b.verified) - Number(a.verified);
 }
 
@@ -58,4 +64,15 @@ function uniqueJobs(jobs) {
 
 function normalize(value = '') {
   return value.toString().trim().toLowerCase();
+}
+
+function matchesDistrict(job, normalizedDistrict) {
+  if (!normalizedDistrict) return true;
+  const jobDistrict = normalize(job.district);
+  const jobLocation = normalize(job.location);
+  return !jobDistrict || jobDistrict === normalizedDistrict || jobLocation.includes(normalizedDistrict);
+}
+
+function withinDistance(job, maxDistanceKm) {
+  return !Number.isFinite(job.distanceKm) || job.distanceKm <= maxDistanceKm;
 }
