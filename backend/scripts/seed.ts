@@ -45,18 +45,18 @@ async function createUser(
     user_metadata: { full_name: fullName },
   });
 
-  if (authError && !authError.message.includes('already registered')) {
+  if (authError && authError.code !== 'email_exists' && !authError.message.includes('already')) {
     console.error(`Failed to create auth user ${email}:`, authError.message);
     return null;
   }
 
-  const userId = authData?.user?.id;
+  let userId = authData?.user?.id;
   if (!userId) {
     // User might already exist — try to find it
     const { data: { users } } = await supabase.auth.admin.listUsers();
     const existing = users.find((u) => u.email === email);
     if (!existing) return null;
-    return existing.id;
+    userId = existing.id;
   }
 
   // Upsert profile

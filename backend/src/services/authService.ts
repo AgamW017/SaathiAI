@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env.js';
 import { supabase as _supabase, supabaseAdmin } from '../db/client.js';
+import { createClient } from '@supabase/supabase-js';
 const supabase = _supabase as any;
 import type { JwtPayload } from '../middleware/auth.js';
 import type { UserRole, UserRow } from '../db/types.js';
@@ -31,15 +32,19 @@ export async function loginWithEmailPassword(
   let supabaseUserId: string;
   let resolvedEmail: string | undefined = email;
 
+  const authClient = createClient(config.supabase.url, config.supabase.secretKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+
   if (email) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await authClient.auth.signInWithPassword({ email, password });
     if (error || !data.user) {
       throw Object.assign(new Error('Invalid credentials'), { status: 401 });
     }
     supabaseUserId = data.user.id;
   } else if (phone) {
     // Supabase phone+password requires phone to be in E.164 format
-    const { data, error } = await supabase.auth.signInWithPassword({ phone, password });
+    const { data, error } = await authClient.auth.signInWithPassword({ phone, password });
     if (error || !data.user) {
       throw Object.assign(new Error('Invalid credentials'), { status: 401 });
     }
@@ -56,7 +61,10 @@ export async function loginWithEmailPassword(
  * Issue new JWT pair from a valid Supabase refresh_token.
  */
 export async function refreshSession(refreshToken: string): Promise<LoginResult> {
-  const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+  const authClient = createClient(config.supabase.url, config.supabase.secretKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+  const { data, error } = await authClient.auth.refreshSession({ refresh_token: refreshToken });
   if (error || !data.user) {
     throw Object.assign(new Error('Invalid or expired refresh token'), { status: 401 });
   }
@@ -74,7 +82,10 @@ export async function revokeSession(userId: string): Promise<void> {
  * Exchange a Google OAuth code for tokens.
  */
 export async function loginWithGoogleCode(code: string): Promise<LoginResult> {
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  const authClient = createClient(config.supabase.url, config.supabase.secretKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+  const { data, error } = await authClient.auth.exchangeCodeForSession(code);
   if (error || !data.user) {
     throw Object.assign(new Error('OAuth failed'), { status: 401 });
   }
