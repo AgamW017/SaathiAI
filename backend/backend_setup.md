@@ -72,7 +72,7 @@ backend/
 ```bash
 # Get from Supabase dashboard → Settings → API
 SUPABASE_URL=https://khuxbwwjyqmjwscmnghu.supabase.co
-SUPABASE_SERVICE_KEY=<service-role-key>
+SUPABASE_SECRET_KEY=<service-role-key>
 DATABASE_URL=postgresql://postgres:<password>@db.khuxbwwjyqmjwscmnghu.supabase.co:5432/postgres
 
 # Generate:
@@ -130,7 +130,7 @@ pnpm run types:gen    # → src/db/openapi-types.ts (for frontend)
 | officer3@saathi.in | officer (Bokaro) |
 
 > [!IMPORTANT]
-> The `SUPABASE_SERVICE_KEY` must only exist server-side. Never expose it to the frontend. The backend is the single source of truth for all data.
+> The `SUPABASE_SECRET_KEY` must only exist server-side. Never expose it to the frontend. The backend is the single source of truth for all data.
 
 > [!NOTE]
 > Bot ports 3001 and 3002 are configurable via `ADMIN_WS_PORT` and `INTERNAL_WS_PORT` env vars in `bot/.env`.

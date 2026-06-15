@@ -10,15 +10,14 @@
     "start": "node dist/index.js",
     "db:init": "tsx scripts/init.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "migrate": "tsx scripts/migrate.ts",
-    "openapi:gen": "tsx scripts/genOpenApi.ts",
-    "types:gen": "openapi-typescript openapi.json -o src/db/openapi-types.ts"
+    "migrate": "tsx scripts/migrate.ts"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.47.10",
+    "@trpc/server": "^11.17.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -28,8 +27,9 @@
     "morgan": "^1.10.0",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0",
-    "zod": "^3.23.8",
-    "zod-to-json-schema": "^3.24.5"
+    "superjson": "^2.2.6",
+    "ws": "^8.21.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -38,7 +38,6 @@
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.20.0",
-    "openapi-typescript": "^7.4.4",
     "pg": "^8.21.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"

@@ -1,17 +1,21 @@
 'use client';
 
 import React, { useState, useEffect, useId } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import LanguageSwitcher from '../ui/LanguageSwitcher';
 import { useLocale } from '../../lib/locale-context';
+import { trpc } from '../../lib/trpc/client';
+import { authStore } from '../../lib/auth/authStore';
 
 // ─── Zod Schemas ────────────────────────────────────────────────────────────
 
+// Identifier field — email or phone depending on role
 const loginSchema = z.object({
-  email: z.string().email('validEmail'),
+  identifier: z.string().min(5, 'emailOrPhone'),
   password: z.string().min(1, 'passwordRequired'),
 });
 
@@ -553,9 +557,24 @@ function LoginForm({
   shouldReduceMotion: boolean;
 }) {
   const { t } = useLocale();
+  const router = useRouter();
   const [serverError, setServerError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const formId = useId();
+
+  const signinMutation = trpc.auth.signin.useMutation({
+    onSuccess(data) {
+      authStore.setAuth(data);
+      router.push(authStore.getDashboardPath());
+    },
+    onError(err) {
+      setServerError(err.message);
+    },
+  });
+
+  const isLoading = signinMutation.isPending;
+
+  // Determine which identifier field to show based on role
+  const showPhone = role === 'jobseeker';
 
   const {
     register,
@@ -568,20 +587,36 @@ function LoginForm({
 
   const currentRole = ROLES.find((r) => r.id === role)!;
 
-  const onSubmit = async (data: LoginInputs) => {
-    setServerError('');
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((res) => setTimeout(res, 1200));
-      console.log('Login attempt:', { ...data, role });
-      // On real integration: router.push('/dashboard')
-    } catch {
-      setServerError('invalidCredentials');
-    } finally {
-      setIsLoading(false);
-    }
+  // Map frontend role IDs to backend role enum
+  const backendRole: Record<RoleId, 'learner' | 'employer' | 'officer' | 'dssdo' | 'admin'> = {
+    jobseeker: 'learner',
+    employer: 'employer',
+    trainer: 'officer',
+    admin: 'dssdo',
   };
+
+  const onSubmit = (data: LoginInputs) => {
+    setServerError('');
+    signinMutation.mutate({
+      identifier: data.identifier,
+      password: data.password,
+      role: backendRole[role],
+    });
+  };
+
+  const identifierLabel = showPhone
+    ? t('login', 'mobileNumber')
+    : role === 'employer'
+      ? t('login', 'emailOrPhone')
+      : t('login', 'email');
+
+  const identifierPlaceholder = showPhone
+    ? '9876543210'
+    : role === 'employer'
+      ? 'you@company.com'
+      : 'you@example.com';
+
+  const identifierInputType = showPhone ? 'tel' : 'text';
 
   return (
     <form
@@ -618,14 +653,14 @@ function LoginForm({
         </motion.div>
       </AnimatePresence>
 
-      <FormField label={t('login', 'email')} id={`${formId}-email`} error={errors.email?.message}>
+      <FormField label={identifierLabel} id={`${formId}-identifier`} error={errors.identifier?.message}>
         <Input
-          id={`${formId}-email`}
-          type="email"
-          autoComplete="email"
-          placeholder="you@example.com"
-          hasError={!!errors.email}
-          {...register('email')}
+          id={`${formId}-identifier`}
+          type={identifierInputType}
+          autoComplete={showPhone ? 'tel' : 'email'}
+          placeholder={identifierPlaceholder}
+          hasError={!!errors.identifier}
+          {...register('identifier')}
         />
       </FormField>
 
@@ -681,10 +716,23 @@ type SignupState = 'form' | 'success';
 
 function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
   const { t } = useLocale();
+  const router = useRouter();
   const [state, setState] = useState<SignupState>('form');
-  const [isLoading, setIsLoading] = useState(false);
+  const [serverError, setServerError] = useState('');
   const [passwordVal, setPasswordVal] = useState('');
   const formId = useId();
+
+  const signupMutation = trpc.auth.signup.useMutation({
+    onSuccess(data) {
+      authStore.setAuth(data);
+      setState('success');
+    },
+    onError(err) {
+      setServerError(err.message);
+    },
+  });
+
+  const isLoading = signupMutation.isPending;
 
   const {
     register,
@@ -699,15 +747,17 @@ function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
   const watchedPassword = watch('password', '');
   const strength = getPasswordStrength(watchedPassword);
 
-  const onSubmit = async (data: SignupInputs) => {
-    setIsLoading(true);
-    try {
-      await new Promise((res) => setTimeout(res, 1400));
-      console.log('Signup:', data);
-      setState('success');
-    } finally {
-      setIsLoading(false);
-    }
+  const onSubmit = (data: SignupInputs) => {
+    setServerError('');
+    signupMutation.mutate({
+      role: 'employer',
+      email: data.email,
+      phone: data.mobile ? `+91${data.mobile}` : undefined,
+      password: data.password,
+      company_name: data.companyName,
+      contact_name: data.contactName,
+      udyam: data.udyam || undefined,
+    });
   };
 
   if (state === 'success') {
@@ -901,6 +951,22 @@ function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
         <span role="alert" style={{ fontSize: '12px', color: '#dc2626', fontWeight: 500 }}>
           {t('login', errors.terms.message, errors.terms.message)}
         </span>
+      )}
+
+      {serverError && (
+        <div
+          role="alert"
+          style={{
+            padding: '10px 14px',
+            borderRadius: '10px',
+            background: '#fee2e2',
+            color: '#dc2626',
+            fontSize: '13px',
+            fontWeight: 500,
+          }}
+        >
+          {serverError}
+        </div>
       )}
 
       <SubmitButton isLoading={isLoading} label={t('login', 'createAccount')} color="#fa5d00" />
