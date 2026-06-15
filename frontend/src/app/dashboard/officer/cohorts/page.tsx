@@ -228,7 +228,7 @@ function CohortsTable() {
                     No cohorts found. Add one to get started.
                   </td>
                 </tr>
-            ) : data?.map((cohort, idx) => (
+            ) : data?.map((cohort: any, idx: number) => (
                 <motion.tr
                   key={cohort.id}
                   initial={{ opacity: 0 }}

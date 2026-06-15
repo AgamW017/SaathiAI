@@ -258,6 +258,192 @@ export interface Database {
         };
         Update: Record<string, never>;
       };
+      employers: {
+        Row: {
+          id: string;
+          company_name: string;
+          udyam_number: string | null;
+          gstin: string | null;
+          district: string | null;
+          state: string | null;
+          address: string | null;
+          total_employees: number;
+          trade_categories: string[];
+          verification_status: EmployerVerificationStatus;
+          employer_risk_score: number;
+          naps_registered: boolean;
+          naps_registration_ref: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          company_name: string;
+          udyam_number?: string | null;
+          gstin?: string | null;
+          district?: string | null;
+          state?: string | null;
+          address?: string | null;
+          total_employees?: number;
+          trade_categories?: string[];
+          verification_status?: EmployerVerificationStatus;
+          employer_risk_score?: number;
+          naps_registered?: boolean;
+          naps_registration_ref?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          company_name?: string;
+          udyam_number?: string | null;
+          gstin?: string | null;
+          district?: string | null;
+          state?: string | null;
+          address?: string | null;
+          total_employees?: number;
+          trade_categories?: string[];
+          verification_status?: EmployerVerificationStatus;
+          employer_risk_score?: number;
+          naps_registered?: boolean;
+          naps_registration_ref?: string | null;
+          updated_at?: string;
+        };
+      };
+      vacancies: {
+        Row: {
+          id: string;
+          employer_id: string;
+          title: string;
+          trade_required: string;
+          nsqf_level_min: number | null;
+          nsqf_level_max: number | null;
+          salary_min: number;
+          salary_max: number;
+          location: string | null;
+          district: string | null;
+          state: string | null;
+          description: string | null;
+          working_hours: string | null;
+          shift_type: 'day' | 'night' | 'rotational';
+          naps_eligible: boolean;
+          openings: number;
+          minimum_wage_compliant: boolean;
+          status: VacancyStatus;
+          expires_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          employer_id: string;
+          title: string;
+          trade_required: string;
+          nsqf_level_min?: number | null;
+          nsqf_level_max?: number | null;
+          salary_min: number;
+          salary_max: number;
+          location?: string | null;
+          district?: string | null;
+          state?: string | null;
+          description?: string | null;
+          working_hours?: string | null;
+          shift_type?: 'day' | 'night' | 'rotational';
+          naps_eligible?: boolean;
+          openings?: number;
+          minimum_wage_compliant?: boolean;
+          status?: VacancyStatus;
+          expires_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          trade_required?: string;
+          nsqf_level_min?: number | null;
+          nsqf_level_max?: number | null;
+          salary_min?: number;
+          salary_max?: number;
+          location?: string | null;
+          district?: string | null;
+          state?: string | null;
+          description?: string | null;
+          working_hours?: string | null;
+          shift_type?: 'day' | 'night' | 'rotational';
+          naps_eligible?: boolean;
+          openings?: number;
+          minimum_wage_compliant?: boolean;
+          status?: VacancyStatus;
+          expires_at?: string;
+          updated_at?: string;
+        };
+      };
+      matches: {
+        Row: {
+          id: string;
+          vacancy_id: string;
+          learner_id: string;
+          employer_id: string;
+          stage: MatchStage;
+          skill_card_token: string | null;
+          skill_card_token_exp: string | null;
+          interview_at: string | null;
+          offer_salary: number | null;
+          timeline: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          vacancy_id: string;
+          learner_id: string;
+          employer_id: string;
+          stage?: MatchStage;
+          skill_card_token?: string | null;
+          skill_card_token_exp?: string | null;
+          interview_at?: string | null;
+          offer_salary?: number | null;
+          timeline?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          stage?: MatchStage;
+          skill_card_token?: string | null;
+          skill_card_token_exp?: string | null;
+          interview_at?: string | null;
+          offer_salary?: number | null;
+          timeline?: Json;
+          updated_at?: string;
+        };
+      };
+      naps_claims: {
+        Row: {
+          id: string;
+          employer_id: string;
+          vacancy_id: string;
+          learner_id: string | null;
+          stipend_amount: number;
+          claim_month: string;
+          status: NapsClaimStatus;
+          submission_ref: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          employer_id: string;
+          vacancy_id: string;
+          learner_id?: string | null;
+          stipend_amount?: number;
+          claim_month: string;
+          status?: NapsClaimStatus;
+          submission_ref?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          status?: NapsClaimStatus;
+          submission_ref?: string | null;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -267,6 +453,10 @@ export interface Database {
       application_status: ApplicationStatus;
       verification_status: VerificationStatus;
       event_source: EventSource;
+      employer_verification_status: EmployerVerificationStatus;
+      vacancy_status: VacancyStatus;
+      match_stage: MatchStage;
+      naps_claim_status: NapsClaimStatus;
     };
   };
 }
@@ -276,6 +466,18 @@ export type LearnerStatus = 'active' | 'placed' | 'dropped' | 'at_risk';
 export type ApplicationStatus = 'applied' | 'shortlisted' | 'interviewed' | 'hired' | 'rejected';
 export type VerificationStatus = 'pending' | 'verified' | 'rejected';
 export type EventSource = 'bot' | 'backend' | 'manual';
+export type EmployerVerificationStatus = 'unverified' | 'phone_verified' | 'udyam_verified' | 'fully_verified';
+export type VacancyStatus = 'draft' | 'active' | 'paused' | 'closed' | 'flagged';
+export type MatchStage =
+  | 'new_match'
+  | 'skill_card_viewed'
+  | 'interest_expressed'
+  | 'interview_scheduled'
+  | 'interview_completed'
+  | 'offer_extended'
+  | 'hired'
+  | 'rejected';
+export type NapsClaimStatus = 'pending' | 'submitted' | 'approved' | 'rejected';
 
 // Convenience row types
 export type UserRow = Database['public']['Tables']['users']['Row'];
@@ -286,3 +488,7 @@ export type SkillCardRow = Database['public']['Tables']['skill_cards']['Row'];
 export type PlacementRow = Database['public']['Tables']['placements']['Row'];
 export type EventRow = Database['public']['Tables']['events']['Row'];
 export type SessionRow = Database['public']['Tables']['sessions']['Row'];
+export type EmployerRow = Database['public']['Tables']['employers']['Row'];
+export type VacancyRow = Database['public']['Tables']['vacancies']['Row'];
+export type MatchRow = Database['public']['Tables']['matches']['Row'];
+export type NapsClaimRow = Database['public']['Tables']['naps_claims']['Row'];
