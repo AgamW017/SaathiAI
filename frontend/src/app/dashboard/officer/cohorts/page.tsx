@@ -23,6 +23,7 @@ function Skeleton({ width = '100%', height = '16px', radius = '6px' }: { width?:
 
 function UploadCsvModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) {
   const [cohortName, setCohortName] = useState('');
+  const [trade, setTrade] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,21 +45,28 @@ function UploadCsvModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClo
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const learners = results.data.map((row: any) => ({
-          phone: row.phone || row.Phone || row.number || '',
-          full_name: row.full_name || row.name || row.Name || '',
-          trade: row.trade || row.Trade || '',
-          district: row.district || row.District || '',
-        })).filter(l => l.phone);
+        const learners = results.data.map((row: any) => {
+          const normalizedRow: Record<string, string> = {};
+          for (const key in row) {
+            const normKey = key.toLowerCase().replace(/[\s_]/g, '');
+            normalizedRow[normKey] = row[key];
+          }
+          
+          return {
+            phone: normalizedRow.phone || normalizedRow.phonenumber || normalizedRow.number || '',
+            full_name: normalizedRow.name || normalizedRow.fullname || '',
+          };
+        }).filter(l => l.phone);
 
         if (learners.length === 0) {
-          setError('No valid learners found. Ensure the CSV has a "phone" column.');
+          setError('No valid learners found. Ensure the CSV has a "phone" or "number" column.');
           return;
         }
 
-        uploadMutation.mutate({ cohort_name: cohortName, learners }, {
+        uploadMutation.mutate({ cohort_name: cohortName, trade: trade || undefined, learners }, {
           onSuccess: () => {
             setCohortName('');
+            setTrade('');
             setFile(null);
             setError(null);
             onSuccess();
@@ -97,6 +105,16 @@ function UploadCsvModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClo
         </div>
 
         <div style={{ marginBottom: '16px' }}>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#333942', marginBottom: '8px' }}>Trade (Optional)</label>
+          <input
+            value={trade}
+            onChange={e => setTrade(e.target.value)}
+            placeholder="e.g. Fitter"
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #e0e0dc', fontSize: '14px', outline: 'none' }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '16px' }}>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#333942', marginBottom: '8px' }}>CSV File</label>
           <div 
             onClick={() => fileInputRef.current?.click()}
@@ -118,7 +136,7 @@ function UploadCsvModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClo
               }
             }}
           />
-          <p style={{ fontSize: '12px', color: '#a09d99', marginTop: '8px' }}>Expected columns: phone, full_name, trade, district</p>
+          <p style={{ fontSize: '12px', color: '#a09d99', marginTop: '8px' }}>Expected columns: name, phone</p>
         </div>
 
         {error && <div style={{ padding: '10px', background: '#fee2e2', color: '#dc2626', fontSize: '13px', borderRadius: '8px', marginBottom: '16px' }}>{error}</div>}

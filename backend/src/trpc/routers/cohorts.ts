@@ -109,18 +109,26 @@ export const cohortsRouter = router({
     .input(
       z.object({
         cohort_name: z.string().min(1),
+        trade: z.string().optional(),
         learners: z.array(
           z.object({
             phone: z.string(),
             full_name: z.string().optional(),
-            trade: z.string().optional(),
-            district: z.string().optional(),
-            state: z.string().optional(),
           })
         ),
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // Fetch officer's district and state
+      const { data: officer } = await supabase
+        .from('users')
+        .select('district, state')
+        .eq('id', ctx.user.sub)
+        .single();
+
+      const district = officer?.district ?? null;
+      const state = officer?.state ?? null;
+
       // 1. Create cohort
       const { data: cohort, error: cohortError } = await supabase
         .from('cohorts')
@@ -154,9 +162,9 @@ export const cohortsRouter = router({
         const { error } = await supabase.from('learners').insert({
           phone: l.phone,
           full_name: l.full_name ?? null,
-          trade: l.trade ?? null,
-          district: l.district ?? null,
-          state: l.state ?? null,
+          trade: input.trade ?? null,
+          district: district,
+          state: state,
           cohort_id: cohort.id,
           status: 'active',
           risk_score: 0,
