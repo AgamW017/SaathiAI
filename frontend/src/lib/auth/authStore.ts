@@ -46,7 +46,7 @@ function safeLocalStorage() {
 const ROLE_DASHBOARD: Record<string, string> = {
   learner: '/learner',
   employer: '/employer',
-  officer: '/officer',
+  officer: '/dashboard/officer',
   dssdo: '/district',
   admin: '/admin',
   trainee: '/learner',

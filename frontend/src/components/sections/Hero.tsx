@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import Button from '../ui/Button';
+import { Button } from '../ui/button';
 import PhoneMockup from '../ui/PhoneMockup';
 import { useLocale } from '../../lib/locale-context';
 

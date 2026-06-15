@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import Button from './ui/Button';
+import { Button } from './ui/button';
 import { AnimatedGradient } from './ui/animated-gradient';
 import LanguageSwitcher from './ui/LanguageSwitcher';
 import { useLocale } from '../lib/locale-context';

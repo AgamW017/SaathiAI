@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
-import Badge from '../ui/Badge';
+import { Badge } from '../ui/badge';
 import DashboardMockup from '../ui/DashboardMockup';
 import SkillCard from '../ui/SkillCard';
 import { useLocale } from '../../lib/locale-context';
@@ -63,7 +63,7 @@ function FeatureRow({ badge, badgeVariant, headline, body, bullets, cta, visual,
         transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}
         style={{ flex: 1 }}
       >
-        <Badge variant={badgeVariant} style={{ marginBottom: '20px' }}>
+        <Badge variant={badgeVariant as any} style={{ marginBottom: '20px' }}>
           {badge}
         </Badge>
         <h3 style={{

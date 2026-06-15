@@ -31,15 +31,21 @@ export async function loginWithEmailPassword(
   let supabaseUserId: string;
   let resolvedEmail: string | undefined = email;
 
+  // Create a temporary client so we don't pollute the global service-role client with the user's session
+  const { createClient } = await import('@supabase/supabase-js');
+  const tempAuthClient = createClient(config.supabase.url, config.supabase.secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+
   if (email) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await tempAuthClient.auth.signInWithPassword({ email, password });
     if (error || !data.user) {
       throw Object.assign(new Error('Invalid credentials'), { status: 401 });
     }
     supabaseUserId = data.user.id;
   } else if (phone) {
     // Supabase phone+password requires phone to be in E.164 format
-    const { data, error } = await supabase.auth.signInWithPassword({ phone, password });
+    const { data, error } = await tempAuthClient.auth.signInWithPassword({ phone, password });
     if (error || !data.user) {
       throw Object.assign(new Error('Invalid credentials'), { status: 401 });
     }

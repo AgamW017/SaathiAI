@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
-import Button from '../ui/Button';
+import { Button } from '../ui/button';
 import { useLocale } from '../../lib/locale-context';
 
 const personas = [

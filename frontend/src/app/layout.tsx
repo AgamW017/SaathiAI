@@ -1,3 +1,4 @@
+import './globals.css';
 import '../index.css';
 import '@fontsource/dm-serif-display/400.css';
 import '@fontsource/plus-jakarta-sans/400.css';
