@@ -192,9 +192,10 @@ const copy = {
 };
 
 export function t(script = 'roman') {
+  const resolvedScript = script || 'roman';
   return {
-    ...copy[script],
-    labels: labels[script]
+    ...copy[resolvedScript],
+    labels: labels[resolvedScript]
   };
 }
 

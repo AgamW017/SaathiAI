@@ -75,6 +75,7 @@ export class WhatsAppBot {
 
     this.client.on('message', (message) => {
       this.handleMessage(message).catch((error) => {
+        console.error('[DEBUG] Message handling failed:', error);
         this.logger.error({ error }, 'Message handling failed');
         this.dashboard.emit('log', `Message handling failed: ${error.message}`);
       });
@@ -107,41 +108,63 @@ export class WhatsAppBot {
 
     this.stats.incrementMessages();
     this.dashboard.emit('stats', this.stats.snapshot());
+    console.log('[DEBUG] handleMessage: processing message type=%s from=%s', message.type, message.from);
 
-    const isVoice = message.hasMedia && ['ptt', 'audio'].includes(message.type);
-    const media = isVoice ? await message.downloadMedia() : null;
-    const author = message.author ?? message.from;
-    const incoming = {
-      phone: normalizeWhatsAppId(author),
-      chatId: message.from,
-      messageId: message.id?._serialized,
-      body: cleanMessageBody(message.body ?? ''),
-      type: message.type,
-      isVoice,
-      media,
-      fromGroup: message.from.endsWith('@g.us')
-    };
-
-    const result = await this.engine.processIncoming(incoming);
-    if (result.duplicate) return;
-
-    for (const reply of result.replies) {
-      if (reply.metadata?.debugReason) {
-        this.dashboard.emit('log', `Voice transcription failed for ${result.session.phone}: ${reply.metadata.debugReason}`);
-      }
-      await message.reply(reply.text);
-      this.stats.incrementSentMessages();
-      await this.eventLog.record({
-        learnerId: result.session.learnerId,
-        phone: result.session.phone,
-        eventType: EventTypes.MESSAGE_SENT,
-        stepBefore: result.session.step,
-        stepAfter: result.session.step,
-        metadata: { kind: reply.type }
-      });
+    let chat;
+    try {
+      chat = await message.getChat();
+      await chat.sendStateTyping();
+    } catch (error) {
+      this.logger.warn({ error }, 'Failed to set typing state');
     }
 
-    this.dashboard.emit('stats', this.stats.snapshot());
+    try {
+      const isVoice = message.hasMedia && ['ptt', 'audio'].includes(message.type);
+      const media = isVoice ? await message.downloadMedia() : null;
+      const author = message.author ?? message.from;
+      const incoming = {
+        phone: normalizeWhatsAppId(author),
+        chatId: message.from,
+        messageId: message.id?._serialized,
+        body: cleanMessageBody(message.body ?? ''),
+        type: message.type,
+        isVoice,
+        media,
+        fromGroup: message.from.endsWith('@g.us')
+      };
+
+      console.log('[DEBUG] calling processIncoming phone=%s step=%s', incoming.phone, 'unknown');
+      const result = await this.engine.processIncoming(incoming);
+      console.log('[DEBUG] processIncoming done, replies=%d duplicate=%s', result.replies?.length, result.duplicate);
+      
+      if (result.duplicate) return;
+
+      for (const reply of result.replies) {
+        if (reply.metadata?.debugReason) {
+          this.dashboard.emit('log', `Voice transcription failed for ${result.session.phone}: ${reply.metadata.debugReason}`);
+        }
+        await message.reply(reply.text);
+        this.stats.incrementSentMessages();
+        await this.eventLog.record({
+          learnerId: result.session.learnerId,
+          phone: result.session.phone,
+          eventType: EventTypes.MESSAGE_SENT,
+          stepBefore: result.session.step,
+          stepAfter: result.session.step,
+          metadata: { kind: reply.type }
+        });
+      }
+
+      this.dashboard.emit('stats', this.stats.snapshot());
+    } finally {
+      if (chat) {
+        try {
+          await chat.clearState();
+        } catch (error) {
+          this.logger.warn({ error }, 'Failed to clear typing state');
+        }
+      }
+    }
   }
 
   async shouldHandle(message) {

@@ -225,22 +225,37 @@ export class ConversationEngine {
 
   async handleName(session, text) {
     const messages = t(session.script);
-    const extraction = await this.extractionService.extractName(text, { script: session.script });
-    this.addAiFlags(session, extraction.flags, 'name');
+    try {
+      const extraction = await this.extractionService.extractName(text, { script: session.script });
+      this.addAiFlags(session, extraction.flags, 'name');
 
-    if (!extraction.name) {
-      return [this.message(messages.askName, { intent: 'clarify_name', facts: { reason: 'name_not_clear' } })];
+      if (!extraction.name) {
+        return [this.message(messages.askName, { intent: 'clarify_name', facts: { reason: 'name_not_clear' } })];
+      }
+
+      session.collected.name = extraction.name;
+      session.step = Steps.ONBOARDING_TRADE;
+      return [this.message(messages.askTradeDistrict(session.collected.name), { intent: 'ask_trade_district' })];
+    } catch (error) {
+      this.logger.error({ error, phone: session.phone }, 'Name extraction failed unexpectedly');
+      this.addAiFlags(session, [{ code: 'ai_error', severity: 'warning', reason: error.message, field: 'name' }], 'name');
+      // Ask again — don't advance state, don't guess
+      return [this.message(messages.askName, { intent: 'clarify_name', facts: { reason: 'extraction_error' } })];
     }
-
-    session.collected.name = extraction.name;
-    session.step = Steps.ONBOARDING_TRADE;
-    return [this.message(messages.askTradeDistrict(session.collected.name), { intent: 'ask_trade_district' })];
   }
 
   async handleTradeDistrict(session, text) {
     const messages = t(session.script);
-    const extracted = await this.extractionService.extractProfile(text, session.collected);
-    this.addAiFlags(session, extracted.flags, 'profile');
+    let extracted;
+    try {
+      extracted = await this.extractionService.extractProfile(text, session.collected);
+      this.addAiFlags(session, extracted.flags, 'profile');
+    } catch (error) {
+      this.logger.error({ error, phone: session.phone }, 'Profile extraction failed unexpectedly');
+      this.addAiFlags(session, [{ code: 'ai_error', severity: 'warning', reason: error.message, field: 'profile' }], 'profile');
+      // Use a minimal result so the flow still works — ask again for what's missing
+      extracted = { trade: null, district: null, state: null, flags: [] };
+    }
     const profilePatch = withoutEmptyValues({
       trade: extracted.trade,
       district: extracted.district,
@@ -260,12 +275,12 @@ export class ConversationEngine {
 
     if (!session.collected.trade) {
       session.context.awaitingProfileField = 'trade';
-      return [this.message(messages.askMissingTrade, { intent: 'clarify_trade', facts: { extraction } })];
+      return [this.message(messages.askMissingTrade, { intent: 'clarify_trade', facts: { extraction: extracted } })];
     }
 
     if (!session.collected.district) {
       session.context.awaitingProfileField = 'district';
-      return [this.message(messages.askMissingDistrict, { intent: 'clarify_district', facts: { extraction } })];
+      return [this.message(messages.askMissingDistrict, { intent: 'clarify_district', facts: { extraction: extracted } })];
     }
 
     session.step = Steps.ONBOARDING_CERTIFICATE;
@@ -276,8 +291,14 @@ export class ConversationEngine {
     const messages = t(session.script);
 
     if (session.context.profileCorrection) {
-      const extracted = await this.extractionService.extractProfile(text, session.collected);
-      this.addAiFlags(session, extracted.flags, 'profile_correction');
+      let extracted;
+      try {
+        extracted = await this.extractionService.extractProfile(text, session.collected);
+        this.addAiFlags(session, extracted.flags, 'profile_correction');
+      } catch (error) {
+        this.logger.error({ error, phone: session.phone }, 'Profile correction extraction failed');
+        extracted = { trade: null, district: null, state: null, flags: [] };
+      }
       session.collected = {
         ...session.collected,
         ...withoutEmptyValues({
@@ -287,10 +308,14 @@ export class ConversationEngine {
         })
       };
       if (/pmkvy|iti|jss|government|skill|course|college/i.test(text)) {
-        const certificate = await this.extractionService.extractCertificate(text);
-        this.addAiFlags(session, certificate.flags, 'certificate_correction');
-        session.collected.certificateType = certificate.certificateType;
-        session.collected.certificateNormalizedType = certificate.normalizedType;
+        try {
+          const certificate = await this.extractionService.extractCertificate(text);
+          this.addAiFlags(session, certificate.flags, 'certificate_correction');
+          session.collected.certificateType = certificate.certificateType;
+          session.collected.certificateNormalizedType = certificate.normalizedType;
+        } catch (error) {
+          this.logger.error({ error, phone: session.phone }, 'Certificate correction extraction failed');
+        }
       }
       session.context.profileCorrection = false;
       session.context.profileConfirmation = true;
@@ -312,8 +337,14 @@ export class ConversationEngine {
       return [this.message(this.profileConfirmationText(session), { intent: 'confirm_profile', facts: session.collected })];
     }
 
-    const certificate = await this.extractionService.extractCertificate(text);
-    this.addAiFlags(session, certificate.flags, 'certificate');
+    let certificate;
+    try {
+      certificate = await this.extractionService.extractCertificate(text);
+      this.addAiFlags(session, certificate.flags, 'certificate');
+    } catch (error) {
+      this.logger.error({ error, phone: session.phone }, 'Certificate extraction failed');
+      certificate = { certificateType: 'Unknown', normalizedType: 'Unknown', flags: [] };
+    }
     session.collected.certificateType = certificate.certificateType;
     session.collected.certificateNormalizedType = certificate.normalizedType;
     session.context.profileConfirmation = true;
@@ -336,8 +367,15 @@ export class ConversationEngine {
       }
     }
 
-    const extraction = await this.extractionService.extractSkills(text, session.collected.skills ?? []);
-    this.addAiFlags(session, extraction.flags, 'skills');
+    let extraction;
+    try {
+      extraction = await this.extractionService.extractSkills(text, session.collected.skills ?? []);
+      this.addAiFlags(session, extraction.flags, 'skills');
+    } catch (error) {
+      this.logger.error({ error, phone: session.phone }, 'Skill extraction failed unexpectedly');
+      this.addAiFlags(session, [{ code: 'ai_error', severity: 'warning', reason: error.message, field: 'skills' }], 'skills');
+      extraction = { skills: session.collected.skills ?? [], ojtHours: null, specificProjects: [], additionalTrades: [], flags: [] };
+    }
     session.collected.skills = extraction.skills;
     session.collected.ojtHours = extraction.ojtHours;
     session.collected.specificProjects = extraction.specificProjects;
@@ -528,7 +566,19 @@ export class ConversationEngine {
       answers: []
     };
     const question = interview.questions[interview.currentIndex];
-    const feedback = await this.extractionService.interviewFeedback({ question, answer: text, script: session.script });
+    let feedback;
+    try {
+      feedback = await this.extractionService.interviewFeedback({ question, answer: text, script: session.script });
+    } catch (error) {
+      this.logger.error({ error, phone: session.phone }, 'Interview feedback failed unexpectedly');
+      // Use the heuristic fallback directly — never leave user without feedback
+      const feedbackMap = {
+        devanagari: 'अच्छा प्रयास! एक specific example देने की कोशिश करें।',
+        english: 'Good attempt! Try giving a specific example from your work.',
+        roman: 'Accha prayaas! Ek specific example dene ki koshish karein.'
+      };
+      feedback = feedbackMap[session.script] ?? feedbackMap.roman;
+    }
 
     interview.answers.push({ question, answerLength: text.length, feedback });
     interview.currentIndex += 1;
@@ -574,18 +624,26 @@ export class ConversationEngine {
   async draftReplies(session, replies, incomingText) {
     const drafted = [];
     for (const reply of replies) {
-      const draftedReply = await this.aiClient.draftReply({
-        script: session.script ?? 'roman',
-        intent: reply.metadata?.intent ?? 'conversation_reply',
-        brief: reply.text,
-        facts: {
-          ...(reply.metadata?.facts ?? {}),
-          incomingText
-        },
-        session
-      });
-      this.addAiFlags(session, draftedReply.flags, 'reply');
-      drafted.push({ ...reply, text: draftedReply.text });
+      try {
+        const draftedReply = await this.aiClient.draftReply({
+          script: session.script ?? 'roman',
+          intent: reply.metadata?.intent ?? 'conversation_reply',
+          brief: reply.text,
+          facts: {
+            ...(reply.metadata?.facts ?? {}),
+            incomingText
+          },
+          session
+        });
+        this.addAiFlags(session, draftedReply.flags, 'reply');
+        drafted.push({ ...reply, text: draftedReply.text });
+      } catch (error) {
+        // Safety net: if draftReply throws unexpectedly, use the template text as-is.
+        // The templates in messages.js are already well-crafted in the correct script.
+        this.logger.error({ error, phone: session.phone }, 'draftReply failed unexpectedly — using template text');
+        this.addAiFlags(session, [{ code: 'ai_error', severity: 'warning', reason: error.message, field: 'reply' }], 'reply');
+        drafted.push({ ...reply });
+      }
     }
     return drafted;
   }

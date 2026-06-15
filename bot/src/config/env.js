@@ -16,8 +16,7 @@ export function loadConfig() {
     dataDir: path.resolve(rootDir, process.env.DATA_DIR ?? './data/runtime'),
     jobDataPath: path.resolve(rootDir, process.env.JOB_DATA_PATH ?? './data/jobs.json'),
     supabase: {
-      url: process.env.SUPABASE_URL ?? '',
-      serviceKey: process.env.SUPABASE_SERVICE_KEY ?? ''
+      databaseUrl: process.env.DATABASE_URL ?? ''
     },
     gemini: {
       apiKey: process.env.GEMINI_API_KEY ?? '',

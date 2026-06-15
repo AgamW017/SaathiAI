@@ -3,13 +3,20 @@ import { GoogleGenAI } from '@google/genai';
 const DEFAULT_MODEL = 'gemini-3.5-flash';
 
 export class GeminiClient {
-  constructor(config) {
-    if (!config.apiKey) {
-      throw new Error('GEMINI_API_KEY is required. AI is the primary bot communication and extraction layer.');
+  constructor(config, logger = null) {
+    this.logger = logger;
+    this._configured = Boolean(config.apiKey);
+
+    if (!this._configured) {
+      // AI is the primary layer, but the bot must still function without it.
+      // Log a severe warning — all calls will use fallback responses.
+      const msg = 'GEMINI_API_KEY is missing. Bot will operate in fallback mode with template responses only.';
+      if (this.logger) this.logger.warn(msg);
+      else console.warn('[GeminiClient]', msg);
     }
 
     this.model = config.model || DEFAULT_MODEL;
-    this.ai = new GoogleGenAI({ apiKey: config.apiKey });
+    this.ai = this._configured ? new GoogleGenAI({ apiKey: config.apiKey }) : null;
   }
 
   isConfigured() {
@@ -24,7 +31,11 @@ export class GeminiClient {
       prompt: spec.prompt(payload),
       schema: spec.schema
     });
-    return response;
+
+    if (response !== null) return response;
+
+    // AI failed — return a safe, schema-conformant empty result so callers don't crash
+    return fallbackResult(task);
   }
 
   async draftReply({ script, intent, facts = {}, brief, session = {} }) {
@@ -33,27 +44,47 @@ export class GeminiClient {
       schema: replySchema
     });
 
+    if (response !== null) {
+      return {
+        text: sanitizeReply(response.text),
+        flags: response.flags ?? []
+      };
+    }
+
+    // AI unavailable — pass the template brief text through untouched.
+    // The template messages in messages.js are already well-written in 3 scripts,
+    // so sending them without AI polish is still a good user experience.
     return {
-      text: sanitizeReply(response.text),
-      flags: response.flags ?? []
+      text: sanitizeReply(brief),
+      flags: [aiUnavailableFlag('reply')]
     };
   }
 
   async generateJson({ prompt, schema }) {
-    const response = await this.ai.models.generateContent({
-      model: this.model,
-      contents: prompt,
-      config: {
-        responseFormat: {
-          text: {
-            mimeType: 'application/json',
-            schema
+    if (!this._configured || !this.ai) return null;
+
+    try {
+      const response = await this.ai.models.generateContent({
+        model: this.model,
+        contents: prompt,
+        config: {
+          responseFormat: {
+            text: {
+              mimeType: 'application/json',
+              schema
+            }
           }
         }
-      }
-    });
+      });
 
-    return parseJson(response.text);
+      return parseJson(response.text);
+    } catch (error) {
+      // Log the error but don't throw — callers will receive null and use fallbacks
+      const msg = `Gemini API call failed: ${error.message ?? error}`;
+      if (this.logger) this.logger.error({ error }, msg);
+      else console.error('[GeminiClient]', msg);
+      return null;
+    }
   }
 }
 
@@ -259,7 +290,53 @@ function parseJson(text) {
     return JSON.parse(raw);
   } catch {
     const match = raw.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-    throw new Error('Gemini returned non-JSON response');
+    if (match) {
+      try { return JSON.parse(match[0]); } catch { /* fall through */ }
+    }
+    // Return null instead of throwing — generateJson will propagate null to trigger fallbacks
+    return null;
   }
+}
+
+function aiUnavailableFlag(field = '') {
+  return { code: 'ai_unavailable', severity: 'warning', reason: 'Gemini API call failed or returned invalid data', field };
+}
+
+const fallbackResults = {
+  extract_name: {
+    name: '',
+    confidence: 0,
+    flags: [aiUnavailableFlag('name')]
+  },
+  extract_profile: {
+    trade: '',
+    district: '',
+    state: '',
+    confidence: 0,
+    missingFields: ['trade', 'district'],
+    flags: [aiUnavailableFlag('profile')]
+  },
+  extract_certificate: {
+    certificateType: '',
+    normalizedType: 'Unknown',
+    confidence: 0,
+    flags: [aiUnavailableFlag('certificate')]
+  },
+  extract_skills: {
+    skills_mentioned: [],
+    ojt_hours: 0,
+    specific_projects: [],
+    additional_trades: [],
+    confidence: 0,
+    flags: [aiUnavailableFlag('skills')]
+  },
+  interview_feedback: {
+    feedback: '',
+    score: 0,
+    flags: [aiUnavailableFlag('feedback')]
+  }
+};
+
+function fallbackResult(task) {
+  return fallbackResults[task] ?? { flags: [aiUnavailableFlag(task)] };
 }
