@@ -9,7 +9,7 @@ import { z } from 'zod';
 import LanguageSwitcher from '../ui/LanguageSwitcher';
 import { useLocale } from '../../lib/locale-context';
 import { trpc } from '../../lib/trpc/client';
-import { authStore } from '../../lib/auth/authStore';
+import { authStore, useAuth } from '../../lib/auth/authStore';
 
 // ─── Zod Schemas ────────────────────────────────────────────────────────────
 
@@ -1312,6 +1312,14 @@ function RightPanel({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
 export default function LoginPage() {
   const shouldReduceMotion = useReducedMotion() ?? false;
   const [isMobile, setIsMobile] = useState(false);
+  const router = useRouter();
+  const { isLoggedIn, dashboardPath } = useAuth();
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      router.replace(dashboardPath);
+    }
+  }, [isLoggedIn, dashboardPath, router]);
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1023px)');
@@ -1320,6 +1328,9 @@ export default function LoginPage() {
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, []);
+
+  // Avoid rendering the login form while redirecting
+  if (isLoggedIn) return null;
 
   return (
     <>

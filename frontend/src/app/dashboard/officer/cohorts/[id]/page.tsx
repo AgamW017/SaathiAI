@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
-import { trpc } from '../../../../lib/trpc/client';
+import { useParams, useRouter } from 'next/navigation';
+import { trpc } from '../../../../../lib/trpc/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -121,7 +121,7 @@ function FilterBar({ filters, onChange }: { filters: Filters; onChange: (f: Filt
 
 // ─── Table ────────────────────────────────────────────────────────────────────
 
-function LearnersTable({ page, filters, onTotalChange }: { page: number; filters: Filters; onTotalChange: (total: number, totalPages: number) => void }) {
+function LearnersTable({ cohortId, page, filters, onTotalChange }: { cohortId: string; page: number; filters: Filters; onTotalChange: (total: number, totalPages: number) => void }) {
   const router = useRouter();
 
   const { data, isLoading, error } = trpc.dashboard.learner.list.useQuery(
@@ -131,6 +131,7 @@ function LearnersTable({ page, filters, onTotalChange }: { page: number; filters
       status: filters.status,
       trade: filters.trade || undefined,
       district: filters.district || undefined,
+      cohort_id: cohortId,
     },
     {
       keepPreviousData: true,
@@ -271,7 +272,9 @@ function Pagination({ page, totalPages, total, onPage }: { page: number; totalPa
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function LearnersPage() {
+export default function CohortDetailsPage() {
+  const params = useParams();
+  const cohortId = params.id as string;
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -281,6 +284,8 @@ export default function LearnersPage() {
     setFilters(f);
     setPage(1);
   };
+
+  const { data: cohortData } = trpc.cohorts.get.useQuery({ id: cohortId }, { enabled: !!cohortId });
 
   return (
     <>
@@ -298,9 +303,22 @@ export default function LearnersPage() {
           animate={{ opacity: 1, y: 0 }}
           style={{ marginBottom: '24px' }}
         >
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#0f161e', margin: 0 }}>Learners</h1>
-          <p style={{ fontSize: '14px', color: '#615f5c', margin: '4px 0 0' }}>
-            View and manage all learners in your cohort
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button 
+              onClick={() => history.back()}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '32px', height: '32px', borderRadius: '8px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+              }}
+            >
+              ←
+            </button>
+            <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#0f161e', margin: 0 }}>
+              {cohortData?.cohort?.name ?? 'Cohort Details'}
+            </h1>
+          </div>
+          <p style={{ fontSize: '14px', color: '#615f5c', margin: '4px 0 0 44px' }}>
+            View and manage all learners in this cohort
           </p>
         </motion.div>
 
@@ -322,7 +340,7 @@ export default function LearnersPage() {
             <FilterBar filters={filters} onChange={handleFilterChange} />
           </div>
 
-          <LearnersTable page={page} filters={filters} onTotalChange={(t, tp) => { setTotal(t); setTotalPages(tp); }} />
+          <LearnersTable cohortId={cohortId} page={page} filters={filters} onTotalChange={(t, tp) => { setTotal(t); setTotalPages(tp); }} />
           <Pagination page={page} totalPages={totalPages} total={total} onPage={setPage} />
         </motion.div>
       </div>

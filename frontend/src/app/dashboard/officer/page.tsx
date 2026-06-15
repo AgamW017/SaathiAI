@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { trpc } from '../../../lib/trpc/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -122,6 +123,7 @@ function UrgencyBadge({ urgency }: { urgency: UrgencyLevel }) {
 // ─── Priority Inbox ───────────────────────────────────────────────────────────
 
 function PriorityInbox() {
+  const router = useRouter();
   const { data, isLoading, error } = trpc.dashboard.priorityInbox.useQuery({ limit: 10 });
 
   return (
@@ -182,6 +184,8 @@ function PriorityInbox() {
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.04 }}
+              whileHover={{ backgroundColor: '#fefefefe' }}
+              onClick={() => router.push(`/dashboard/officer/learners/${item.id}`)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -189,11 +193,7 @@ function PriorityInbox() {
                 padding: '14px 24px',
                 borderBottom: idx < (data.length - 1) ? '1px solid rgba(0,0,0,0.04)' : 'none',
                 cursor: 'pointer',
-                transition: 'background 0.12s ease',
               }}
-              onHoverStart={(e) => { (e.target as HTMLElement).closest('[data-inbox-row]')?.setAttribute('style', 'background: #f7f7f5'); }}
-              onHoverEnd={(e) => { (e.target as HTMLElement).closest('[data-inbox-row]')?.removeAttribute('style'); }}
-              data-inbox-row
             >
               {/* Avatar */}
               <div
@@ -247,7 +247,7 @@ function CohortTimeline() {
 
   // Group by stage
   const stageBuckets = React.useMemo(() => {
-    const buckets: Record<string, Array<{ stage: string; [key: string]: unknown }>> = {};
+    const buckets: Record<string, Array<{ stage: string;[key: string]: unknown }>> = {};
     for (const learner of data ?? []) {
       if (!buckets[learner.stage]) buckets[learner.stage] = [];
       buckets[learner.stage].push(learner);

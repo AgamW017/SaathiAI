@@ -6,6 +6,7 @@ import Button from './ui/Button';
 import { AnimatedGradient } from './ui/animated-gradient';
 import LanguageSwitcher from './ui/LanguageSwitcher';
 import { useLocale } from '../lib/locale-context';
+import { useAuth } from '../lib/auth/authStore';
 
 // Modern custom Framer Motion component for Next.js links
 const MotionLink = motion.create(Link);
@@ -47,6 +48,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { t } = useLocale();
+  const { isLoggedIn, user, dashboardPath } = useAuth();
 
   const navLinks = [
     { name: t('nav', 'impact'), path: '/impact' },
@@ -201,50 +203,95 @@ export default function Navbar() {
                 }}
               >
                 <LanguageSwitcher variant="compact" placement="down" />
-                <MotionLink
-                  href="/login"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 500,
-                    fontSize: 14,
-                    color: 'var(--color-saathi-teal)',
-                    textDecoration: 'none',
-                    padding: '8px 12px',
-                    borderRadius: '12px',
-                    transition: 'color 0.2s, background 0.2s',
-                  }}
-                  whileHover={{
-                    color: 'var(--color-action-flame)',
-                    backgroundColor: 'rgba(250,93,0,0.06)',
-                  }}
-                >
-                  {t('nav', 'signIn')}
-                </MotionLink>
-
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.35 }}
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                >
-                  <Button
-                    variant="flame"
+                {isLoggedIn ? (
+                  <MotionLink
+                    href={dashboardPath}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     style={{
-                      padding: '8px 18px',
-                      fontSize: '13px',
-                      borderRadius: '999px',
-                      boxShadow: 'var(--shadow-card-warm)',
-                      background: 'var(--color-action-flame)',
-                      color: 'white',
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 600,
+                      fontSize: 14,
+                      color: 'var(--color-saathi-teal)',
+                      textDecoration: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '12px',
+                      background: 'rgba(0, 64, 56, 0.08)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.2s',
+                    }}
+                    whileHover={{
+                      backgroundColor: 'rgba(0, 64, 56, 0.12)',
                     }}
                   >
-                    {t('nav', 'tryFree')}
-                  </Button>
-                </motion.div>
+                    <div
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg,#004038,#006b5a)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#fff',
+                      }}
+                    >
+                      {user?.full_name?.charAt(0).toUpperCase() ?? 'O'}
+                    </div>
+                    Dashboard
+                  </MotionLink>
+                ) : (
+                  <>
+                    <MotionLink
+                      href="/login"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 500,
+                        fontSize: 14,
+                        color: 'var(--color-saathi-teal)',
+                        textDecoration: 'none',
+                        padding: '8px 12px',
+                        borderRadius: '12px',
+                        transition: 'color 0.2s, background 0.2s',
+                      }}
+                      whileHover={{
+                        color: 'var(--color-action-flame)',
+                        backgroundColor: 'rgba(250,93,0,0.06)',
+                      }}
+                    >
+                      {t('nav', 'signIn')}
+                    </MotionLink>
+
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.35 }}
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.96 }}
+                    >
+                      <Button
+                        variant="flame"
+                        style={{
+                          padding: '8px 18px',
+                          fontSize: '13px',
+                          borderRadius: '999px',
+                          boxShadow: 'var(--shadow-card-warm)',
+                          background: 'var(--color-action-flame)',
+                          color: 'white',
+                        }}
+                      >
+                        {t('nav', 'tryFree')}
+                      </Button>
+                    </motion.div>
+                  </>
+                )}
               </div>
 
               {/* Mobile hamburger */}
@@ -365,39 +412,80 @@ export default function Navbar() {
                     <LanguageSwitcher variant="full" placement="up" />
                   </div>
 
-                  <Link
-                    href="/login"
-                    onClick={() => setMobileMenuOpen(false)}
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 500,
-                      fontSize: 15,
-                      color: 'var(--color-saathi-teal)',
-                      textDecoration: 'none',
-                      padding: '12px 8px',
-                      borderRadius: '10px',
-                      display: 'block',
-                    }}
-                  >
-                    {t('nav', 'signIn')}
-                  </Link>
+                  {isLoggedIn ? (
+                    <Link
+                      href={dashboardPath}
+                      onClick={() => setMobileMenuOpen(false)}
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 600,
+                        fontSize: 15,
+                        color: 'var(--color-saathi-teal)',
+                        textDecoration: 'none',
+                        padding: '12px 16px',
+                        borderRadius: '10px',
+                        background: 'rgba(0, 64, 56, 0.08)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        marginTop: '8px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg,#004038,#006b5a)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: '#fff',
+                        }}
+                      >
+                        {user?.full_name?.charAt(0).toUpperCase() ?? 'O'}
+                      </div>
+                      Go to Dashboard
+                    </Link>
+                  ) : (
+                    <>
+                      <Link
+                        href="/login"
+                        onClick={() => setMobileMenuOpen(false)}
+                        style={{
+                          fontFamily: 'var(--font-body)',
+                          fontWeight: 500,
+                          fontSize: 15,
+                          color: 'var(--color-saathi-teal)',
+                          textDecoration: 'none',
+                          padding: '12px 8px',
+                          borderRadius: '10px',
+                          display: 'block',
+                        }}
+                      >
+                        {t('nav', 'signIn')}
+                      </Link>
 
-                  <Button
-                    variant="flame"
-                    onClick={() => setMobileMenuOpen(false)}
-                    style={{
-                      padding: '12px',
-                      fontSize: '15px',
-                      borderRadius: '10px',
-                      width: '100%',
-                      justifyContent: 'center',
-                      background: 'var(--color-action-flame)',
-                      color: 'white',
-                      marginTop: '4px',
-                    }}
-                  >
-                    {t('nav', 'tryFree')}
-                  </Button>
+                      <Button
+                        variant="flame"
+                        onClick={() => setMobileMenuOpen(false)}
+                        style={{
+                          padding: '12px',
+                          fontSize: '15px',
+                          borderRadius: '10px',
+                          width: '100%',
+                          justifyContent: 'center',
+                          background: 'var(--color-action-flame)',
+                          color: 'white',
+                          marginTop: '4px',
+                        }}
+                      >
+                        {t('nav', 'tryFree')}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </motion.div>
             )}
