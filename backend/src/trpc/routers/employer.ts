@@ -14,8 +14,46 @@ import {
   isValidTransition,
   appendTimelineEvent,
 } from '../../services/employerService.js';
+import { employerMessagingRouter } from './employerMessaging.js';
 
 const db = supabase as any;
+
+/**
+ * Bot internal API base URL for broadcasting notifications.
+ * Falls back to localhost:3001 for local development.
+ */
+const BOT_INTERNAL_URL =
+  process.env.BOT_INTERNAL_URL || 'http://localhost:3001';
+
+/**
+ * Rate limit: max 5 broadcasts per employer per calendar day (IST).
+ */
+const BROADCAST_RATE_LIMIT = 5;
+
+/**
+ * Returns today's date boundaries in IST (midnight-to-midnight).
+ */
+function getTodayISTBounds(): { start: string; end: string } {
+  // IST is UTC+5:30
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istNow = new Date(now.getTime() + istOffset);
+
+  // Start of day in IST → convert back to UTC
+  const istMidnight = new Date(istNow);
+  istMidnight.setUTCHours(0, 0, 0, 0);
+  const utcStart = new Date(istMidnight.getTime() - istOffset);
+
+  // End of day in IST → convert back to UTC
+  const istEndOfDay = new Date(istNow);
+  istEndOfDay.setUTCHours(23, 59, 59, 999);
+  const utcEnd = new Date(istEndOfDay.getTime() - istOffset);
+
+  return {
+    start: utcStart.toISOString(),
+    end: utcEnd.toISOString(),
+  };
+}
 
 // ─── Employer-only procedure ──────────────────────────────────────────────────
 
@@ -265,6 +303,168 @@ const vacanciesRouter = router({
 
       if (error) handleSupabaseError(error, 'employer.vacancies.delete');
       return { success: true };
+    }),
+
+  previewTargetCount: employerProcedure
+    .input(z.object({
+      trade: z.string().optional(),
+      district: z.string().optional(),
+      location: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      let query = db
+        .from('learners')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active');
+
+      if (input.trade) query = query.eq('trade', input.trade);
+      if (input.district) query = query.eq('district', input.district);
+      if (input.location) query = query.eq('state', input.location);
+
+      const { count, error } = await query;
+      if (error) handleSupabaseError(error, 'employer.vacancies.previewTargetCount');
+
+      return { count: count ?? 0 };
+    }),
+
+  /**
+   * Broadcast a vacancy to all learners matching the given filters.
+   * Creates match records with stage 'new_match' and queues WhatsApp notifications.
+   *
+   * Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6
+   */
+  broadcast: employerProcedure
+    .input(z.object({
+      vacancy_id: z.string().uuid(),
+      filters: z.object({
+        trade: z.string().optional(),
+        district: z.string().optional(),
+        location: z.string().optional(),
+      }),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const employerId = ctx.user.sub;
+
+      // 1. Verify vacancy exists and belongs to this employer
+      const { data: vacancy, error: vacancyError } = await db
+        .from('vacancies')
+        .select('id, title')
+        .eq('id', input.vacancy_id)
+        .eq('employer_id', employerId)
+        .single();
+
+      if (vacancyError || !vacancy) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Vacancy not found' });
+      }
+
+      // 2. Enforce rate limit: 5 broadcasts per employer per calendar day (IST)
+      const { start, end } = getTodayISTBounds();
+
+      // Count distinct vacancy_ids broadcast today as proxy for broadcast events
+      const { data: todayBroadcasts, error: broadcastCheckError } = await db
+        .from('matches')
+        .select('vacancy_id')
+        .eq('employer_id', employerId)
+        .gte('created_at', start)
+        .lte('created_at', end);
+
+      if (broadcastCheckError) {
+        handleSupabaseError(broadcastCheckError, 'employer.vacancies.broadcast.rateCheck');
+      }
+
+      const distinctVacancyIds = new Set(
+        (todayBroadcasts ?? []).map((m: { vacancy_id: string }) => m.vacancy_id)
+      );
+      const isNewBroadcast = !distinctVacancyIds.has(input.vacancy_id);
+
+      if (isNewBroadcast && distinctVacancyIds.size >= BROADCAST_RATE_LIMIT) {
+        throw new TRPCError({
+          code: 'TOO_MANY_REQUESTS',
+          message: 'Daily broadcast limit reached (5 per day)',
+        });
+      }
+
+      // 3. Query learners matching filters with status 'active'
+      let learnerQuery = db
+        .from('learners')
+        .select('id, phone, full_name')
+        .eq('status', 'active');
+
+      if (input.filters.trade) {
+        learnerQuery = learnerQuery.eq('trade', input.filters.trade);
+      }
+      if (input.filters.district) {
+        learnerQuery = learnerQuery.eq('district', input.filters.district);
+      }
+      if (input.filters.location) {
+        learnerQuery = learnerQuery.eq('state', input.filters.location);
+      }
+
+      const { data: matchingLearners, error: learnerError } = await learnerQuery;
+
+      if (learnerError) {
+        handleSupabaseError(learnerError, 'employer.vacancies.broadcast.learnerQuery');
+      }
+
+      const learners = matchingLearners ?? [];
+      const broadcastAt = new Date().toISOString();
+
+      // 4. Handle zero-match case: return count 0, no match records created
+      if (learners.length === 0) {
+        return { count: 0, broadcast_at: broadcastAt };
+      }
+
+      // 5. Create match records for each learner-vacancy pair
+      const matchRecords = learners.map((learner: { id: string }) => ({
+        vacancy_id: input.vacancy_id,
+        learner_id: learner.id,
+        employer_id: employerId,
+        stage: 'new_match',
+        timeline: JSON.stringify([{
+          stage: 'new_match',
+          timestamp: broadcastAt,
+          actor: employerId,
+          note: 'Broadcast match',
+        }]),
+      }));
+
+      // Insert match records, ignoring duplicates (learner may already be matched)
+      const { error: insertError } = await db
+        .from('matches')
+        .upsert(matchRecords, { onConflict: 'vacancy_id,learner_id', ignoreDuplicates: true });
+
+      if (insertError) {
+        handleSupabaseError(insertError, 'employer.vacancies.broadcast.insertMatches');
+      }
+
+      // 6. Call bot internal API to queue WhatsApp notifications
+      const learnerIds = learners.map((l: { id: string }) => l.id);
+
+      try {
+        const response = await fetch(`${BOT_INTERNAL_URL}/internal/broadcast`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            learnerIds,
+            vacancy: {
+              id: input.vacancy_id,
+              title: vacancy.title,
+            },
+            employer_id: employerId,
+          }),
+        });
+
+        if (!response.ok) {
+          // Log but don't fail — match records are already created
+          console.error('Broadcast notification delivery failed:', response.status);
+        }
+      } catch (error) {
+        // Bot service may be down — matches are saved, notifications can be retried
+        console.error('Unable to reach bot service for broadcast notifications:', error);
+      }
+
+      // 7. Return count and broadcast timestamp
+      return { count: learners.length, broadcast_at: broadcastAt };
     }),
 });
 
@@ -769,6 +969,7 @@ export const employerRouter = router({
   profile: profileRouter,
   vacancies: vacanciesRouter,
   pipeline: pipelineRouter,
+  messaging: employerMessagingRouter,
   naps: napsRouter,
   analytics: analyticsRouter,
   skillCard: skillCardRouter,

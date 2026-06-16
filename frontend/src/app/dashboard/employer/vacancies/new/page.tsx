@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { trpc } from '../../../../../lib/trpc/client';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowLeft, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import SmartTargetingPanel from '../../../../../components/employer/SmartTargetingPanel';
 
 const vacancySchema = z.object({
   title: z.string().min(2, 'Required'),
@@ -25,11 +27,16 @@ const vacancySchema = z.object({
 
 type VacancyInputs = z.infer<typeof vacancySchema>;
 
+type Step = 'form' | 'targeting';
+
 export default function NewVacancyPage() {
   const router = useRouter();
   const [warning, setWarning] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>('form');
+  const [savedVacancyId, setSavedVacancyId] = useState<string | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<VacancyInputs>({
+  const { register, handleSubmit, formState: { errors } } = useForm<VacancyInputs>({
     resolver: zodResolver(vacancySchema as any),
     defaultValues: { naps_eligible: false, openings: 1, salary_min: 12000, salary_max: 15000 },
   });
@@ -38,11 +45,10 @@ export default function NewVacancyPage() {
     onSuccess: (data: any) => {
       if (data.minimum_wage_warning) {
         setWarning(data.minimum_wage_warning.message);
-        // It was flagged, but created. Redirect after a bit or let user see warning.
-        setTimeout(() => router.push('/dashboard/employer/vacancies'), 3000);
-      } else {
-        router.push('/dashboard/employer/vacancies');
       }
+      // Save vacancy ID and move to targeting step
+      setSavedVacancyId(data.id ?? data.vacancy_id ?? null);
+      setStep('targeting');
     }
   });
 
@@ -50,12 +56,95 @@ export default function NewVacancyPage() {
     createMutation.mutate(data);
   };
 
+  const handleBroadcastComplete = (count: number) => {
+    // Navigate to vacancy list with success state
+    if (count > 0) {
+      setSuccessToast(`Vacancy posted and broadcast sent to ${count} learner${count !== 1 ? 's' : ''}`);
+    } else {
+      setSuccessToast('Vacancy posted successfully');
+    }
+    setTimeout(() => {
+      router.push('/dashboard/employer/vacancies');
+    }, 2000);
+  };
+
+  const handleSkipTargeting = () => {
+    router.push('/dashboard/employer/vacancies');
+  };
+
+  // Show targeting panel after vacancy is saved
+  if (step === 'targeting') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        style={{ padding: '40px 48px', maxWidth: 800, margin: '0 auto' }}
+      >
+        <Link href="/dashboard/employer/vacancies" style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#615f5c', textDecoration: 'none', fontWeight: 600, fontSize: 14, marginBottom: 24 }}>
+          <ArrowLeft size={16} /> Back to Vacancies
+        </Link>
+        <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, fontWeight: 700, color: '#0f161e', margin: '0 0 8px' }}>Post New Vacancy</h1>
+        <p style={{ fontSize: 14, color: '#615f5c', margin: '0 0 32px' }}>
+          Vacancy saved — now target matching learners for WhatsApp notification.
+        </p>
+
+        {warning && (
+          <div style={{ background: '#fff7ed', border: '1px solid #fdba74', padding: 16, borderRadius: 12, marginBottom: 24, display: 'flex', gap: 12 }}>
+            <AlertTriangle color="#ea580c" />
+            <div>
+              <div style={{ fontWeight: 600, color: '#9a3412', fontSize: 14 }}>Compliance Warning</div>
+              <div style={{ color: '#c2410c', fontSize: 13, marginTop: 4 }}>{warning}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Success Toast */}
+        {successToast && (
+          <div style={{ background: '#f0fdf4', border: '1px solid rgba(22,163,74,0.2)', padding: 16, borderRadius: 12, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <CheckCircle size={18} color="#16a34a" />
+            <span style={{ fontSize: 14, fontWeight: 600, color: '#166534' }}>{successToast}</span>
+          </div>
+        )}
+
+        <SmartTargetingPanel
+          vacancyId={savedVacancyId}
+          onBroadcastComplete={handleBroadcastComplete}
+        />
+
+        {/* Skip targeting option */}
+        <button
+          onClick={handleSkipTargeting}
+          style={{
+            display: 'block',
+            margin: '16px auto 0',
+            padding: '10px 20px',
+            background: 'transparent',
+            border: 'none',
+            color: '#615f5c',
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: 'pointer',
+            textDecoration: 'underline',
+          }}
+        >
+          Skip targeting — go to vacancies
+        </button>
+      </motion.div>
+    );
+  }
+
   return (
-    <div style={{ padding: '40px 48px', maxWidth: 800, margin: '0 auto' }}>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      style={{ padding: '40px 48px', maxWidth: 800, margin: '0 auto' }}
+    >
       <Link href="/dashboard/employer/vacancies" style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#615f5c', textDecoration: 'none', fontWeight: 600, fontSize: 14, marginBottom: 24 }}>
         <ArrowLeft size={16} /> Back to Vacancies
       </Link>
-      <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 32, color: '#0f161e', margin: '0 0 32px' }}>Post New Vacancy</h1>
+      <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, fontWeight: 700, color: '#0f161e', margin: '0 0 32px' }}>Post New Vacancy</h1>
 
       {warning && (
         <div style={{ background: '#fff7ed', border: '1px solid #fdba74', padding: 16, borderRadius: 12, marginBottom: 24, display: 'flex', gap: 12 }}>
@@ -68,7 +157,7 @@ export default function NewVacancyPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit as any)} style={{ background: '#fff', padding: 32, borderRadius: 16, border: '1px solid rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <form onSubmit={handleSubmit(onSubmit as any)} style={{ background: '#fff', padding: 32, borderRadius: 16, border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: 24 }}>
         
         {/* Step 1: Role */}
         <div>
@@ -124,10 +213,10 @@ export default function NewVacancyPage() {
         </div>
 
         <button type="submit" disabled={createMutation.isPending} style={{ marginTop: 16, padding: '14px', background: '#fa5d00', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>
-          {createMutation.isPending ? 'Saving...' : 'Post Vacancy'}
+          {createMutation.isPending ? 'Saving...' : 'Save & Continue to Targeting'}
         </button>
 
       </form>
-    </div>
+    </motion.div>
   );
 }

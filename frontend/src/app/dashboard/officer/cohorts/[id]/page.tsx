@@ -52,6 +52,83 @@ function RiskBar({ score }: { score: number }) {
   );
 }
 
+// ─── Stats Cards ──────────────────────────────────────────────────────────────
+
+function StatsSection({ cohortId }: { cohortId: string }) {
+  const { data, isLoading } = trpc.cohort.getCohortDetail.useQuery(
+    { cohortId },
+    { enabled: !!cohortId }
+  );
+
+  // Fetch cohort list to get average salary (computed server-side from placements)
+  const { data: cohortListData } = trpc.cohort.listCohorts.useQuery(
+    { page: 1, limit: 100 },
+    { enabled: !!cohortId }
+  );
+
+  const cohortWithSalary = cohortListData?.data?.find((c: any) => c.id === cohortId);
+  const averageSalary = cohortWithSalary?.stats?.averageSalary ?? null;
+
+  const cardStyle: React.CSSProperties = {
+    flex: '1 1 0',
+    minWidth: '140px',
+    padding: '16px 20px',
+    background: '#fff',
+    borderRadius: '16px',
+    border: '1px solid rgba(0,0,0,0.06)',
+    boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+  };
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} style={cardStyle}>
+            <Skeleton width="60px" height="12px" />
+            <div style={{ marginTop: '8px' }}><Skeleton width="80px" height="24px" /></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.05 }}
+      style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}
+    >
+      <div style={cardStyle}>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: '#a09d99', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Learner Count</span>
+        <div style={{ fontSize: '24px', fontWeight: 700, color: '#0f161e', marginTop: '4px' }}>
+          {data?.stats.total ?? '—'}
+        </div>
+      </div>
+      <div style={cardStyle}>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: '#a09d99', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Placement Rate</span>
+        <div style={{ fontSize: '24px', fontWeight: 700, color: '#004038', marginTop: '4px' }}>
+          {data?.stats.placementRate != null ? `${data.stats.placementRate}%` : '—'}
+        </div>
+      </div>
+      <div style={cardStyle}>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: '#a09d99', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Average Salary</span>
+        <div style={{ fontSize: '24px', fontWeight: 700, color: '#0f161e', marginTop: '4px' }}>
+          {averageSalary != null ? `₹${averageSalary.toLocaleString('en-IN')}` : '—'}
+        </div>
+      </div>
+      <div style={cardStyle}>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: '#a09d99', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created</span>
+        <div style={{ fontSize: '16px', fontWeight: 600, color: '#0f161e', marginTop: '8px' }}>
+          {data?.cohort.createdAt
+            ? new Date(data.cohort.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+            : '—'}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Filter Bar ───────────────────────────────────────────────────────────────
 
 interface Filters {
@@ -170,23 +247,28 @@ function LearnersTable({ cohortId, page, filters, onTotalChange }: { cohortId: s
         <thead>
           <tr style={{ background: '#f7f7f5' }}>
             <th style={thStyle}>Name</th>
+            <th style={thStyle}>Phone</th>
             <th style={thStyle}>Trade</th>
-            <th style={thStyle}>District</th>
             <th style={thStyle}>Status</th>
             <th style={thStyle}>Risk Score</th>
-            <th style={thStyle}>Last Updated</th>
           </tr>
         </thead>
         <tbody>
           {isLoading
             ? Array.from({ length: 8 }).map((_, i) => (
                 <tr key={i}>
-                  {[140, 100, 100, 80, 100, 100].map((w, j) => (
+                  {[140, 100, 100, 80, 100].map((w, j) => (
                     <td key={j} style={tdStyle}><Skeleton width={`${w}px`} /></td>
                   ))}
                 </tr>
               ))
-            : data?.data?.map((learner, idx) => (
+            : data?.data?.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#a09d99', fontSize: '14px' }}>
+                    No learners found in this cohort.
+                  </td>
+                </tr>
+              ) : data?.data?.map((learner: any, idx: number) => (
                 <motion.tr
                   key={learner.id}
                   initial={{ opacity: 0 }}
@@ -219,13 +301,10 @@ function LearnersTable({ cohortId, page, filters, onTotalChange }: { cohortId: s
                       <span>{learner.full_name ?? '—'}</span>
                     </div>
                   </td>
+                  <td style={tdStyle}>{learner.phone ?? '—'}</td>
                   <td style={tdStyle}>{learner.trade ?? '—'}</td>
-                  <td style={tdStyle}>{learner.district ?? '—'}</td>
                   <td style={tdStyle}><StatusBadge status={learner.status} /></td>
                   <td style={tdStyle}><RiskBar score={learner.risk_score ?? 0} /></td>
-                  <td style={{ ...tdStyle, color: '#a09d99', fontSize: '12px' }}>
-                    {learner.updated_at ? new Date(learner.updated_at).toLocaleDateString('en-IN') : '—'}
-                  </td>
                 </motion.tr>
               ))}
         </tbody>
@@ -274,6 +353,7 @@ function Pagination({ page, totalPages, total, onPage }: { page: number; totalPa
 
 export default function CohortDetailsPage() {
   const params = useParams();
+  const router = useRouter();
   const cohortId = params.id as string;
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -285,7 +365,10 @@ export default function CohortDetailsPage() {
     setPage(1);
   };
 
-  const { data: cohortData } = trpc.cohorts.get.useQuery({ id: cohortId }, { enabled: !!cohortId });
+  const { data: cohortData, isLoading: cohortLoading } = trpc.cohort.getCohortDetail.useQuery(
+    { cohortId },
+    { enabled: !!cohortId }
+  );
 
   return (
     <>
@@ -297,34 +380,41 @@ export default function CohortDetailsPage() {
       `}</style>
 
       <div style={{ padding: '32px 32px', maxWidth: '1200px' }}>
-        {/* Header */}
+        {/* Header with back button */}
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           style={{ marginBottom: '24px' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button 
-              onClick={() => history.back()}
+            <button
+              onClick={() => router.push('/dashboard/officer/cohorts')}
               style={{
                 border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '32px', height: '32px', borderRadius: '8px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                width: '32px', height: '32px', borderRadius: '8px', background: '#fff',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)', color: '#004038', fontSize: '16px', fontWeight: 700,
               }}
+              aria-label="Back to cohorts"
             >
               ←
             </button>
-            <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#0f161e', margin: 0 }}>
-              {cohortData?.cohort?.name ?? 'Cohort Details'}
-            </h1>
+            <div>
+              <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#0f161e', margin: 0 }}>
+                {cohortLoading ? <Skeleton width="200px" height="24px" /> : (cohortData?.cohort?.name ?? 'Cohort Details')}
+              </h1>
+              <p style={{ fontSize: '14px', color: '#615f5c', margin: '4px 0 0' }}>
+                View cohort statistics and manage learners
+              </p>
+            </div>
           </div>
-          <p style={{ fontSize: '14px', color: '#615f5c', margin: '4px 0 0 44px' }}>
-            View and manage all learners in this cohort
-          </p>
         </motion.div>
 
-        {/* Card wrapper */}
+        {/* Stats Cards */}
+        <StatsSection cohortId={cohortId} />
+
+        {/* Learner Table Card */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           style={{
@@ -335,8 +425,9 @@ export default function CohortDetailsPage() {
             overflow: 'hidden',
           }}
         >
-          {/* Filter row */}
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)', background: '#fafafa' }}>
+          {/* Section heading */}
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#0f161e', margin: 0 }}>Learners</h2>
             <FilterBar filters={filters} onChange={handleFilterChange} />
           </div>
 
