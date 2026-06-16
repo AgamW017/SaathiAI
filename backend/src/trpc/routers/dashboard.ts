@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { router, officerProcedure, protectedProcedure } from '../trpc.js';
 import { supabase as _supabase } from '../../db/client.js';
+import { handleSupabaseError } from '../errors.js';
 const supabase = _supabase as any;
 import type { LearnerRow, ApplicationRow } from '../../db/types.js';
 
@@ -43,7 +44,7 @@ const learnerRouter = router({
       if (risk_score_max !== undefined) query = query.lte('risk_score', risk_score_max);
 
       const { data, error, count } = await query;
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'dashboard.learner.list');
 
       const total = count ?? 0;
       return {
@@ -142,7 +143,7 @@ const learnerRouter = router({
         .select()
         .single();
 
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'dashboard.learner.updateStatus');
       return data as LearnerRow;
     }),
 
@@ -165,7 +166,7 @@ const learnerRouter = router({
         metadata: { note: input.note, officer_id: ctx.user.sub },
       });
 
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'dashboard.learner.addNote');
       return { success: true };
     }),
 });
@@ -201,7 +202,7 @@ const placementsRouter = router({
         .single();
 
       if (placementError) {
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: placementError.message });
+        handleSupabaseError(placementError, 'dashboard.placements.confirm');
       }
 
       // 2. Update learner status to placed
@@ -250,7 +251,7 @@ const placementsRouter = router({
       if (to) query = query.lte('placement_date', to);
 
       const { data, error, count } = await query;
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'dashboard.placements.list');
 
       return {
         data: data ?? [],
@@ -289,7 +290,7 @@ const employersRouter = router({
         .order('created_at', { ascending: false });
 
       const { data, error, count } = await query;
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'dashboard.employers.list');
 
       // For each employer, count their active jobs
       const employerIds = (data ?? []).map((e: any) => e.id);
@@ -381,7 +382,7 @@ const employersRouter = router({
         .select()
         .single();
 
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'dashboard.employers.createManualMatch');
 
       // Log the event
       await supabase.from('events').insert({
@@ -470,7 +471,7 @@ const reportsRouter = router({
       if (input.district) query = query.eq('district', input.district);
 
       const { data, error } = await query;
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'dashboard.reports.cohortHealth');
 
       const learners = (data ?? []) as Pick<LearnerRow, 'status' | 'risk_score' | 'cohort'>[];
       const total = learners.length;
@@ -518,7 +519,7 @@ export const dashboardRouter = router({
       if (input.district) query = query.eq('district', input.district);
 
       const { data, error } = await query;
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'dashboard.cohortStats');
 
       const learners = (data ?? []) as Pick<LearnerRow, 'status' | 'risk_score'>[];
       const total = learners.length;
@@ -562,7 +563,7 @@ export const dashboardRouter = router({
       if (input.district) query = query.eq('district', input.district);
 
       const { data, error } = await query;
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'dashboard.priorityInbox');
 
       const now = Date.now();
 
@@ -628,7 +629,7 @@ export const dashboardRouter = router({
       if (input.district) query = query.eq('district', input.district);
 
       const { data: learners, error } = await query;
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'dashboard.cohortTimeline');
 
       // Get applications for stage mapping
       const learnerIds = (learners ?? []).map((l: any) => l.id);

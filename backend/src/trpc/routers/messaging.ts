@@ -3,6 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { router, officerProcedure } from '../trpc.js';
 import { supabase as _supabase } from '../../db/client.js';
 import { config } from '../../config/env.js';
+import { handleSupabaseError } from '../errors.js';
 
 const supabase = _supabase as any;
 
@@ -76,6 +77,9 @@ export const messagingRouter = router({
         .single();
 
       if (learnerError || !learner) {
+        if (learnerError && learnerError.code !== 'PGRST116') {
+          handleSupabaseError(learnerError, 'messaging.sendPing.learnerLookup');
+        }
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Learner not found',
@@ -95,10 +99,7 @@ export const messagingRouter = router({
         .lte('created_at', end);
 
       if (countError) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to check rate limit',
-        });
+        handleSupabaseError(countError, 'messaging.sendPing.rateLimit');
       }
 
       if ((count ?? 0) >= DASHBOARD_PING_RATE_LIMIT) {
@@ -123,10 +124,7 @@ export const messagingRouter = router({
         .single();
 
       if (insertError) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to store message record',
-        });
+        handleSupabaseError(insertError, 'messaging.sendPing.insert');
       }
 
       // 4. Call bot internal API POST /internal/send-ping
@@ -208,10 +206,7 @@ export const messagingRouter = router({
         .range(input.offset, input.offset + input.limit - 1);
 
       if (error) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch conversation thread',
-        });
+        handleSupabaseError(error, 'messaging.getThread');
       }
 
       return {
@@ -243,10 +238,7 @@ export const messagingRouter = router({
         .select('id, status');
 
       if (error) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to update message status',
-        });
+        handleSupabaseError(error, 'messaging.updateMessageStatus');
       }
 
       return {

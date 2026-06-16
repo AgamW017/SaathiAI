@@ -5,6 +5,7 @@ import { supabase as _supabase } from '../../db/client.js';
 import { documentParserService } from '../../services/documentParserService.js';
 import { config } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
+import { handleSupabaseError } from '../errors.js';
 
 const supabase = _supabase as any;
 
@@ -145,10 +146,7 @@ export const cohortRouter = router({
         .single();
 
       if (cohortError) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to create cohort: ${cohortError.message}`,
-        });
+        handleSupabaseError(cohortError, 'cohort.confirmCohort.createCohort');
       }
 
       // 3. Upsert learner records — skip existing (ON CONFLICT phone DO NOTHING)
@@ -264,10 +262,7 @@ export const cohortRouter = router({
         .range(from, to);
 
       if (error) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message,
-        });
+        handleSupabaseError(error, 'cohort.listCohorts');
       }
 
       // For each cohort, compute aggregate stats from learners table
@@ -390,10 +385,7 @@ export const cohortRouter = router({
         .order('created_at', { ascending: true });
 
       if (learnersError) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: learnersError.message,
-        });
+        handleSupabaseError(learnersError, 'cohort.getCohortDetail.learners');
       }
 
       const allLearners = learners ?? [];

@@ -3,6 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { router, protectedProcedure, publicProcedure } from '../trpc.js';
 import { supabase } from '../../db/client.js';
 import type { MatchStage } from '../../db/types.js';
+import { handleSupabaseError } from '../errors.js';
 import {
   verifyUdyam,
   submitNapsRegistration,
@@ -128,9 +129,7 @@ const profileRouter = router({
         .select()
         .single();
 
-      if (error) {
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
-      }
+      if (error) handleSupabaseError(error, 'employer.profile.upsert');
       return data;
     }),
 
@@ -165,7 +164,7 @@ const vacanciesRouter = router({
       if (input.naps_eligible !== undefined) query = query.eq('naps_eligible', input.naps_eligible);
 
       const { data, error, count } = await query;
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'employer.vacancies.list');
 
       return { vacancies: data ?? [], total: count ?? 0, page: input.page };
     }),
@@ -201,7 +200,7 @@ const vacanciesRouter = router({
         .select()
         .single();
 
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'employer.vacancies.create');
 
       return {
         vacancy: data,
@@ -251,7 +250,7 @@ const vacanciesRouter = router({
         .select()
         .single();
 
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'employer.vacancies.update');
       return data;
     }),
 
@@ -264,7 +263,7 @@ const vacanciesRouter = router({
         .eq('id', input.id)
         .eq('employer_id', ctx.user.sub);
 
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'employer.vacancies.delete');
       return { success: true };
     }),
 });
@@ -296,7 +295,7 @@ const pipelineRouter = router({
       if (input.stage) query = query.eq('stage', input.stage);
 
       const { data, error } = await query;
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'employer.pipeline.list');
       return data ?? [];
     }),
 
@@ -347,7 +346,7 @@ const pipelineRouter = router({
         .select()
         .single();
 
-      if (updateErr) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: updateErr.message });
+      if (updateErr) handleSupabaseError(updateErr, 'employer.pipeline.transition');
 
       // 5. Fire Supabase Realtime broadcast (officer dashboard subscription)
       await db
@@ -400,20 +399,26 @@ const pipelineRouter = router({
 
 const napsRouter = router({
   status: employerProcedure.query(async ({ ctx }) => {
-    const { data: employer } = await db
+    const { data: employer, error: employerError } = await db
       .from('employers')
       .select('total_employees, naps_registered, naps_registration_ref, udyam_number')
       .eq('id', ctx.user.sub)
       .single();
 
+    if (employerError && employerError.code !== 'PGRST116') {
+      handleSupabaseError(employerError, 'employer.naps.status');
+    }
+
     const totalEmployees = employer?.total_employees ?? 0;
     const eligibility = getNapsEligibility(totalEmployees);
 
-    const { data: claims } = await db
+    const { data: claims, error: claimsError } = await db
       .from('naps_claims')
       .select('*')
       .eq('employer_id', ctx.user.sub)
       .order('created_at', { ascending: false });
+
+    if (claimsError) handleSupabaseError(claimsError, 'employer.naps.status.claims');
 
     return {
       registered: employer?.naps_registered ?? false,
@@ -512,7 +517,7 @@ const napsRouter = router({
         .select()
         .single();
 
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'employer.naps.submitClaim');
       return { claim: data, submission_ref: submissionRef };
     }),
 });
@@ -521,10 +526,12 @@ const napsRouter = router({
 
 const analyticsRouter = router({
   overview: employerProcedure.query(async ({ ctx }) => {
-    const { data: matches } = await db
+    const { data: matches, error: matchesError } = await db
       .from('matches')
       .select('stage, created_at')
       .eq('employer_id', ctx.user.sub);
+
+    if (matchesError) handleSupabaseError(matchesError, 'employer.analytics.overview.matches');
 
     const allMatches = matches ?? [];
     const stageCounts: Record<string, number> = {};
@@ -532,10 +539,12 @@ const analyticsRouter = router({
       stageCounts[m.stage] = (stageCounts[m.stage] ?? 0) + 1;
     }
 
-    const { data: vacancies } = await db
+    const { data: vacancies, error: vacanciesError } = await db
       .from('vacancies')
       .select('status')
       .eq('employer_id', ctx.user.sub);
+
+    if (vacanciesError) handleSupabaseError(vacanciesError, 'employer.analytics.overview.vacancies');
 
     const allVacancies = vacancies ?? [];
 

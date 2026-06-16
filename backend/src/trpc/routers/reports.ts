@@ -5,6 +5,7 @@ import { supabase as _supabase } from '../../db/client.js';
 import { misReportService } from '../../services/misReportService.js';
 import { renderPDF, renderExcel, uploadReport } from '../../services/reportRendererService.js';
 import { logger } from '../../config/logger.js';
+import { handleSupabaseError } from '../errors.js';
 
 const supabase = _supabase as any;
 
@@ -92,10 +93,7 @@ export const reportsRouter = router({
 
       if (insertError) {
         logger.error({ error: insertError, officerId }, 'Failed to store report record');
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to store report record',
-        });
+        handleSupabaseError(insertError, 'reports.generateMISReport.insert');
       }
 
       return {
@@ -125,10 +123,7 @@ export const reportsRouter = router({
 
       if (error) {
         logger.error({ error, officerId }, 'Failed to fetch reports list');
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch reports list',
-        });
+        handleSupabaseError(error, 'reports.getReportsList');
       }
 
       return { reports: reports ?? [] };

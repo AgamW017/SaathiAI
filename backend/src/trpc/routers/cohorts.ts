@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { router, officerProcedure } from '../trpc.js';
 import { supabase as _supabase } from '../../db/client.js';
+import { handleSupabaseError } from '../errors.js';
 const supabase = _supabase as any;
 
 export const cohortsRouter = router({
@@ -15,7 +16,7 @@ export const cohortsRouter = router({
       .eq('officer_id', ctx.user.sub)
       .order('created_at', { ascending: false });
 
-    if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+    if (error) handleSupabaseError(error, 'cohorts.list');
 
     return data.map((c: any) => ({
       ...c,
@@ -64,7 +65,7 @@ export const cohortsRouter = router({
         .select()
         .single();
 
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'cohorts.create');
       return data;
     }),
 
@@ -82,7 +83,7 @@ export const cohortsRouter = router({
         .select()
         .single();
 
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'cohorts.update');
       return data;
     }),
 
@@ -98,7 +99,7 @@ export const cohortsRouter = router({
         .eq('id', input.id)
         .eq('officer_id', ctx.user.sub);
 
-      if (error) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message });
+      if (error) handleSupabaseError(error, 'cohorts.delete');
       return { success: true };
     }),
 
@@ -140,7 +141,7 @@ export const cohortsRouter = router({
         .single();
 
       if (cohortError) {
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: cohortError.message });
+        handleSupabaseError(cohortError, 'cohorts.uploadCsv.createCohort');
       }
 
       let inserted = 0;
