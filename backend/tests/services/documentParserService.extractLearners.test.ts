@@ -43,15 +43,16 @@ describe('DocumentParserService — extractLearners', () => {
   });
 
   describe('extractLearners — error handling', () => {
-    it('returns error when GEMINI_API_KEY is not set', async () => {
+    it('returns error when no LLM API keys are set', async () => {
       delete process.env.GEMINI_API_KEY;
+      delete process.env.GROQ_API_KEY;
 
       const result = await service.extractLearners('Some student text');
 
       expect(result.validEntries).toEqual([]);
       expect(result.invalidEntries).toEqual([]);
       expect(result.totalExtracted).toBe(0);
-      expect(result.error).toBe('Gemini API key not configured');
+      expect(result.error).toContain('No LLM API keys configured');
     });
 
     it('returns error when rawText is empty', async () => {

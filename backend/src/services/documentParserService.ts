@@ -1,4 +1,5 @@
 import { logger } from '../config/logger.js';
+import { llmService } from './llmService.js';
 
 // --- Types ---
 
@@ -55,11 +56,6 @@ type AcceptedMimeType = (typeof ACCEPTED_MIME_TYPES)[number];
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
 const DOCLING_TIMEOUT_MS = 30_000; // 30 seconds
-
-const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-
-const GEMINI_TIMEOUT_MS = 60_000; // 60 seconds for LLM extraction
 
 /** Indian mobile number: exactly 10 digits, first digit 6-9 */
 const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
@@ -145,7 +141,7 @@ export class DocumentParserService {
   }
 
   /**
-   * Use Gemini LLM to extract student names and WhatsApp numbers from raw text.
+   * Use LLM (Groq with Gemini fallback) to extract student names and WhatsApp numbers from raw text.
    *
    * Validates phone numbers against Indian mobile format (10 digits, starts with 6-9),
    * separates valid from invalid entries, and flags low-confidence extractions.
@@ -154,17 +150,6 @@ export class DocumentParserService {
    * @returns ExtractionResult with valid and invalid entries separated
    */
   async extractLearners(rawText: string): Promise<ExtractionResult> {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      logger.error('GEMINI_API_KEY environment variable is not set');
-      return {
-        validEntries: [],
-        invalidEntries: [],
-        totalExtracted: 0,
-        error: 'Gemini API key not configured',
-      };
-    }
-
     if (!rawText || rawText.trim().length === 0) {
       return {
         validEntries: [],
@@ -175,7 +160,7 @@ export class DocumentParserService {
     }
 
     try {
-      const rawLearners = await this.callGeminiForExtraction(rawText, apiKey);
+      const rawLearners = await this.callLlmForExtraction(rawText);
       return this.validateAndSeparateEntries(rawLearners);
     } catch (error: unknown) {
       const msg =
@@ -191,58 +176,19 @@ export class DocumentParserService {
   }
 
   /**
-   * Call the Gemini REST API to extract learner data from text.
+   * Call the LLM service (Groq primary, Gemini fallback) to extract learner data from text.
    */
-  private async callGeminiForExtraction(
-    rawText: string,
-    apiKey: string
+  private async callLlmForExtraction(
+    rawText: string
   ): Promise<Array<{ name: string; phone: string; confidence: number }>> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+    const prompt = LEARNER_EXTRACTION_PROMPT + rawText;
+    const text = await llmService.generateContent(prompt);
 
-    try {
-      const url = `${GEMINI_API_URL}?key=${apiKey}`;
-      const prompt = LEARNER_EXTRACTION_PROMPT + rawText;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 4096,
-          },
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        const errorBody = await this.safeParseResponseBody(response);
-        throw new Error(
-          `Gemini API returned HTTP ${response.status}: ${errorBody?.error?.message || response.statusText}`
-        );
-      }
-
-      const data = (await response.json()) as {
-        candidates?: Array<{
-          content?: { parts?: Array<{ text?: string }> };
-        }>;
-      };
-
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) {
-        throw new Error('Gemini returned empty response');
-      }
-
-      return this.parseGeminiResponse(text);
-    } finally {
-      clearTimeout(timeoutId);
+    if (!text) {
+      throw new Error('LLM returned empty response');
     }
+
+    return this.parseGeminiResponse(text);
   }
 
   /**

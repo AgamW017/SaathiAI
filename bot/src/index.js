@@ -6,7 +6,7 @@ import { BotStore } from './storage/botStore.js';
 import { EventLog } from './storage/eventLog.js';
 import { RuntimeStats } from './runtime/stats.js';
 import { DashboardServer } from './dashboard/server.js';
-import { GeminiClient } from './services/geminiClient.js';
+import { LlmClient } from './services/llmClient.js';
 import { ExtractionService } from './services/extractionService.js';
 import { TranscriptionService } from './services/transcriptionService.js';
 import { SkillCardService } from './services/skillCardService.js';
@@ -22,7 +22,10 @@ const stats = new RuntimeStats();
 
 logger.info('Initializing SaathiAI WhatsApp Bot with Web Interface');
 
-const aiClient = new GeminiClient(config.gemini);
+const aiClient = new LlmClient({
+  groq: config.groq,
+  gemini: config.gemini
+}, logger);
 const runtimeStore = new JsonStore({ dataDir: config.dataDir, jobDataPath: config.jobDataPath });
 const backendStore = new SupabaseStore({ supabase: config.supabase, publicBaseUrl: config.publicBaseUrl });
 const store = new BotStore({ runtimeStore, backendStore });
