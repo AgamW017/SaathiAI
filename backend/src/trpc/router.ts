@@ -4,6 +4,8 @@ import { dashboardRouter } from './routers/dashboard.js';
 import { messagingRouter } from './routers/messaging.js';
 import { cohortRouter } from './routers/cohort.js';
 import { reportsRouter } from './routers/reports.js';
+import { cohortsRouter } from './routers/cohorts.js';
+import { employerRouter, publicSkillCardRouter } from './routers/employer.js';
 
 /**
  * Root tRPC router.
@@ -12,14 +14,20 @@ import { reportsRouter } from './routers/reports.js';
  *   dashboard.*  — ITI officer dashboard (cohortStats, priorityInbox, etc.)
  *   messaging.*  — officer/employer ↔ learner ping messaging
  *   cohort.*     — cohort creation via document upload, listing, details
+ *   cohorts.*    — ITI officer cohort CRUD management
  *   reports.*    — MIS report generation, listing, and download
+ *   employer.*   — Employer portal (vacancies, pipeline, NAPS, analytics)
+ *   skillCard.*  — Public skill card (no auth — token-validated)
  */
 export const appRouter = router({
   auth: authRouter,
   dashboard: dashboardRouter,
   messaging: messagingRouter,
   cohort: cohortRouter,
+  cohorts: cohortsRouter,
   reports: reportsRouter,
+  employer: employerRouter,
+  skillCard: publicSkillCardRouter,
 });
 
 /** Exported type — imported by the frontend to get full type safety */

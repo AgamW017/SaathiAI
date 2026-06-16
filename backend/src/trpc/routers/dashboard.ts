@@ -15,7 +15,7 @@ const learnerRouter = router({
     .input(
       z.object({
         status: z.enum(['active', 'placed', 'dropped', 'at_risk']).optional(),
-        cohort: z.string().optional(),
+        cohort_id: z.string().uuid().optional(),
         district: z.string().optional(),
         trade: z.string().optional(),
         risk_score_min: z.number().min(0).max(100).optional(),
@@ -25,18 +25,18 @@ const learnerRouter = router({
       })
     )
     .query(async ({ input }) => {
-      const { status, cohort, district, trade, risk_score_min, risk_score_max, page, limit } = input;
+      const { status, cohort_id, district, trade, risk_score_min, risk_score_max, page, limit } = input;
       const from = (page - 1) * limit;
       const to = from + limit - 1;
 
       let query = supabase
         .from('learners')
-        .select('*', { count: 'exact' })
+        .select('*, cohorts(name)', { count: 'exact' })
         .range(from, to)
         .order('risk_score', { ascending: false });
 
       if (status) query = query.eq('status', status);
-      if (cohort) query = query.eq('cohort', cohort);
+      if (cohort_id) query = query.eq('cohort_id', cohort_id);
       if (district) query = query.eq('district', district);
       if (trade) query = query.eq('trade', trade);
       if (risk_score_min !== undefined) query = query.gte('risk_score', risk_score_min);
@@ -460,13 +460,13 @@ const reportsRouter = router({
   cohortHealth: officerProcedure
     .input(
       z.object({
-        cohort: z.string().optional(),
+        cohort_id: z.string().uuid().optional(),
         district: z.string().optional(),
       })
     )
     .query(async ({ input }) => {
-      let query = supabase.from('learners').select('status, risk_score, cohort');
-      if (input.cohort) query = query.eq('cohort', input.cohort);
+      let query = supabase.from('learners').select('status, risk_score, cohort_id');
+      if (input.cohort_id) query = query.eq('cohort_id', input.cohort_id);
       if (input.district) query = query.eq('district', input.district);
 
       const { data, error } = await query;
@@ -508,13 +508,13 @@ export const dashboardRouter = router({
   cohortStats: officerProcedure
     .input(
       z.object({
-        cohort: z.string().optional(),
+        cohort_id: z.string().uuid().optional(),
         district: z.string().optional(),
       })
     )
     .query(async ({ input }) => {
       let query = supabase.from('learners').select('status, risk_score');
-      if (input.cohort) query = query.eq('cohort', input.cohort);
+      if (input.cohort_id) query = query.eq('cohort_id', input.cohort_id);
       if (input.district) query = query.eq('district', input.district);
 
       const { data, error } = await query;
@@ -544,7 +544,7 @@ export const dashboardRouter = router({
   priorityInbox: officerProcedure
     .input(
       z.object({
-        cohort: z.string().optional(),
+        cohort_id: z.string().uuid().optional(),
         district: z.string().optional(),
         limit: z.number().int().min(1).max(50).default(10),
       })
@@ -552,13 +552,13 @@ export const dashboardRouter = router({
     .query(async ({ input }) => {
       let query = supabase
         .from('learners')
-        .select('id, full_name, phone, status, risk_score, trade, district, updated_at, cohort')
+        .select('id, full_name, phone, status, risk_score, trade, district, updated_at, cohort_id, cohorts(name)')
         .not('status', 'eq', 'placed')
         .not('status', 'eq', 'dropped')
         .order('risk_score', { ascending: false })
         .limit(input.limit);
 
-      if (input.cohort) query = query.eq('cohort', input.cohort);
+      if (input.cohort_id) query = query.eq('cohort_id', input.cohort_id);
       if (input.district) query = query.eq('district', input.district);
 
       const { data, error } = await query;
@@ -599,7 +599,8 @@ export const dashboardRouter = router({
           risk_score: learner.risk_score,
           trade: learner.trade,
           district: learner.district,
-          cohort: learner.cohort,
+          cohort: learner.cohorts?.name ?? 'Unknown',
+          cohort_id: learner.cohort_id,
           days_since_update: daysSinceUpdate,
           reason,
           urgency,
@@ -613,17 +614,17 @@ export const dashboardRouter = router({
   cohortTimeline: officerProcedure
     .input(
       z.object({
-        cohort: z.string().optional(),
+        cohort_id: z.string().uuid().optional(),
         district: z.string().optional(),
       })
     )
     .query(async ({ input }) => {
       let query = supabase
         .from('learners')
-        .select('id, full_name, phone, status, risk_score, trade, created_at, updated_at, cohort, district')
+        .select('id, full_name, phone, status, risk_score, trade, created_at, updated_at, cohort_id, cohorts(name), district')
         .order('created_at', { ascending: true });
 
-      if (input.cohort) query = query.eq('cohort', input.cohort);
+      if (input.cohort_id) query = query.eq('cohort_id', input.cohort_id);
       if (input.district) query = query.eq('district', input.district);
 
       const { data: learners, error } = await query;
@@ -685,7 +686,8 @@ export const dashboardRouter = router({
           status: learner.status,
           risk_score: learner.risk_score,
           trade: learner.trade,
-          cohort: learner.cohort,
+          cohort: learner.cohorts?.name ?? 'Unknown',
+          cohort_id: learner.cohort_id,
           district: learner.district,
           created_at: learner.created_at,
           stage,

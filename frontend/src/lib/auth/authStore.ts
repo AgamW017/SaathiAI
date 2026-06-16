@@ -44,12 +44,12 @@ function safeLocalStorage() {
 
 /** Role → dashboard path mapping */
 const ROLE_DASHBOARD: Record<string, string> = {
-  learner: '/learner',
-  employer: '/employer',
-  officer: '/officer',
-  dssdo: '/district',
-  admin: '/admin',
-  trainee: '/learner',
+  learner: '/dashboard/learner',
+  employer: '/dashboard/employer',
+  officer: '/dashboard/officer',
+  dssdo: '/dashboard/officer',
+  admin: '/dashboard/officer',
+  trainee: '/dashboard/learner',
 };
 
 export const authStore = {

@@ -30,3 +30,14 @@ export const officerProcedure = t.procedure.use(({ ctx, next }) => {
   }
   return next({ ctx: { ...ctx, user: ctx.user } });
 });
+
+/** Requires employer role */
+export const employerProcedure = t.procedure.use(({ ctx, next }) => {
+  if (!ctx.user) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Authentication required' });
+  }
+  if (ctx.user.role !== 'employer') {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Employer access required' });
+  }
+  return next({ ctx: { ...ctx, user: ctx.user } });
+});

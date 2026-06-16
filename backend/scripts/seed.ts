@@ -45,18 +45,18 @@ async function createUser(
     user_metadata: { full_name: fullName },
   });
 
-  if (authError && !authError.message.includes('already registered')) {
+  if (authError && authError.code !== 'email_exists' && !authError.message.includes('already')) {
     console.error(`Failed to create auth user ${email}:`, authError.message);
     return null;
   }
 
-  const userId = authData?.user?.id;
+  let userId = authData?.user?.id;
   if (!userId) {
     // User might already exist — try to find it
     const { data: { users } } = await supabase.auth.admin.listUsers();
     const existing = users.find((u) => u.email === email);
     if (!existing) return null;
-    return existing.id;
+    userId = existing.id;
   }
 
   // Upsert profile
@@ -102,6 +102,20 @@ async function main() {
   const { data: jobs } = await supabase.from('jobs').insert(jobPayloads).select('id');
   console.log(`\n✅ Inserted ${jobs?.length ?? 0} jobs`);
 
+  // ── Cohorts ───────────────────────────────────────────────────────────────
+  const cohortIds: string[] = [];
+  if (officerIds.length > 0) {
+    const cohortPayloads = officerIds.map((officerId, i) => ({
+      name: `Batch 2024-Q${(i % 4) + 1} - ${DISTRICTS[i % DISTRICTS.length]}`,
+      officer_id: officerId,
+    }));
+    const { data: cohorts } = await supabase.from('cohorts').insert(cohortPayloads).select('id');
+    if (cohorts) {
+      cohortIds.push(...cohorts.map(c => c.id));
+      console.log(`✅ Inserted ${cohorts.length} cohorts`);
+    }
+  }
+
   // ── Learners ──────────────────────────────────────────────────────────────
   const learnerPayloads = Array.from({ length: 20 }, (_, i) => ({
     phone: `9${String(8000000000 + i).slice(1)}`,
@@ -109,7 +123,7 @@ async function main() {
     trade: TRADES[i % TRADES.length],
     district: DISTRICTS[i % DISTRICTS.length],
     state: 'Jharkhand',
-    cohort: `2024-Q${(i % 4) + 1}`,
+    cohort_id: cohortIds[i % cohortIds.length] ?? null,
     status: (['active', 'active', 'active', 'at_risk', 'placed', 'dropped'] as const)[i % 6],
     risk_score: Math.floor(Math.random() * 80),
     officer_id: officerIds[i % officerIds.length] ?? null,
