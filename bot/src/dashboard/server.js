@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'node:crypto';
 import http from 'node:http';
 import path from 'node:path';
 import { Server } from 'socket.io';
@@ -7,12 +8,17 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, '../../public');
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export class DashboardServer {
-  constructor({ config, stats, store, logger }) {
+  constructor({ config, stats, store, logger, onboardingRetryService = null }) {
     this.config = config;
     this.stats = stats;
     this.store = store;
     this.logger = logger;
+    this.onboardingRetryService = onboardingRetryService;
 
     // ── Single Dashboard and WebSocket server ───────────────────────────
     this.app = express();
@@ -22,6 +28,17 @@ export class DashboardServer {
     // Live state: current QR code data URL and connection status
     this._currentQr = null;
     this._connectionStatus = 'initializing';
+
+    // Callback for sending WhatsApp messages: (phone, text) => Promise<void>
+    this._sendMessage = null;
+  }
+
+  /**
+   * Set the callback used to send WhatsApp messages.
+   * @param {function} fn - Async function: (phone: string, text: string) => Promise<void>
+   */
+  setSendMessage(fn) {
+    this._sendMessage = fn;
   }
 
   configure() {
@@ -61,6 +78,165 @@ export class DashboardServer {
         qr: this._currentQr,
         stats: this.stats.snapshot(),
       });
+    });
+
+    // ── Internal API: Send Ping ─────────────────────────────────────────
+    this.app.post('/internal/send-ping', async (req, res) => {
+      try {
+        const { learnerId, message, senderName, source } = req.body;
+
+        if (!learnerId || !message || !senderName) {
+          res.status(400).json({ success: false, error: 'Missing required fields: learnerId, message, senderName' });
+          return;
+        }
+
+        if (message.length > 1000) {
+          res.status(400).json({ success: false, error: 'Message exceeds maximum length of 1000 characters' });
+          return;
+        }
+
+        if (!this._sendMessage) {
+          res.status(503).json({ success: false, error: 'WhatsApp client not ready' });
+          return;
+        }
+
+        // Look up learner phone
+        const learner = await this.store.queryOne(
+          'SELECT id, phone FROM learners WHERE id = $1',
+          [learnerId]
+        );
+
+        if (!learner) {
+          res.status(404).json({ success: false, error: 'Learner not found' });
+          return;
+        }
+
+        // Format and deliver message
+        const formattedMessage = `[${senderName}] says: ${message}`;
+        try {
+          await this._sendMessage(learner.phone, formattedMessage);
+        } catch (deliveryError) {
+          this.logger.error({ learnerId, err: deliveryError.message }, 'Failed to deliver ping via WhatsApp');
+
+          // Update message status to 'failed' if we have a message record
+          await this.store.query(
+            `UPDATE messages SET status = 'failed' WHERE receiver_learner_id = $1 AND content = $2 AND status = 'sent' ORDER BY created_at DESC LIMIT 1`,
+            [learnerId, message]
+          );
+
+          res.status(502).json({ success: false, error: 'WhatsApp delivery failed' });
+          return;
+        }
+
+        // Generate a simple message ID for tracking
+        const messageId = crypto.randomUUID();
+
+        this.logger.info({ learnerId, senderName, source, messageId }, 'Ping delivered via WhatsApp');
+        res.json({ success: true, messageId });
+      } catch (error) {
+        this.logger.error({ err: error.message }, 'Internal send-ping error');
+        res.status(500).json({ success: false, error: 'Internal server error' });
+      }
+    });
+
+    // ── Internal API: Trigger Onboarding ─────────────────────────────────
+    this.app.post('/internal/trigger-onboarding', async (req, res) => {
+      try {
+        const { learners } = req.body;
+
+        if (!Array.isArray(learners) || learners.length === 0) {
+          res.status(400).json({ success: false, error: 'Missing or empty learners array' });
+          return;
+        }
+
+        if (!this._sendMessage) {
+          res.status(503).json({ success: false, error: 'WhatsApp client not ready' });
+          return;
+        }
+
+        const results = [];
+        let sent = 0;
+        let failed = 0;
+
+        const welcomeMessage = 'Namaste! 🙏 Main SaathiAI hoon — aapka career companion. Main aapko jobs dhundne, skill card banane, aur interviews ki taiyaari mein madad karunga. Chaliye shuru karte hain!';
+
+        for (let i = 0; i < learners.length; i++) {
+          const learner = learners[i];
+
+          if (!learner.phone) {
+            results.push({ learnerId: learner.id, status: 'failed', error: 'Missing phone number' });
+            failed += 1;
+            continue;
+          }
+
+          try {
+            await this._sendMessage(learner.phone, welcomeMessage);
+            results.push({ learnerId: learner.id, status: 'sent' });
+            sent += 1;
+            this.logger.info({ learnerId: learner.id, phone: learner.phone }, 'Onboarding message sent');
+          } catch (deliveryError) {
+            results.push({ learnerId: learner.id, status: 'failed', error: deliveryError.message });
+            failed += 1;
+            this.logger.error({ learnerId: learner.id, phone: learner.phone, err: deliveryError.message }, 'Onboarding message delivery failed');
+
+            // Record failure for retry logic
+            if (this.onboardingRetryService && learner.id) {
+              try {
+                await this.onboardingRetryService.recordFailure(learner.id, learner.phone, deliveryError.message);
+              } catch (retryErr) {
+                this.logger.error({ learnerId: learner.id, err: retryErr.message }, 'Failed to record onboarding failure for retry');
+              }
+            }
+          }
+
+          // Stagger dispatch: wait 1 second between messages (max 1 msg/sec)
+          if (i < learners.length - 1) {
+            await sleep(1000);
+          }
+        }
+
+        res.json({ total: learners.length, sent, failed, results });
+      } catch (error) {
+        this.logger.error({ err: error.message }, 'Internal trigger-onboarding error');
+        res.status(500).json({ success: false, error: 'Internal server error' });
+      }
+    });
+
+    // ── Internal API: Update Message Status ────────────────────────────────
+    // Called when delivery status changes (e.g., delivered, read, failed)
+    // from WhatsApp delivery receipts or other status callbacks.
+    // Requirements: 4.3, 4.7
+    this.app.post('/internal/update-message-status', async (req, res) => {
+      try {
+        const { messageId, status } = req.body;
+
+        if (!messageId || !status) {
+          res.status(400).json({ success: false, error: 'Missing required fields: messageId, status' });
+          return;
+        }
+
+        const validStatuses = ['sent', 'delivered', 'read', 'failed'];
+        if (!validStatuses.includes(status)) {
+          res.status(400).json({ success: false, error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+          return;
+        }
+
+        const result = await this.store.query(
+          `UPDATE messages SET status = $1 WHERE id = $2 RETURNING id, status`,
+          [status, messageId]
+        );
+
+        if (!result || result.length === 0) {
+          res.status(404).json({ success: false, error: 'Message not found' });
+          return;
+        }
+
+        this.logger.info({ messageId, status }, 'Message status updated');
+        res.json({ success: true, messageId, status });
+      } catch (error) {
+        this.logger.error({ err: error.message }, 'Internal update-message-status error');
+        res.status(500).json({ success: false, error: 'Internal server error' });
+      }
     });
 
     this.io.on('connection', (socket) => {

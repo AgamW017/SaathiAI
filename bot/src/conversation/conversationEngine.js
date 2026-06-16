@@ -5,7 +5,7 @@ import { isAffirmative, isNegative, normalizeText, parseNumberChoice } from '../
 import { detectKeywordIntent, isDistressMessage } from './keywordRouter.js';
 
 export class ConversationEngine {
-  constructor({ store, eventLog, extractionService, skillCardService, jobService, interviewService, transcriptionService, logger }) {
+  constructor({ store, eventLog, extractionService, skillCardService, jobService, interviewService, transcriptionService, placementTrackerService, employerPingService, logger }) {
     this.store = store;
     this.eventLog = eventLog;
     this.extractionService = extractionService;
@@ -13,6 +13,8 @@ export class ConversationEngine {
     this.jobService = jobService;
     this.interviewService = interviewService;
     this.transcriptionService = transcriptionService;
+    this.placementTrackerService = placementTrackerService;
+    this.employerPingService = employerPingService;
     this.logger = logger;
     this.aiClient = extractionService.aiClient;
   }
@@ -50,6 +52,22 @@ export class ConversationEngine {
 
     session.script = chooseScript(session, text);
     session.lastInteractionAt = new Date().toISOString();
+
+    // Check if the incoming message is an employer ping command
+    if (this.employerPingService) {
+      const parsed = this.employerPingService.parseEmployerCommand(text);
+      if (parsed) {
+        const response = await this.employerPingService.handleEmployerPing(text, incoming.phone);
+        if (response !== null) {
+          const pingReplies = [this.message(response)];
+          const draftedPingReplies = await this.draftReplies(session, pingReplies, text);
+          await this.store.saveSession(session);
+          return { replies: draftedPingReplies, session };
+        }
+        // response === null means sender is not an employer, ignore silently
+        return { replies: [], session };
+      }
+    }
 
     const replies = await this.routeText(session, text);
     const finalReplies = await this.draftReplies(session, replies, text);
@@ -168,6 +186,14 @@ export class ConversationEngine {
       case Steps.INTERVIEW_Q2:
       case Steps.INTERVIEW_Q3:
         return this.handleInterviewAnswer(session, text);
+      case Steps.SALARY_CAPTURE:
+      case Steps.SALARY_RETRY:
+        return this.placementTrackerService.handleSalaryResponse(session, text);
+      case Steps.RETENTION_CHECK:
+      case Steps.RETENTION_RETRY:
+        return this.placementTrackerService.handleRetentionResponse(session, text);
+      case Steps.EMPLOYER_PING_REPLY:
+        return this.handleEmployerPingReply(session, text);
       case Steps.PLACED:
         return [this.message(messages.firstDayTips)];
       case Steps.STOPPED:
@@ -533,10 +559,41 @@ export class ConversationEngine {
         stepAfter: Steps.PLACED,
         metadata: { employerName: session.selectedJob?.employerName }
       });
+
+      // Schedule post-placement salary capture and retention checks
+      if (this.placementTrackerService && session.learnerId) {
+        const placementDate = new Date().toISOString();
+        await this.placementTrackerService.scheduleSalaryCapture(session.learnerId, placementDate);
+        await this.placementTrackerService.scheduleRetentionChecks(session.learnerId, placementDate);
+      }
+
       return [this.message(withOptions(messages.placed(session.collected.name ?? 'Dost'), [messages.labels.yes, messages.labels.later]))];
     }
 
     return [this.message(withOptions(messages.applied(session.selectedJob?.employerName ?? 'employer'), [messages.labels.practice, messages.labels.wait]))];
+  }
+
+  /**
+   * Handle a learner's reply when they are in the EMPLOYER_PING_REPLY step.
+   * Forwards the reply to the employer and returns the session to PLACED or TRACKING.
+   */
+  async handleEmployerPingReply(session, text) {
+    const messages = t(session.script);
+
+    if (this.employerPingService) {
+      const result = await this.employerPingService.handleLearnerReply(session, text);
+      // result === null means reply was forwarded successfully (no reply to learner)
+      // result === undefined means no recent ping found — handle normally
+      if (result === undefined) {
+        // No recent employer ping — fall back to placed/tracking behavior
+        session.step = session.placementStatus === PlacementStatus.PLACED ? Steps.PLACED : Steps.TRACKING;
+        return [this.message(messages.offTopic)];
+      }
+    }
+
+    // Reply forwarded or service not available — return to previous step
+    session.step = session.placementStatus === PlacementStatus.PLACED ? Steps.PLACED : Steps.TRACKING;
+    return [];
   }
 
   async startInterview(session) {

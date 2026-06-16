@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../config/env.js';
 import type { Database } from './types.js';
+
+// @ts-ignore — ws module may lack type declarations in cross-project compilation
 import WebSocket from 'ws';
 
 /**

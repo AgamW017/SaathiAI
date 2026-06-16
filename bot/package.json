@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "check": "node --check src/index.js"
+    "check": "node --check src/index.js",
+    "test": "vitest --run"
   },
   "engines": {
     "node": ">=20"
@@ -26,5 +27,9 @@
     "sarvamai": "^1.1.7",
     "socket.io": "^4.8.1",
     "whatsapp-web.js": "^1.26.0"
+  },
+  "devDependencies": {
+    "fast-check": "^4.8.0",
+    "vitest": "^4.1.9"
   }
 }

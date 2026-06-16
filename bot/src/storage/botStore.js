@@ -53,4 +53,12 @@ export class BotStore {
   async recentEvents(limit = 50) {
     return this.backendStore.recentEvents(limit);
   }
+
+  async query(sql, params = []) {
+    return this.backendStore.query(sql, params);
+  }
+
+  async queryOne(sql, params = []) {
+    return this.backendStore.queryOne(sql, params);
+  }
 }
