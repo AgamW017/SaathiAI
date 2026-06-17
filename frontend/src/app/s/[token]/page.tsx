@@ -3,7 +3,7 @@
 import React, { useState, use } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { trpc } from '../../../lib/trpc/client';
-import { ShieldCheck, PlayCircle, Check, X, Building2, MapPin } from 'lucide-react';
+import { ShieldCheck, PlayCircle, Check, X, Building2, MapPin, MessageSquare, Calendar, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function SkillCardPage({ params }: { params: Promise<{ token: string }> }) {
@@ -15,6 +15,13 @@ export default function SkillCardPage({ params }: { params: Promise<{ token: str
     { token },
     { retry: false, refetchOnWindowFocus: false }
   );
+
+  // Check if user is a logged-in employer
+  const { data: employerProfile } = trpc.employer.profile.get.useQuery(undefined, {
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const isEmployer = !!employerProfile;
 
   // Mutations
   const interestMutation = trpc.skillCard.expressInterest.useMutation();
@@ -209,30 +216,72 @@ export default function SkillCardPage({ params }: { params: Promise<{ token: str
           display: 'flex', flexDirection: 'column', gap: 12,
           maxWidth: 400, margin: '0 auto'
         }}>
-          <button
-            onClick={handleInterest}
-            disabled={hasActed || interestMutation.isPending}
-            style={{
-              width: '100%', padding: '16px', background: '#fa5d00', color: '#fff',
-              border: 'none', borderRadius: '16px', fontSize: '18px', fontWeight: 700,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              boxShadow: '0 8px 24px rgba(250,93,0,0.3)', cursor: hasActed ? 'not-allowed' : 'pointer',
-              opacity: hasActed ? 0.7 : 1
-            }}
-          >
-            {interestMutation.isPending ? 'Sending...' : '✓ मुझे Interest है'}
-          </button>
-          
-          <button
-            onClick={handlePass}
-            disabled={hasActed || passMutation.isPending}
-            style={{
-              width: '100%', padding: '12px', background: 'transparent', color: '#615f5c',
-              border: 'none', fontSize: '15px', fontWeight: 600, cursor: hasActed ? 'not-allowed' : 'pointer'
-            }}
-          >
-            {passMutation.isPending ? 'Processing...' : 'Pass करें'}
-          </button>
+          {isEmployer ? (
+            <>
+              {/* Employer viewing from pipeline — show pipeline actions */}
+              <button
+                onClick={() => router.push('/dashboard/employer/pipeline')}
+                style={{
+                  width: '100%', padding: '16px', background: '#004038', color: '#fff',
+                  border: 'none', borderRadius: '16px', fontSize: '16px', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  boxShadow: '0 8px 24px rgba(0,64,56,0.2)', cursor: 'pointer',
+                }}
+              >
+                <ArrowRight size={18} /> View in Pipeline
+              </button>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button
+                  onClick={() => router.push('/dashboard/employer/pipeline')}
+                  style={{
+                    flex: 1, padding: '12px', background: '#f0fdf4', color: '#16a34a',
+                    border: '1px solid #bbf7d0', borderRadius: '12px', fontSize: '14px', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer'
+                  }}
+                >
+                  <Calendar size={14} /> Schedule Interview
+                </button>
+                <button
+                  onClick={() => router.push('/dashboard/employer/pipeline')}
+                  style={{
+                    flex: 1, padding: '12px', background: '#fff8f1', color: '#fa5d00',
+                    border: '1px solid rgba(250,93,0,0.2)', borderRadius: '12px', fontSize: '14px', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer'
+                  }}
+                >
+                  <MessageSquare size={14} /> Send Message
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Public viewer — show interest/pass buttons */}
+              <button
+                onClick={handleInterest}
+                disabled={hasActed || interestMutation.isPending}
+                style={{
+                  width: '100%', padding: '16px', background: '#fa5d00', color: '#fff',
+                  border: 'none', borderRadius: '16px', fontSize: '18px', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  boxShadow: '0 8px 24px rgba(250,93,0,0.3)', cursor: hasActed ? 'not-allowed' : 'pointer',
+                  opacity: hasActed ? 0.7 : 1
+                }}
+              >
+                {interestMutation.isPending ? 'Sending...' : '✓ मुझे Interest है'}
+              </button>
+              
+              <button
+                onClick={handlePass}
+                disabled={hasActed || passMutation.isPending}
+                style={{
+                  width: '100%', padding: '12px', background: 'transparent', color: '#615f5c',
+                  border: 'none', fontSize: '15px', fontWeight: 600, cursor: hasActed ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {passMutation.isPending ? 'Processing...' : 'Pass करें'}
+              </button>
+            </>
+          )}
         </div>
 
       </div>

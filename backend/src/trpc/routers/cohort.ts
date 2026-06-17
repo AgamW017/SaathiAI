@@ -124,10 +124,13 @@ export const cohortRouter = router({
 
       if (uploadError) {
         logger.error({ error: uploadError }, 'Failed to upload cohort document to storage');
-        // Non-fatal: proceed with cohort creation even if storage fails
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to upload document to storage. Please try again.',
+        });
       }
 
-      const sourceDocumentUrl = uploadError ? null : storagePath;
+      const sourceDocumentUrl = storagePath;
 
       // 2. Create cohort record
       const { data: cohort, error: cohortError } = await supabase
@@ -192,7 +195,6 @@ export const cohortRouter = router({
 
       // 4. Trigger bot onboarding for newly created learners
       //    Bot expects: { learners: [{ id, phone }] }
-      //    Non-fatal: if bot is unavailable, log and continue (cohort was still created)
       if (newLearners.length > 0) {
         try {
           const response = await fetch(
@@ -212,14 +214,22 @@ export const cohortRouter = router({
               { status: response.status, errorBody },
               'Bot onboarding trigger returned non-OK status'
             );
-            // Non-fatal: cohort was still created. Onboarding can be retried.
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: `Cohort created (${learnersCreated} learners), but WhatsApp onboarding failed (bot returned ${response.status}). Learners will not receive welcome messages until retried.`,
+            });
           }
         } catch (error) {
+          if (error instanceof TRPCError) throw error;
+
           logger.error(
             { error },
             'Failed to reach bot service for onboarding trigger'
           );
-          // Non-fatal: cohort was still created.
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Cohort created (${learnersCreated} learners), but could not reach WhatsApp bot service. Learners will not receive welcome messages until the bot is back online.`,
+          });
         }
       }
 

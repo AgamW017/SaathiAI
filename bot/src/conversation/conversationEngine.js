@@ -52,6 +52,7 @@ export class ConversationEngine {
 
     session.script = chooseScript(session, text);
     session.lastInteractionAt = new Date().toISOString();
+    session.context.lastQuotedBody = incoming.quotedBody ?? null;
 
     // Check if the incoming message is an employer ping command
     if (this.employerPingService) {
@@ -71,6 +72,16 @@ export class ConversationEngine {
 
     const replies = await this.routeText(session, text);
     const finalReplies = await this.draftReplies(session, replies, text);
+
+    // Store chat history in session (last 10 exchanges for context)
+    if (!session.context.chatHistory) session.context.chatHistory = [];
+    session.context.chatHistory.push({ role: 'user', text, at: new Date().toISOString() });
+    for (const reply of finalReplies) {
+      session.context.chatHistory.push({ role: 'bot', text: reply.text, at: new Date().toISOString() });
+    }
+    // Keep only last 10 messages to avoid bloating session
+    session.context.chatHistory = session.context.chatHistory.slice(-10);
+
     await this.persistSessionAndLearner(session);
 
     if (session.step !== stepBefore) {
@@ -195,12 +206,52 @@ export class ConversationEngine {
       case Steps.EMPLOYER_PING_REPLY:
         return this.handleEmployerPingReply(session, text);
       case Steps.PLACED:
-        return [this.message(messages.firstDayTips)];
       case Steps.STOPPED:
-        return [this.message(messages.stopped)];
+      case Steps.TRACKING:
       default:
-        return [this.message(messages.offTopic)];
+        return this.handleFreeformWithAI(session, text);
     }
+  }
+
+  /**
+   * AI-driven freeform response for when the user says something outside
+   * the rigid step flow. The AI generates a contextual reply while being
+   * aware of what the bot can do (JOBS, CARD, PRACTICE, etc.)
+   */
+  async handleFreeformWithAI(session, text) {
+    const stepName = StepNames[session.step] ?? 'idle';
+    const capabilities = 'JOBS (find matching jobs), CARD (view skill card), PRACTICE (interview practice), STATUS (check status), HELP (see options)';
+
+    const prompt = `The learner said: "${text}"
+
+Current state: ${stepName} | Trade: ${session.collected?.trade ?? 'unknown'} | District: ${session.collected?.district ?? 'unknown'}
+Available commands: ${capabilities}
+
+Respond naturally to what they said. If they're asking about something you can help with, guide them.
+If they're just chatting, be friendly but gently remind them of what you can help with.
+If they seem to want jobs, suggest they type JOBS. If they want practice, suggest PRACTICE.
+If they're placed and happy, congratulate them. If they're frustrated, be empathetic and offer concrete next steps.
+Don't just say "I can only help with jobs" — be conversational and human.`;
+
+    try {
+      const aiResponse = await this.aiClient.draftReply({
+        script: session.script ?? 'roman',
+        intent: 'freeform_conversation',
+        brief: prompt,
+        facts: { incomingText: text, step: stepName },
+        session
+      });
+
+      if (aiResponse?.text) {
+        return [this.message(aiResponse.text, { intent: 'freeform', facts: { aiGenerated: true } })];
+      }
+    } catch (error) {
+      this.logger.error({ error, phone: session.phone }, 'Freeform AI response failed');
+    }
+
+    // Fallback if AI fails
+    const messages = t(session.script);
+    return [this.message(messages.help)];
   }
 
   async handleKeyword(session, keyword) {
@@ -251,6 +302,19 @@ export class ConversationEngine {
 
   async handleName(session, text) {
     const messages = t(session.script);
+
+    // If user types yes/no/number, they're probably responding to a previous question
+    // Don't interpret these as names
+    if (isAffirmative(text) || isNegative(text)) {
+      // If they already have a name stored, treat "yes" as confirming it
+      if (session.collected.name && isAffirmative(text)) {
+        session.step = Steps.ONBOARDING_TRADE;
+        return [this.message(messages.askTradeDistrict(session.collected.name), { intent: 'ask_trade_district' })];
+      }
+      // Otherwise re-ask for name
+      return [this.message(messages.askName, { intent: 'clarify_name', facts: { reason: 'got_yes_no_instead_of_name' } })];
+    }
+
     try {
       const extraction = await this.extractionService.extractName(text, { script: session.script });
       this.addAiFlags(session, extraction.flags, 'name');
@@ -317,22 +381,63 @@ export class ConversationEngine {
     const messages = t(session.script);
 
     if (session.context.profileCorrection) {
+      // Handle the merge/replace choice if we're waiting for it
+      if (session.context.awaitingTradeChoice) {
+        const newTrade = session.context.pendingNewTrade;
+        const oldTrade = session.context.pendingOldTrade;
+
+        if (isAffirmative(text) || normalizeText(text).includes('add') || normalizeText(text).includes('jod') || normalizeText(text).includes('dono') || text.trim() === '1') {
+          // Merge — combine both trades
+          session.collected.trade = `${oldTrade}, ${newTrade}`;
+        } else {
+          // Replace — only keep new trade
+          session.collected.trade = newTrade;
+        }
+
+        session.context.awaitingTradeChoice = false;
+        session.context.pendingNewTrade = null;
+        session.context.pendingOldTrade = null;
+        session.context.profileCorrection = false;
+        session.context.profileConfirmation = true;
+        return [this.message(this.profileConfirmationText(session), { intent: 'confirm_profile', facts: session.collected })];
+      }
+
       let extracted;
       try {
-        extracted = await this.extractionService.extractProfile(text, session.collected);
+        // Pass empty existing so AI doesn't merge with old values — this is a CORRECTION
+        extracted = await this.extractionService.extractProfile(text, {});
         this.addAiFlags(session, extracted.flags, 'profile_correction');
       } catch (error) {
         this.logger.error({ error, phone: session.phone }, 'Profile correction extraction failed');
         extracted = { trade: null, district: null, state: null, flags: [] };
       }
-      session.collected = {
-        ...session.collected,
-        ...withoutEmptyValues({
-          trade: extracted.trade,
-          district: extracted.district,
-          state: extracted.state
-        })
-      };
+
+      // If trade changed and old trade exists, ask whether to add or replace
+      if (extracted.trade && session.collected.trade && normalize(extracted.trade) !== normalize(session.collected.trade)) {
+        session.context.awaitingTradeChoice = true;
+        session.context.pendingNewTrade = extracted.trade;
+        session.context.pendingOldTrade = session.collected.trade;
+        // Update district/state if provided
+        if (extracted.district) session.collected.district = extracted.district;
+        if (extracted.state) session.collected.state = extracted.state;
+
+        const oldTrade = session.collected.trade;
+        const newTrade = extracted.trade;
+        let askMsg;
+        if (session.script === 'devanagari') {
+          askMsg = `आपने पहले "${oldTrade}" बताया था। अब "${newTrade}" बता रहे हैं।\n\n1. दोनों रखें (${oldTrade}, ${newTrade})\n2. सिर्फ ${newTrade} रखें`;
+        } else if (session.script === 'english') {
+          askMsg = `You previously said "${oldTrade}". Now you're saying "${newTrade}".\n\n1. Keep both (${oldTrade}, ${newTrade})\n2. Replace with just ${newTrade}`;
+        } else {
+          askMsg = `Aapne pehle "${oldTrade}" bataya tha. Ab "${newTrade}" bol rahe hain.\n\n1. Dono rakhein (${oldTrade}, ${newTrade})\n2. Sirf ${newTrade} rakhein`;
+        }
+        return [this.message(askMsg, { intent: 'ask_trade_merge_or_replace', facts: { oldTrade, newTrade, aiGenerated: true } })];
+      }
+
+      // No conflict — just replace directly
+      if (extracted.trade) session.collected.trade = extracted.trade;
+      if (extracted.district) session.collected.district = extracted.district;
+      if (extracted.state) session.collected.state = extracted.state;
       if (/pmkvy|iti|jss|government|skill|course|college/i.test(text)) {
         try {
           const certificate = await this.extractionService.extractCertificate(text);
@@ -357,7 +462,7 @@ export class ConversationEngine {
 
       if (isNegative(text)) {
         session.context.profileCorrection = true;
-        return [this.message(messages.askCorrection, { intent: 'ask_profile_correction' })];
+        return [this.message(messages.askCorrection, { intent: 'ask_profile_correction', facts: { userChoice: 'wants_to_correct_profile', currentProfile: session.collected } })];
       }
 
       return [this.message(this.profileConfirmationText(session), { intent: 'confirm_profile', facts: session.collected })];
@@ -482,10 +587,53 @@ export class ConversationEngine {
       metadata: { jobIds: jobs.map((job) => job.id), count: jobs.length }
     });
 
-    const jobMessages = jobs.map((job, index) => this.message(formatJob(job, index + 1, jobs.length)));
-    const labels = jobs.map((job, index) => `Job ${index + 1} - ${job.employerName}`).concat(messages.labels.none);
+    // Build a single consolidated message with count + top 3 descriptions
+    const topJobs = jobs.slice(0, 3);
+    const remaining = jobs.length - topJobs.length;
 
-    return [...jobMessages, this.message(withOptions(messages.jobInterestPrompt, labels))];
+    let jobSummary = '';
+    if (session.script === 'devanagari') {
+      jobSummary = `🔍 आपके profile से *${jobs.length} jobs* match करती हैं!\n\n`;
+    } else if (session.script === 'english') {
+      jobSummary = `🔍 *${jobs.length} jobs* match your profile!\n\n`;
+    } else {
+      jobSummary = `🔍 Aapke profile se *${jobs.length} jobs* match karti hain!\n\n`;
+    }
+
+    topJobs.forEach((job, index) => {
+      const salary = formatJobSalary(job);
+      const location = job.location || job.district || '';
+      jobSummary += `*${index + 1}. ${job.role}*\n`;
+      jobSummary += `   🏢 ${job.employerName}\n`;
+      jobSummary += `   📍 ${location}  💰 ${salary}\n`;
+      if (job.openings > 1) jobSummary += `   👥 ${job.openings} openings\n`;
+      jobSummary += '\n';
+    });
+
+    if (remaining > 0) {
+      if (session.script === 'devanagari') {
+        jobSummary += `📋 और ${remaining} jobs हैं। "MORE" लिखें सब देखने के लिए।\n\n`;
+      } else if (session.script === 'english') {
+        jobSummary += `📋 ${remaining} more jobs available. Type "MORE" to see all.\n\n`;
+      } else {
+        jobSummary += `📋 ${remaining} aur jobs hain. "MORE" likhein sab dekhne ke liye.\n\n`;
+      }
+    }
+
+    // Add selection prompt
+    const labels = topJobs.map((job, index) => `${index + 1}. ${job.role}`);
+    if (remaining > 0) labels.push('MORE');
+    labels.push(messages.labels.none);
+
+    if (session.script === 'devanagari') {
+      jobSummary += 'किस job में interest है? Number लिखें:';
+    } else if (session.script === 'english') {
+      jobSummary += 'Which job interests you? Type the number:';
+    } else {
+      jobSummary += 'Kis job mein interest hai? Number likhein:';
+    }
+
+    return [this.message(jobSummary, { intent: 'jobs_shown', facts: { count: jobs.length, shown: topJobs.length, aiGenerated: true } })];
   }
 
   async handleJobSelection(session, text) {
@@ -499,16 +647,51 @@ export class ConversationEngine {
     }
 
     const jobs = session.latestJobs ?? [];
+    const normalizedText = normalizeText(text);
+
+    // Handle "MORE" — show remaining jobs
+    if (normalizedText.includes('more') || normalizedText.includes('aur') || normalizedText.includes('और')) {
+      const alreadyShown = 3;
+      const remaining = jobs.slice(alreadyShown);
+      if (remaining.length === 0) {
+        return [this.message(session.script === 'devanagari' ? 'और कोई jobs नहीं हैं।' : session.script === 'english' ? 'No more jobs available.' : 'Aur koi jobs nahi hain.')];
+      }
+
+      let moreMsg = '';
+      remaining.forEach((job, index) => {
+        const salary = formatJobSalary(job);
+        const location = job.location || job.district || '';
+        moreMsg += `*${alreadyShown + index + 1}. ${job.role}*\n`;
+        moreMsg += `   🏢 ${job.employerName}\n`;
+        moreMsg += `   📍 ${location}  💰 ${salary}\n\n`;
+      });
+
+      if (session.script === 'devanagari') {
+        moreMsg += 'किस job में interest है? Number लिखें:';
+      } else if (session.script === 'english') {
+        moreMsg += 'Which job interests you? Type the number:';
+      } else {
+        moreMsg += 'Kis job mein interest hai? Number likhein:';
+      }
+
+      return [this.message(moreMsg, { intent: 'more_jobs_shown', facts: { aiGenerated: true } })];
+    }
+
     const choice = parseNumberChoice(text, jobs.length + 1);
 
-    if (choice === jobs.length + 1 || normalizeText(text).includes('koi nahi') || normalizeText(text).includes('none')) {
+    if (normalizedText.includes('koi nahi') || normalizedText.includes('none') || normalizedText.includes('nahi')) {
       session.context.jobDeclineReason = true;
       return [this.message(messages.jobDeclineReason)];
     }
 
     const selectedJob = choice ? jobs[choice - 1] : null;
     if (!selectedJob) {
-      return [this.message(withOptions(messages.jobInterestPrompt, jobs.map((job, index) => `Job ${index + 1} - ${job.employerName}`)))];
+      if (session.script === 'devanagari') {
+        return [this.message('कृपया job number लिखें जिसमें interest है, या "MORE" लिखें बाकी देखने के लिए।')];
+      } else if (session.script === 'english') {
+        return [this.message('Please type the job number you\'re interested in, or "MORE" to see the rest.')];
+      }
+      return [this.message('Please job number likhein jisme interest hai, ya "MORE" likhein baaki dekhne ke liye.')];
     }
 
     await this.jobService.apply({
@@ -681,6 +864,12 @@ export class ConversationEngine {
   async draftReplies(session, replies, incomingText) {
     const drafted = [];
     for (const reply of replies) {
+      // Skip AI rewriting for messages already generated by AI freeform
+      if (reply.metadata?.facts?.aiGenerated) {
+        drafted.push(reply);
+        continue;
+      }
+
       try {
         const draftedReply = await this.aiClient.draftReply({
           script: session.script ?? 'roman',
@@ -688,7 +877,9 @@ export class ConversationEngine {
           brief: reply.text,
           facts: {
             ...(reply.metadata?.facts ?? {}),
-            incomingText
+            incomingText,
+            replyingTo: session.context.lastQuotedBody ?? null,
+            chatHistory: (session.context.chatHistory ?? []).slice(-8)
           },
           session
         });
@@ -696,7 +887,6 @@ export class ConversationEngine {
         drafted.push({ ...reply, text: draftedReply.text });
       } catch (error) {
         // Safety net: if draftReply throws unexpectedly, use the template text as-is.
-        // The templates in messages.js are already well-crafted in the correct script.
         this.logger.error({ error, phone: session.phone }, 'draftReply failed unexpectedly — using template text');
         this.addAiFlags(session, [{ code: 'ai_error', severity: 'warning', reason: error.message, field: 'reply' }], 'reply');
         drafted.push({ ...reply });
@@ -746,7 +936,7 @@ function stepToInterviewIndex(step) {
 }
 
 function formatJob(job, index, total) {
-  const salary = formatSalary(job);
+  const salary = formatJobSalary(job);
   const distance = Number.isFinite(job.distanceKm) ? `${job.distanceKm} km - ` : '';
   const marker =
     job.type === 'apprenticeship'
@@ -757,6 +947,16 @@ function formatJob(job, index, total) {
   const verification = job.verified ? 'Verified employer' : 'Unverified employer - ask your placement officer before proceeding';
 
   return `Job ${index} of ${total}\n${job.employerName}\n${job.role}\n📍 ${distance}${job.location}\n💰 ${salary}\n🕐 ${marker} - ${job.postedText}\n${verification}`;
+}
+
+function formatJobSalary(job) {
+  if (job.salaryRangeText) return job.salaryRangeText;
+  if (Number.isFinite(job.salaryMin) && Number.isFinite(job.salaryMax)) {
+    return job.salaryMin === job.salaryMax
+      ? `₹${job.salaryMin.toLocaleString('en-IN')}/mo`
+      : `₹${job.salaryMin.toLocaleString('en-IN')} - ₹${job.salaryMax.toLocaleString('en-IN')}/mo`;
+  }
+  return 'TBD';
 }
 
 function formatSalary(job) {

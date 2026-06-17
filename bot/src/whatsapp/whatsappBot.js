@@ -57,6 +57,41 @@ export class WhatsAppBot {
       this.stats.setStatus('ready');
       this.dashboard.setConnectionStatus('ready');
       this.dashboard.emit('stats', this.stats.snapshot());
+
+      // Wire send capability into the dashboard's internal API endpoints
+      this.dashboard.setSendMessage(async (phone, text) => {
+        // The "phone" field in the DB can be:
+        // 1. A 10-digit Indian mobile number (e.g. 9876543210)
+        // 2. A 12-digit number with country code (e.g. 919876543210)
+        // 3. A WhatsApp LID (Linked ID) — typically 13 digits (e.g. 7030878277806)
+        let digits = phone.replace(/\D/g, '');
+
+        let chatId;
+        if (digits.length === 10 && /^[6-9]/.test(digits)) {
+          // Standard 10-digit Indian mobile → prepend country code
+          chatId = `91${digits}@c.us`;
+        } else if (digits.length === 12 && digits.startsWith('91')) {
+          // Already has country code
+          chatId = `${digits}@c.us`;
+        } else {
+          // Likely a LID — use @lid suffix
+          chatId = `${digits}@lid`;
+        }
+
+        this.logger.info({ phone, chatId }, 'Sending WhatsApp message');
+
+        // For @c.us IDs, verify registration first
+        if (chatId.endsWith('@c.us')) {
+          const numberId = await this.client.getNumberId(chatId);
+          if (!numberId) {
+            throw new Error(`Phone ${digits} is not registered on WhatsApp`);
+          }
+          await this.client.sendMessage(numberId._serialized, text);
+        } else {
+          // LID-based — send directly
+          await this.client.sendMessage(chatId, text);
+        }
+      });
     });
 
     this.client.on('auth_failure', (message) => {
@@ -122,6 +157,18 @@ export class WhatsAppBot {
       const isVoice = message.hasMedia && ['ptt', 'audio'].includes(message.type);
       const media = isVoice ? await message.downloadMedia() : null;
       const author = message.author ?? message.from;
+
+      // Get quoted/replied-to message body if this is a reply
+      let quotedBody = null;
+      if (message.hasQuotedMsg) {
+        try {
+          const quoted = await message.getQuotedMessage();
+          quotedBody = quoted?.body ?? null;
+        } catch {
+          // Non-critical — proceed without quote context
+        }
+      }
+
       const incoming = {
         phone: normalizeWhatsAppId(author),
         chatId: message.from,
@@ -130,7 +177,8 @@ export class WhatsAppBot {
         type: message.type,
         isVoice,
         media,
-        fromGroup: message.from.endsWith('@g.us')
+        fromGroup: message.from.endsWith('@g.us'),
+        quotedBody,
       };
 
       console.log('[DEBUG] calling processIncoming phone=%s step=%s', incoming.phone, 'unknown');

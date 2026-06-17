@@ -46,15 +46,29 @@ export default function NewVacancyPage() {
       if (data.minimum_wage_warning) {
         setWarning(data.minimum_wage_warning.message);
       }
+      // If saved as draft, go back to list. If active, proceed to targeting.
+      const vacancyStatus = data.vacancy?.status ?? 'active';
+      if (vacancyStatus === 'draft') {
+        setSuccessToast('Vacancy saved as draft');
+        setTimeout(() => {
+          router.push('/dashboard/employer/vacancies');
+        }, 1500);
+        return;
+      }
       // Save vacancy ID and move to targeting step
-      // Backend returns { vacancy: { id, ... }, minimum_wage_warning: ... }
       setSavedVacancyId(data.vacancy?.id ?? data.id ?? null);
       setStep('targeting');
     }
   });
 
   const onSubmit = (data: VacancyInputs) => {
-    createMutation.mutate(data);
+    createMutation.mutate({ ...data, status: 'active' as const });
+  };
+
+  const onSaveDraft = () => {
+    handleSubmit((data: VacancyInputs) => {
+      createMutation.mutate({ ...data, status: 'draft' as const });
+    })();
   };
 
   const handleBroadcastComplete = (count: number) => {
@@ -213,9 +227,14 @@ export default function NewVacancyPage() {
           </div>
         </div>
 
-        <button type="submit" disabled={createMutation.isPending} style={{ marginTop: 16, padding: '14px', background: '#fa5d00', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>
-          {createMutation.isPending ? 'Saving...' : 'Save & Continue to Targeting'}
-        </button>
+        <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+          <button type="button" onClick={onSaveDraft} disabled={createMutation.isPending} style={{ flex: 1, padding: '14px', background: '#fff', color: '#333942', border: '1px solid #d1d0cd', borderRadius: 10, fontWeight: 600, fontSize: 15, cursor: 'pointer', opacity: createMutation.isPending ? 0.7 : 1 }}>
+            {createMutation.isPending ? 'Saving...' : 'Save as Draft'}
+          </button>
+          <button type="submit" disabled={createMutation.isPending} style={{ flex: 1, padding: '14px', background: '#fa5d00', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 600, fontSize: 15, cursor: 'pointer', opacity: createMutation.isPending ? 0.7 : 1 }}>
+            {createMutation.isPending ? 'Publishing...' : 'Publish Vacancy'}
+          </button>
+        </div>
 
       </form>
     </motion.div>

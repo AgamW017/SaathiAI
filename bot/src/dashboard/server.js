@@ -139,6 +139,87 @@ export class DashboardServer {
       }
     });
 
+    // ── Internal API: Broadcast Vacancy Notifications ──────────────────────
+    this.app.post('/internal/broadcast', async (req, res) => {
+      try {
+        const { learnerIds, vacancy, employer_id } = req.body;
+
+        if (!Array.isArray(learnerIds) || learnerIds.length === 0) {
+          res.status(400).json({ success: false, error: 'Missing or empty learnerIds array' });
+          return;
+        }
+
+        if (!vacancy || !vacancy.id || !vacancy.title) {
+          res.status(400).json({ success: false, error: 'Missing vacancy info (id, title)' });
+          return;
+        }
+
+        if (!this._sendMessage) {
+          res.status(503).json({ success: false, error: 'WhatsApp client not ready' });
+          return;
+        }
+
+        // Look up phone numbers for all learner IDs
+        const placeholders = learnerIds.map((_, i) => `$${i + 1}`).join(', ');
+        const learners = await this.store.query(
+          `SELECT id, phone, full_name FROM learners WHERE id IN (${placeholders})`,
+          learnerIds
+        );
+
+        if (!learners || learners.length === 0) {
+          res.json({ success: true, total: 0, sent: 0, failed: 0 });
+          return;
+        }
+
+        let sent = 0;
+        let failed = 0;
+
+        // Get employer company name for attribution
+        let companyName = 'Employer';
+        if (employer_id) {
+          const employer = await this.store.queryOne(
+            `SELECT company_name FROM employers WHERE id = $1`,
+            [employer_id]
+          );
+          if (employer?.company_name) {
+            companyName = employer.company_name;
+          }
+        }
+
+        const notificationMessage = `🔔 नई Job Alert!\n\n*${vacancy.title}*\nCompany: ${companyName}\n\nयह job आपके trade से match करती है। अगर interested हैं तो "JOBS" लिखें।\n\n- SaathiAI`;
+
+        for (let i = 0; i < learners.length; i++) {
+          const learner = learners[i];
+
+          if (!learner.phone) {
+            failed += 1;
+            this.logger.warn({ learnerId: learner.id }, 'Skipping learner: no phone number');
+            continue;
+          }
+
+          try {
+            await this._sendMessage(learner.phone, notificationMessage);
+            sent += 1;
+            this.logger.info({ learnerId: learner.id, vacancyId: vacancy.id, phone: learner.phone }, 'Broadcast notification sent');
+          } catch (deliveryError) {
+            failed += 1;
+            this.logger.error({ learnerId: learner.id, phone: learner.phone, err: deliveryError.message }, 'Broadcast notification delivery failed');
+          }
+
+          // Stagger: 1 second between messages to avoid rate limiting
+          if (i < learners.length - 1) {
+            await sleep(1000);
+          }
+        }
+
+        this.logger.info({ vacancyId: vacancy.id, total: learners.length, sent, failed }, 'Broadcast complete');
+        res.json({ success: true, total: learners.length, sent, failed });
+      } catch (error) {
+        this.logger.error({ err: error.message }, 'Internal broadcast error');
+        res.status(500).json({ success: false, error: 'Internal server error' });
+      }
+    });
+
     // ── Internal API: Trigger Onboarding ─────────────────────────────────
     this.app.post('/internal/trigger-onboarding', async (req, res) => {
       try {

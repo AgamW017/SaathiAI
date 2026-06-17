@@ -236,18 +236,52 @@ export class SupabaseStore {
 
   async saveApplication(application) {
     const learner = await this.ensureLearner(application.phone);
+
+    // Check if this job_id is a vacancy (from employer portal) vs old jobs table
+    const jobExists = await this.queryOne(
+      `SELECT id FROM jobs WHERE id = $1`,
+      [application.jobId]
+    );
+
+    if (jobExists) {
+      // Old jobs table — use applications table
+      const row = await this.queryOne(
+        `INSERT INTO applications (learner_id, job_id, status, notes)
+         VALUES ($1,$2,'applied',$3)
+         ON CONFLICT (learner_id, job_id) DO UPDATE SET status='applied', updated_at=NOW()
+         RETURNING *`,
+        [
+          learner.id,
+          application.jobId,
+          application.cardUrl ? `Skill Card: ${application.cardUrl}` : null
+        ]
+      );
+      if (!row) throw new Error('Failed to save application: no row returned');
+      return row;
+    }
+
+    // Vacancy from employer portal — use matches table
+    // Find the employer_id for this vacancy
+    const vacancy = await this.queryOne(
+      `SELECT employer_id FROM vacancies WHERE id = $1`,
+      [application.jobId]
+    );
+
+    if (!vacancy) throw new Error(`Job/vacancy ${application.jobId} not found in either table`);
+
     const row = await this.queryOne(
-      `INSERT INTO applications (learner_id, job_id, status, notes)
-       VALUES ($1,$2,'applied',$3)
-       ON CONFLICT (learner_id, job_id) DO UPDATE SET status='applied', updated_at=NOW()
+      `INSERT INTO matches (vacancy_id, learner_id, employer_id, stage, timeline)
+       VALUES ($1, $2, $3, 'interest_expressed', $4)
+       ON CONFLICT (vacancy_id, learner_id) DO UPDATE SET stage='interest_expressed', updated_at=NOW()
        RETURNING *`,
       [
-        learner.id,
         application.jobId,
-        application.cardUrl ? `Skill Card: ${application.cardUrl}` : null
+        learner.id,
+        vacancy.employer_id,
+        JSON.stringify([{ stage: 'interest_expressed', timestamp: new Date().toISOString(), actor: 'learner', note: 'Learner expressed interest via WhatsApp' }])
       ]
     );
-    if (!row) throw new Error('Failed to save application: no row returned');
+    if (!row) throw new Error('Failed to save vacancy application: no row returned');
     return row;
   }
 

@@ -1,4 +1,5 @@
 import { uniqueList } from '../utils/text.js';
+import { validateField, validateExtraction } from '../utils/fieldValidator.js';
 
 const MIN_PROFILE_CONFIDENCE = 0.62;
 const MIN_NAME_CONFIDENCE = 0.55;
@@ -14,17 +15,27 @@ export class ExtractionService {
     const name = cleanName(result.name);
 
     if (result.confidence >= MIN_NAME_CONFIDENCE && name) {
-      return { name, confidence: result.confidence, flags: result.flags ?? [] };
+      // Validate through field validator protocol
+      const validation = validateField('name', name, result.confidence);
+      if (validation.valid) {
+        return { name: validation.value, confidence: result.confidence, flags: result.flags ?? [] };
+      }
+      // AI returned something but validator rejected it
+      this.logger.info({ name, reason: validation.reason }, 'Name rejected by field validator');
+      return { name: null, confidence: result.confidence, flags: [...(result.flags ?? []), { code: 'field_rejected', severity: 'info', reason: validation.reason, field: 'name' }] };
     }
 
     // AI returned nothing or low confidence — try heuristic extraction
     const heuristicName = heuristicExtractName(text);
     if (heuristicName) {
-      return {
-        name: heuristicName,
-        confidence: 0.4,
-        flags: [...(result.flags ?? []), { code: 'heuristic_fallback', severity: 'info', reason: 'Name extracted by heuristic after AI returned low confidence', field: 'name' }]
-      };
+      const validation = validateField('name', heuristicName, 0.4);
+      if (validation.valid) {
+        return {
+          name: validation.value,
+          confidence: 0.4,
+          flags: [...(result.flags ?? []), { code: 'heuristic_fallback', severity: 'info', reason: 'Name extracted by heuristic after AI returned low confidence', field: 'name' }]
+        };
+      }
     }
 
     return { name: null, confidence: result.confidence, flags: result.flags ?? [] };
@@ -36,22 +47,61 @@ export class ExtractionService {
     const confident = Number(result.confidence ?? 0) >= MIN_PROFILE_CONFIDENCE;
 
     if (confident && (result.trade || result.district)) {
-      return normalizeProfile({
+      // Validate all extracted fields through the protocol
+      const { validated, rejected } = validateExtraction({
         trade: result.trade ?? existing.trade ?? null,
         district: result.district ?? existing.district ?? null,
         state: result.state || existing.state || null,
         confidence: result.confidence,
-        missingFields: result.missingFields ?? [],
-        flags
       });
+
+      // Add rejection flags
+      const rejectionFlags = rejected.map(r => ({
+        code: 'field_rejected', severity: 'info', reason: r.reason, field: r.field
+      }));
+
+      const profile = normalizeProfile({
+        trade: validated.trade ?? existing.trade ?? null,
+        district: validated.district ?? existing.district ?? null,
+        state: validated.state || existing.state || null,
+        confidence: result.confidence,
+        missingFields: result.missingFields ?? [],
+        flags: [...flags, ...rejectionFlags]
+      });
+
+      // If district is known but state is still missing, resolve via AI
+      if (profile.district && !profile.state) {
+        try {
+          const stateResult = await this.aiClient.runTask('extract_profile', {
+            text: `District: ${profile.district}`,
+            existing: { district: profile.district }
+          });
+          if (stateResult.state) {
+            const stateValidation = validateField('state', stateResult.state);
+            if (stateValidation.valid) {
+              profile.state = stateValidation.value;
+            }
+          }
+        } catch {
+          // Non-critical — state stays null
+        }
+      }
+
+      return profile;
     }
 
     // AI returned nothing useful — try heuristic keyword matching
     const heuristic = heuristicExtractProfile(text, existing);
-    return normalizeProfile({
+    const { validated: heuristicValidated } = validateExtraction({
       trade: heuristic.trade ?? existing.trade ?? null,
       district: heuristic.district ?? existing.district ?? null,
       state: heuristic.state ?? existing.state ?? null,
+    });
+
+    return normalizeProfile({
+      trade: heuristicValidated.trade ?? existing.trade ?? null,
+      district: heuristicValidated.district ?? existing.district ?? null,
+      state: heuristicValidated.state ?? existing.state ?? null,
       confidence: heuristic.matched ? 0.45 : 0,
       missingFields: result.missingFields ?? [],
       flags: [...flags, ...(heuristic.matched

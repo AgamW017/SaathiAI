@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { trpc } from '../../../../lib/trpc/client';
-import { Plus, Search, Filter, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Search, Filter } from 'lucide-react';
 import Link from 'next/link';
+import VacancyActionsMenu from '../../../../components/employer/VacancyActionsMenu';
 
 export default function VacanciesPage() {
   const { data, isLoading } = trpc.employer.vacancies.list.useQuery({});
@@ -80,7 +81,7 @@ export default function VacanciesPage() {
                     <td style={{ padding: '16px 20px', fontSize: 14, color: '#333942' }}>{v.openings}</td>
                     <td style={{ padding: '16px 20px' }}>{getStatusBadge(v.status)}</td>
                     <td style={{ padding: '16px 20px' }}>
-                      <button style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#8a8886' }}><MoreVertical size={18} /></button>
+                      <VacancyActionsMenu vacancy={{ id: v.id, title: v.title, trade_required: v.trade_required, status: v.status }} />
                     </td>
                   </tr>
                 ))

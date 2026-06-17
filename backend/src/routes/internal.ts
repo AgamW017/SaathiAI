@@ -53,11 +53,14 @@ internalRouter.get(
     const botUrl = process.env.BOT_INTERNAL_URL ?? 'http://localhost:3000';
     try {
       const resp = await fetch(`${botUrl}/status`);
-      console.log(resp);
+      if (!resp.ok) {
+        res.status(502).json({ error: 'Bot returned an error', status: 'error', connected: false, qr: null });
+        return;
+      }
       const data = await resp.json();
       res.json(data);
     } catch {
-      res.json({ status: 'unreachable', connected: false, qr: null });
+      res.status(503).json({ error: 'Bot service is unreachable', status: 'unreachable', connected: false, qr: null });
     }
   }
 );

@@ -15,16 +15,29 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 export class GroqClient {
   constructor(config, logger = null) {
     this.logger = logger;
-    this._configured = Boolean(config.apiKey);
-    this.apiKey = config.apiKey || '';
+    // Support comma-separated API keys for rotation
+    this.apiKeys = (config.apiKey || '').split(',').map(k => k.trim()).filter(Boolean);
+    this._configured = this.apiKeys.length > 0;
     this.model = config.model || DEFAULT_MODEL;
     this.timeoutMs = config.timeoutMs || DEFAULT_TIMEOUT_MS;
+    this._currentKeyIndex = 0;
 
     if (!this._configured) {
       const msg = 'GROQ_API_KEY is missing. Groq provider will be unavailable.';
       if (this.logger) this.logger.warn(msg);
       else console.warn('[GroqClient]', msg);
+    } else if (this.apiKeys.length > 1) {
+      const msg = `Groq configured with ${this.apiKeys.length} API keys (round-robin rotation)`;
+      if (this.logger) this.logger.info(msg);
+      else console.log('[GroqClient]', msg);
     }
+  }
+
+  /** Get the current API key and rotate to next */
+  _getNextKey() {
+    const key = this.apiKeys[this._currentKeyIndex];
+    this._currentKeyIndex = (this._currentKeyIndex + 1) % this.apiKeys.length;
+    return key;
   }
 
   isConfigured() {
@@ -99,41 +112,66 @@ export class GroqClient {
    * Core API call to Groq's OpenAI-compatible endpoint.
    */
   async _callApi(body) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+    // Try each API key until one works (handles rate limits)
+    let lastError = null;
+    const keysToTry = this.apiKeys.length;
 
-    try {
-      const response = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
-        },
-        body: JSON.stringify({
-          model: this.model,
-          ...body
-        }),
-        signal: controller.signal
-      });
+    for (let attempt = 0; attempt < keysToTry; attempt++) {
+      const apiKey = this._getNextKey();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
-      if (!response.ok) {
-        const errorBody = await safeParseBody(response);
-        throw new Error(
-          `HTTP ${response.status}: ${errorBody?.error?.message || response.statusText}`
-        );
+      try {
+        const response = await fetch(GROQ_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: this.model,
+            ...body
+          }),
+          signal: controller.signal
+        });
+
+        if (response.status === 429) {
+          // Rate limited — try next key
+          const errorBody = await safeParseBody(response);
+          lastError = new Error(`Rate limited (key ${attempt + 1}/${keysToTry}): ${errorBody?.error?.message || 'Too many requests'}`);
+          if (this.logger) this.logger.warn(`Groq key ${attempt + 1} rate limited, trying next...`);
+          clearTimeout(timeoutId);
+          continue;
+        }
+
+        if (!response.ok) {
+          const errorBody = await safeParseBody(response);
+          throw new Error(
+            `HTTP ${response.status}: ${errorBody?.error?.message || response.statusText}`
+          );
+        }
+
+        const data = await response.json();
+        const content = data?.choices?.[0]?.message?.content;
+
+        if (!content) {
+          throw new Error('Groq returned empty response');
+        }
+
+        return content;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        // If it's a rate limit retry, continue to next key
+        if (err === lastError) continue;
+        // For other errors (network, timeout, etc.), throw immediately
+        throw err;
+      } finally {
+        clearTimeout(timeoutId);
       }
-
-      const data = await response.json();
-      const content = data?.choices?.[0]?.message?.content;
-
-      if (!content) {
-        throw new Error('Groq returned empty response');
-      }
-
-      return content;
-    } finally {
-      clearTimeout(timeoutId);
     }
+
+    // All keys exhausted
+    throw lastError || new Error('All Groq API keys rate limited');
   }
 }
 
@@ -237,10 +275,22 @@ Return ONLY a valid JSON object matching this structure: { name, confidence, fla
     schema: profileSchema,
     prompt: ({ text, existing }) => `
 You are SaathiAI's learner profile classifier.
-Extract trade, district, and state from a rural Indian vocational learner's WhatsApp message.
-Normalize trade to a concise English label such as Electrician, Fitter, COPA, Welder, Plumber, Mechanic, Beauty Wellness.
-Normalize district/state using Indian geography. If unsure, use an empty string and add a flag.
-Do not overwrite existing correct fields unless the message clearly corrects them.
+Extract trade(s), district, and state from a rural Indian vocational learner's WhatsApp message.
+
+TRADE EXTRACTION RULES:
+- Accept ANY legitimate trade/profession/skill the learner mentions. Do NOT restrict to a fixed list.
+- Common ITI trades: Electrician, Fitter, COPA, Welder, Plumber, Mechanic, Turner, Machinist, Carpenter, Painter, Sheet Metal Worker, Wireman, Electronics Mechanic, Instrument Mechanic, Draughtsman, Surveyor, Stenographer, Diesel Mechanic, Motor Vehicle Mechanic, Refrigeration/AC, Information Technology, Beauty Wellness, Fashion Design, Food Production, etc.
+- Also accept non-ITI trades: Hacker, Cybersecurity, Data Entry, Graphic Design, Digital Marketing, Accounting, Photography, Tailoring, Farming, Driving, Security, Housekeeping, Cooking, etc.
+- If the learner mentions multiple trades/skills, return them as comma-separated in the trade field (e.g., "Electrician, Plumber" or "COPA, Data Entry").
+- Normalize to concise English labels but DO NOT reject any trade.
+- If a trade sounds unusual but the learner insists, accept it.
+
+CRITICAL — District/State resolution:
+- ALWAYS resolve the state from the district. Every Indian district belongs to exactly one state. You MUST fill in the state field.
+  Examples: Mohali → Punjab, Varanasi → Uttar Pradesh, Jamshedpur → Jharkhand, Pune → Maharashtra.
+- If the learner mentions a city/area, map it to the correct district and state.
+- Never leave state empty if district is known.
+- Do not overwrite existing correct fields unless the message clearly corrects them.
 
 Existing profile: ${JSON.stringify(existing)}
 Message: ${JSON.stringify(text)}
@@ -294,27 +344,38 @@ Return ONLY a valid JSON object matching this structure: { feedback, score, flag
 
 function buildReplyPrompt({ script, intent, facts, brief, session }) {
   return `
-You are SaathiAI, a WhatsApp career companion for Indian vocational graduates.
-You are the only voice the learner sees. Write the final WhatsApp message.
+You are SaathiAI, a WhatsApp career companion for Indian vocational graduates (ITI/PMKVY/JSS).
+You talk like a helpful elder brother/sister who genuinely cares about the learner's career.
 
 Language/script: ${languageName(script)}
-Tone: professional, warm, concise, respectful. Use the learner's name with "ji" when natural.
-Audience: low-end Android WhatsApp user, often rural, likely Hindi/Hinglish.
+Tone: warm, encouraging, slightly informal, practical. Like a supportive friend who knows the job market.
+- Use the learner's name with "ji" naturally
+- Use WhatsApp formatting: *bold* for emphasis, emojis sparingly but meaningfully
+- Sound human, not robotic. Vary your sentence structure.
+- Show you understand their situation (blue-collar job seekers, often first-generation workers)
+
+Audience: Young adults (18-25) on low-end Android phones, often in small towns/rural India.
+They respond better to encouragement and practical next steps.
 
 Rules:
-- Do not mention AI internals, APIs, database, schema, errors, or classification.
-- Do not guarantee a job.
-- Do not ask for Aadhaar, bank details, OTPs, passwords, or sensitive credentials.
-- Ask only the next useful question.
-- If options are provided in the brief, preserve the numbered options exactly enough for the user to reply by number.
-- Keep under 900 characters unless listing jobs.
-- If a field is uncertain, politely ask a clarifying question instead of pretending certainty.
-- Never include technical debug information.
+- Never mention AI, APIs, databases, technical systems, or classification.
+- Never guarantee a job or salary.
+- Never ask for Aadhaar, bank details, OTPs, passwords.
+- Keep messages under 800 characters unless listing multiple jobs.
+- If listing jobs, format them cleanly with bullet points and emojis.
+- If the brief contains numbered options, preserve them clearly for number-based replies.
+- If something is unclear, ask ONE clarifying question — don't bombard with multiple.
+- Add a small motivational touch when appropriate (not forced).
+- Match the user's energy — if they're excited, be excited. If they're frustrated, be empathetic first.
+- NEVER say "samajh nahi aaya" or "I don't understand" when rewriting. The system already understood the user — you are just making the reply sound natural.
+- If the user typed a number (1, 2, etc.), they were selecting from a menu. The system handled it. Your job is just to rephrase the response naturally, NOT to express confusion about what the number means.
 
 Intent: ${intent}
-Session summary: ${JSON.stringify(publicSessionSummary(session))}
-Facts to include: ${JSON.stringify(facts)}
-Draft brief to transform: ${JSON.stringify(brief)}
+The user said: ${JSON.stringify(facts.incomingText ?? '')}${facts.replyingTo ? `\nThe user is REPLYING TO this bot message: ${JSON.stringify(facts.replyingTo)}` : ''}
+Recent conversation history: ${JSON.stringify((facts.chatHistory ?? []).slice(-6))}
+Session context: ${JSON.stringify(publicSessionSummary(session))}
+Key facts: ${JSON.stringify({ ...facts, chatHistory: undefined, replyingTo: undefined })}
+Template to rewrite (make it sound natural and personal): ${JSON.stringify(brief)}
 
 Return ONLY a valid JSON object with text and flags. For unknown flag.field, use an empty string.
 `;

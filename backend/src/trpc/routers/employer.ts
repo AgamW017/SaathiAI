@@ -81,6 +81,7 @@ const VacancyCreateInput = z.object({
   shift_type: z.enum(['day', 'night', 'rotational']).default('day'),
   naps_eligible: z.boolean().default(false),
   openings: z.number().int().positive().default(1),
+  status: z.enum(['draft', 'active']).default('active'),
 });
 
 const VacancyUpdateInput = VacancyCreateInput.partial().extend({
@@ -207,6 +208,22 @@ const vacanciesRouter = router({
       return { vacancies: data ?? [], total: count ?? 0, page: input.page };
     }),
 
+  get: employerProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const { data, error } = await db
+        .from('vacancies')
+        .select('*')
+        .eq('id', input.id)
+        .eq('employer_id', ctx.user.sub)
+        .single();
+
+      if (error || !data) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Vacancy not found' });
+      }
+      return data;
+    }),
+
   create: employerProcedure
     .input(VacancyCreateInput)
     .mutation(async ({ ctx, input }) => {
@@ -250,8 +267,8 @@ const vacanciesRouter = router({
       const compliant = checkMinimumWageCompliance(input.salary_min, input.trade_required, state);
       const minWage = getMinimumWage(input.trade_required, state);
 
-      // 3. Determine status: flagged if non-compliant, else draft
-      const status: string = compliant ? 'draft' : 'flagged';
+      // 3. Determine status: flagged if non-compliant, else use requested status
+      const status: string = compliant ? input.status : 'flagged';
 
       const { data, error } = await db
         .from('vacancies')
@@ -357,8 +374,10 @@ const vacanciesRouter = router({
   /**
    * Broadcast a vacancy to all learners matching the given filters.
    * Creates match records with stage 'new_match' and queues WhatsApp notifications.
+   * When exclude_applied is true, learners with existing match records for this
+   * vacancy are excluded from the recipient list.
    *
-   * Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6
+   * Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 8.1, 8.2, 8.3, 8.4, 8.5
    */
   broadcast: employerProcedure
     .input(z.object({
@@ -368,6 +387,7 @@ const vacanciesRouter = router({
         district: z.string().optional(),
         location: z.string().optional(),
       }),
+      exclude_applied: z.boolean().optional().default(false),
     }))
     .mutation(async ({ ctx, input }) => {
       const employerId = ctx.user.sub;
@@ -412,19 +432,32 @@ const vacanciesRouter = router({
       }
 
       // 3. Query learners matching filters with status 'active'
+      // Use ILIKE for fuzzy trade matching and OR for district/state cross-matching
       let learnerQuery = db
         .from('learners')
-        .select('id, phone, full_name')
+        .select('id, phone, full_name, trade, district, state')
         .eq('status', 'active');
 
       if (input.filters.trade) {
-        learnerQuery = learnerQuery.eq('trade', input.filters.trade);
+        // Fuzzy trade: use ilike with prefix match (e.g., "Electri%" matches "Electrician" and "Electrical")
+        const tradePrefix = input.filters.trade.trim().slice(0, 5);
+        learnerQuery = learnerQuery.ilike('trade', `${tradePrefix}%`);
       }
-      if (input.filters.district) {
-        learnerQuery = learnerQuery.eq('district', input.filters.district);
-      }
-      if (input.filters.location) {
-        learnerQuery = learnerQuery.eq('state', input.filters.location);
+      if (input.filters.district && input.filters.location) {
+        // Both district and state provided: match either field against either value
+        learnerQuery = learnerQuery.or(
+          `district.ilike.%${input.filters.district}%,state.ilike.%${input.filters.district}%,district.ilike.%${input.filters.location}%,state.ilike.%${input.filters.location}%`
+        );
+      } else if (input.filters.district) {
+        // District provided: could be a district name or state name, check both fields
+        learnerQuery = learnerQuery.or(
+          `district.ilike.%${input.filters.district}%,state.ilike.%${input.filters.district}%`
+        );
+      } else if (input.filters.location) {
+        // State/location provided: check both district and state fields
+        learnerQuery = learnerQuery.or(
+          `district.ilike.%${input.filters.location}%,state.ilike.%${input.filters.location}%`
+        );
       }
 
       const { data: matchingLearners, error: learnerError } = await learnerQuery;
@@ -433,8 +466,26 @@ const vacanciesRouter = router({
         handleSupabaseError(learnerError, 'employer.vacancies.broadcast.learnerQuery');
       }
 
-      const learners = matchingLearners ?? [];
+      let learners = matchingLearners ?? [];
       const broadcastAt = new Date().toISOString();
+
+      // 3b. If exclude_applied is true, query existing match records and exclude those learner_ids
+      if (input.exclude_applied && learners.length > 0) {
+        const { data: existingMatches, error: matchQueryError } = await db
+          .from('matches')
+          .select('learner_id')
+          .eq('vacancy_id', input.vacancy_id);
+
+        if (matchQueryError) {
+          handleSupabaseError(matchQueryError, 'employer.vacancies.broadcast.excludeAppliedQuery');
+        }
+
+        const excludedIds = new Set(
+          (existingMatches ?? []).map((m: { learner_id: string }) => m.learner_id)
+        );
+
+        learners = learners.filter((l: { id: string }) => !excludedIds.has(l.id));
+      }
 
       // 4. Handle zero-match case: return count 0, no match records created
       if (learners.length === 0) {
@@ -482,12 +533,51 @@ const vacanciesRouter = router({
         });
 
         if (!response.ok) {
-          // Log but don't fail — match records are already created
-          console.error('Broadcast notification delivery failed:', response.status);
+          const statusCode = response.status;
+          const body = await response.text().catch(() => '');
+          console.error('Broadcast notification delivery failed:', statusCode, body);
+
+          // Roll back match records since notifications were not delivered
+          await db
+            .from('matches')
+            .delete()
+            .eq('vacancy_id', input.vacancy_id)
+            .eq('employer_id', employerId)
+            .eq('created_at', broadcastAt);
+
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Notification delivery failed (bot returned ${statusCode}). No learners were notified.`,
+          });
         }
-      } catch (error) {
-        // Bot service may be down — matches are saved, notifications can be retried
+
+        // Parse bot response to check actual delivery stats
+        const botResult = await response.json().catch(() => null) as { sent?: number; failed?: number } | null;
+        if (botResult && botResult.sent === 0 && (botResult.failed ?? 0) > 0) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'WhatsApp delivery failed for all learners. Match records were created but no messages sent.',
+          });
+        }
+      } catch (error: any) {
+        // Re-throw TRPCErrors we created above
+        if (error instanceof TRPCError) throw error;
+
+        // Bot service unreachable (network error, ECONNREFUSED, etc.)
         console.error('Unable to reach bot service for broadcast notifications:', error);
+
+        // Roll back match records
+        await db
+          .from('matches')
+          .delete()
+          .eq('vacancy_id', input.vacancy_id)
+          .eq('employer_id', employerId)
+          .eq('created_at', broadcastAt);
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Could not reach notification service. Please try again later.',
+        });
       }
 
       // 7. Return count and broadcast timestamp
