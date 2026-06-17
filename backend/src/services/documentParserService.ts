@@ -19,6 +19,7 @@ export interface ParseError {
 export interface ExtractedLearner {
   name: string;
   phone: string;
+  trade: string;
   confidence: number;
   valid: boolean;
   lowConfidence: boolean;
@@ -45,6 +46,7 @@ export class DocumentParseError extends Error {
 // --- Constants ---
 
 const ACCEPTED_MIME_TYPES = [
+  'text/csv',
   'application/pdf',
   'image/jpeg',
   'image/png',
@@ -62,23 +64,49 @@ const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 
 const LOW_CONFIDENCE_THRESHOLD = 0.7;
 
-const LEARNER_EXTRACTION_PROMPT = `You are a data extraction assistant. Extract all student/learner names and their WhatsApp or phone numbers from the following text.
+const LEARNER_EXTRACTION_PROMPT = `Extract ITI/PMKVY student records from text. Return JSON array containing: name (string, handle Roman Hindi), phone (string, exactly 10 digits, strip 91/+91 prefixes, must start with 6-9), trade (string, empty if none, DO NOT hallucinate), confidence (float 0.0-1.0). Rules: Deduplicate across pages using phone number. Reconstruct rows split by page breaks. Output strictly valid JSON array.
 
-Return a JSON array where each element has:
-- "name": the student's full name (string)
-- "phone": the phone number as digits only, without country code (string)
-- "confidence": a number between 0 and 1 indicating how confident you are in this extraction
-
-Rules:
-- Strip any country code prefix (+91, 91) from phone numbers
-- Remove spaces, dashes, and other separators from phone numbers
-- If a name is partially readable, include it with lower confidence
-- If a phone number is partially readable, include your best guess with lower confidence
-- Only include entries where you can identify at least a name OR a phone number
-- Return ONLY the JSON array, no other text or markdown formatting
-
-Text to extract from:
+Text:
 `;
+
+// --- CSV helpers ---
+
+/** Parse a single CSV line respecting double-quoted fields. */
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      // Escaped quote inside quoted field
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+/** Normalise a CSV header for fuzzy matching: lowercase, strip spaces/underscores/dots. */
+function normaliseHeader(h: string): string {
+  return h.toLowerCase().replace(/[\s_.\-]/g, '');
+}
+
+const NAME_PATTERNS = /^(name|naam|fullname|learnerfullname|studentname|studentfullname|candidatename)$/;
+const PHONE_PATTERNS =
+  /^(phone|mobile|whatsapp|number|contact|phoneno|mobileno|mobilenum|phonenumber|contactno|mob)$/;
+const TRADE_PATTERNS =
+  /^(trade|course|tradename|skill|vyavsay|coursename|tradecoursename|skillname|occupation)$/;
 
 // --- Service ---
 
@@ -141,6 +169,56 @@ export class DocumentParserService {
   }
 
   /**
+   * Route document processing by MIME type and extract learner records.
+   *
+   * - text/csv: Bypasses Docling; parses with built-in CSV parser + fuzzy header matching.
+   * - application/pdf: Processes via Docling, feeds raw text to LLM.
+   * - image/jpeg & image/png: Processes all images concurrently via Docling, concatenates
+   *   results with PAGE BREAK delimiters, then feeds to LLM.
+   *
+   * @param files - One or more file buffers (images may be supplied as an array)
+   * @param mimeType - MIME type shared by all supplied files
+   * @param filenames - Optional original filenames (same order as files)
+   * @returns ExtractionResult with valid and invalid entries separated
+   * @throws DocumentParseError on unsupported type or Docling failure
+   */
+  async extractLearnersFromDocument(
+    files: Buffer | Buffer[],
+    mimeType: string,
+    filenames?: string | string[]
+  ): Promise<ExtractionResult> {
+    const fileArray = Array.isArray(files) ? files : [files];
+    const nameArray = Array.isArray(filenames)
+      ? filenames
+      : filenames
+        ? [filenames]
+        : fileArray.map((_, i) => `file-${i + 1}`);
+
+    if (mimeType === 'text/csv') {
+      return this.parseLearnersFromCsv(fileArray[0]);
+    }
+
+    if (mimeType === 'application/pdf') {
+      const parseResult = await this.callDocling(fileArray[0], mimeType, nameArray[0]);
+      return this.extractLearners(parseResult.text);
+    }
+
+    if (mimeType === 'image/jpeg' || mimeType === 'image/png') {
+      const parseResults = await Promise.all(
+        fileArray.map((buf, i) => this.callDocling(buf, mimeType, nameArray[i]))
+      );
+      const combinedText = parseResults
+        .map((r) => r.text)
+        .join('\n--- PAGE BREAK ---\n');
+      return this.extractLearners(combinedText);
+    }
+
+    throw new DocumentParseError({
+      message: `Unsupported MIME type for learner extraction: "${mimeType}".`,
+    });
+  }
+
+  /**
    * Use LLM (Groq with Gemini fallback) to extract student names and WhatsApp numbers from raw text.
    *
    * Validates phone numbers against Indian mobile format (10 digits, starts with 6-9),
@@ -176,11 +254,113 @@ export class DocumentParserService {
   }
 
   /**
+   * Extract specific fields from a document using Docling + LLM.
+   *
+   * @param file - The raw file buffer
+   * @param mimeType - MIME type of the file
+   * @param fields - Field names to extract (e.g. ['institute_name', 'batch_year'])
+   * @param filename - Optional original filename
+   * @returns Extracted field values, per-field confidence, and the raw Docling text
+   * @throws DocumentParseError if Docling fails, Error if LLM fails
+   */
+  async extractFields(
+    file: Buffer,
+    mimeType: string,
+    fields: string[],
+    filename?: string
+  ): Promise<{
+    extracted: Record<string, string | null>;
+    confidence: Record<string, number>;
+    rawText: string;
+  }> {
+    const parseResult = await this.parseDocument(file, mimeType, filename);
+    const rawText = parseResult.text;
+
+    const prompt = `Extract fields: ${fields.join(', ')}. Return ONLY a JSON object with these exact keys. Use null for missing fields. Text: ${rawText}`;
+    const text = await llmService.generateContent(prompt);
+
+    if (!text) {
+      throw new Error('LLM returned empty response for field extraction');
+    }
+
+    let cleaned = text.trim();
+    if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+    }
+
+    const extracted = JSON.parse(cleaned) as Record<string, string | null>;
+
+    // Assign 1.0 confidence for non-null values, 0.0 for null/missing
+    const confidence: Record<string, number> = {};
+    for (const field of fields) {
+      const val = extracted[field];
+      confidence[field] = val !== null && val !== undefined && val !== '' ? 1.0 : 0.0;
+    }
+
+    return { extracted, confidence, rawText };
+  }
+
+  /**
+   * Check if a phone number matches Indian mobile format: exactly 10 digits, starts with 6-9.
+   */
+  isValidIndianMobile(phone: string): boolean {
+    return INDIAN_MOBILE_REGEX.test(phone);
+  }
+
+  /**
+   * Parse a CSV buffer into learner records using fuzzy header matching.
+   * Bypasses Docling entirely. Strips +91/91 country-code prefixes from phones.
+   */
+  private parseLearnersFromCsv(
+    fileBuffer: Buffer
+  ): ExtractionResult {
+    const text = fileBuffer.toString('utf-8');
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+
+    if (lines.length < 2) {
+      return {
+        validEntries: [],
+        invalidEntries: [],
+        totalExtracted: 0,
+        error: 'CSV has no data rows',
+      };
+    }
+
+    const rawHeaders = parseCsvLine(lines[0]);
+    const headers = rawHeaders.map(normaliseHeader);
+
+    const nameIdx = headers.findIndex((h) => NAME_PATTERNS.test(h));
+    const phoneIdx = headers.findIndex((h) => PHONE_PATTERNS.test(h));
+    const tradeIdx = headers.findIndex((h) => TRADE_PATTERNS.test(h));
+
+    const rawLearners: Array<{ name: string; phone: string; trade: string; confidence: number }> = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCsvLine(lines[i]);
+      const name = nameIdx >= 0 ? (cols[nameIdx] ?? '').trim() : '';
+      const rawPhone = phoneIdx >= 0 ? (cols[phoneIdx] ?? '').trim().replace(/\D/g, '') : '';
+      const phone =
+        rawPhone.startsWith('91') && rawPhone.length === 12
+          ? rawPhone.slice(2)
+          : rawPhone.startsWith('+91')
+            ? rawPhone.slice(3)
+            : rawPhone;
+      const trade = tradeIdx >= 0 ? (cols[tradeIdx] ?? '').trim() : '';
+
+      if (name || phone) {
+        rawLearners.push({ name, phone, trade, confidence: 0.95 });
+      }
+    }
+
+    return this.validateAndSeparateEntries(rawLearners);
+  }
+
+  /**
    * Call the LLM service (Groq primary, Gemini fallback) to extract learner data from text.
    */
   private async callLlmForExtraction(
     rawText: string
-  ): Promise<Array<{ name: string; phone: string; confidence: number }>> {
+  ): Promise<Array<{ name: string; phone: string; trade: string; confidence: number }>> {
     const prompt = LEARNER_EXTRACTION_PROMPT + rawText;
     const text = await llmService.generateContent(prompt);
 
@@ -192,11 +372,11 @@ export class DocumentParserService {
   }
 
   /**
-   * Parse the Gemini LLM text response into structured learner data.
+   * Parse the LLM text response into structured learner data.
    */
   private parseGeminiResponse(
     text: string
-  ): Array<{ name: string; phone: string; confidence: number }> {
+  ): Array<{ name: string; phone: string; trade: string; confidence: number }> {
     // Strip markdown code fences if present
     let cleaned = text.trim();
     if (cleaned.startsWith('```')) {
@@ -214,6 +394,7 @@ export class DocumentParserService {
       return {
         name: typeof obj.name === 'string' ? obj.name.trim() : '',
         phone: typeof obj.phone === 'string' ? obj.phone.trim().replace(/\D/g, '') : '',
+        trade: typeof obj.trade === 'string' ? obj.trade.trim() : '',
         confidence: typeof obj.confidence === 'number' ? obj.confidence : 0,
       };
     });
@@ -224,7 +405,7 @@ export class DocumentParserService {
    * Validates phone numbers against Indian mobile format and flags low-confidence entries.
    */
   private validateAndSeparateEntries(
-    rawLearners: Array<{ name: string; phone: string; confidence: number }>
+    rawLearners: Array<{ name: string; phone: string; trade?: string; confidence: number }>
   ): ExtractionResult {
     const validEntries: ExtractedLearner[] = [];
     const invalidEntries: ExtractedLearner[] = [];
@@ -236,6 +417,7 @@ export class DocumentParserService {
       const entry: ExtractedLearner = {
         name: learner.name,
         phone: learner.phone,
+        trade: learner.trade ?? '',
         confidence: learner.confidence,
         valid: phoneValid,
         lowConfidence,
@@ -254,13 +436,6 @@ export class DocumentParserService {
       invalidEntries,
       totalExtracted: rawLearners.length,
     };
-  }
-
-  /**
-   * Check if a phone number matches Indian mobile format: exactly 10 digits, starts with 6-9.
-   */
-  isValidIndianMobile(phone: string): boolean {
-    return INDIAN_MOBILE_REGEX.test(phone);
   }
 
   /**
