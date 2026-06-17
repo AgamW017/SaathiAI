@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config/env.js';
 import { supabase as _supabase, supabaseAdmin } from '../db/client.js';
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '../config/logger.js';
 const supabase = _supabase as any;
 import type { JwtPayload } from '../middleware/auth.js';
 import type { UserRole, UserRow } from '../db/types.js';
@@ -178,9 +179,25 @@ export async function signupUser(payload: SignupPayload): Promise<LoginResult> {
     });
   }
 
-  // 3. For employer: store company details in metadata column (or a separate employers table if it exists)
+  // 3. For employer: create row in employers table + store metadata
   if (role === 'employer') {
     const emp = payload as Extract<SignupPayload, { role: 'employer' }>;
+
+    // Create employers table row so FK constraints work immediately
+    const { error: empError } = await supabase
+      .from('employers')
+      .upsert({
+        id: userId,
+        company_name: emp.company_name,
+        udyam_number: emp.udyam ?? null,
+        verification_status: 'phone_verified',
+      }, { onConflict: 'id' });
+
+    if (empError) {
+      logger.error({ error: empError, userId }, 'Failed to create employer profile row');
+      // Non-fatal: user can still call profile.upsert later
+    }
+
     // Update user metadata with employer-specific data
     await supabaseAdmin.updateUserById(userId, {
       user_metadata: {

@@ -210,12 +210,39 @@ const vacanciesRouter = router({
   create: employerProcedure
     .input(VacancyCreateInput)
     .mutation(async ({ ctx, input }) => {
-      // 1. Get employer profile for state info
-      const { data: employer } = await db
+      // 1. Get or auto-create employer profile
+      let { data: employer, error: profileError } = await db
         .from('employers')
         .select('state')
         .eq('id', ctx.user.sub)
         .single();
+
+      // Auto-create minimal employer profile if it doesn't exist (handles legacy users)
+      if (profileError?.code === 'PGRST116' || !employer) {
+        const { data: user } = await db
+          .from('users')
+          .select('full_name')
+          .eq('id', ctx.user.sub)
+          .single();
+
+        const { data: created, error: createErr } = await db
+          .from('employers')
+          .upsert({
+            id: ctx.user.sub,
+            company_name: user?.full_name ?? 'My Company',
+            verification_status: 'phone_verified',
+          }, { onConflict: 'id' })
+          .select('state')
+          .single();
+
+        if (createErr) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to initialize employer profile. Please try again.',
+          });
+        }
+        employer = created;
+      }
 
       const state = input.state ?? employer?.state ?? 'Uttar Pradesh';
 
