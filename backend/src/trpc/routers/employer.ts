@@ -432,48 +432,91 @@ const vacanciesRouter = router({
       }
 
       // 3. Query learners matching filters with status 'active'
-      // Use ILIKE for fuzzy trade matching and OR for district/state cross-matching
-      let learnerQuery = db
-        .from('learners')
-        .select('id, phone, full_name, trade, district, state')
-        .eq('status', 'active');
+      let learners: any[] = [];
+      const broadcastAt = new Date().toISOString();
 
       if (input.filters.trade) {
-        // Fuzzy trade: use ilike with contains match
-        // Handles comma-separated trades in the learner's field (e.g., "Hacker, Electrician")
-        // Match if the trade field contains the vacancy's trade (or its prefix)
-        const tradeTerm = input.filters.trade.trim();
-        const tradePrefix = tradeTerm.slice(0, 5);
-        // Use OR to match: full trade name OR prefix — handles "Electrician" matching "Electrical" too
-        learnerQuery = learnerQuery.or(
-          `trade.ilike.%${tradeTerm}%,trade.ilike.%${tradePrefix}%`
-        );
-      }
-      if (input.filters.district && input.filters.location) {
-        // Both district and state provided: match either field against either value
-        learnerQuery = learnerQuery.or(
-          `district.ilike.%${input.filters.district}%,state.ilike.%${input.filters.district}%,district.ilike.%${input.filters.location}%,state.ilike.%${input.filters.location}%`
-        );
-      } else if (input.filters.district) {
-        // District provided: could be a district name or state name, check both fields
-        learnerQuery = learnerQuery.or(
-          `district.ilike.%${input.filters.district}%,state.ilike.%${input.filters.district}%`
-        );
-      } else if (input.filters.location) {
-        // State/location provided: check both district and state fields
-        learnerQuery = learnerQuery.or(
-          `district.ilike.%${input.filters.location}%,state.ilike.%${input.filters.location}%`
-        );
+        // Split trade by comma (vacancy might require multiple or learner might have multiple)
+        // Query each trade separately and union results to avoid PostgREST parsing issues
+        const trades = input.filters.trade.split(',').map((t: string) => t.trim()).filter(Boolean);
+        let allResults: any[] = [];
+        const seenIds = new Set<string>();
+
+        for (const trade of trades) {
+          let q = db
+            .from('learners')
+            .select('id, phone, full_name, trade, district, state')
+            .eq('status', 'active')
+            .ilike('trade', `%${trade}%`);
+
+          // Apply location filters to each sub-query
+          if (input.filters.district && input.filters.location) {
+            q = q.or(`district.ilike.%${input.filters.district}%,state.ilike.%${input.filters.location}%`);
+          } else if (input.filters.district) {
+            q = q.or(`district.ilike.%${input.filters.district}%,state.ilike.%${input.filters.district}%`);
+          } else if (input.filters.location) {
+            q = q.or(`district.ilike.%${input.filters.location}%,state.ilike.%${input.filters.location}%`);
+          }
+
+          const { data, error } = await q;
+          if (error) handleSupabaseError(error, 'employer.vacancies.broadcast.learnerQuery');
+          for (const learner of (data ?? [])) {
+            if (!seenIds.has(learner.id)) {
+              seenIds.add(learner.id);
+              allResults.push(learner);
+            }
+          }
+        }
+
+        let learners_temp = allResults;
+
+        // Also try prefix match for fuzzy (e.g., "Electrician" matching "Electrical")
+        const prefixes = trades.map((t: string) => t.slice(0, 5)).filter((p: string) => p.length >= 3);
+        for (const prefix of prefixes) {
+          let q = db
+            .from('learners')
+            .select('id, phone, full_name, trade, district, state')
+            .eq('status', 'active')
+            .ilike('trade', `%${prefix}%`);
+
+          if (input.filters.district && input.filters.location) {
+            q = q.or(`district.ilike.%${input.filters.district}%,state.ilike.%${input.filters.location}%`);
+          } else if (input.filters.district) {
+            q = q.or(`district.ilike.%${input.filters.district}%,state.ilike.%${input.filters.district}%`);
+          } else if (input.filters.location) {
+            q = q.or(`district.ilike.%${input.filters.location}%,state.ilike.%${input.filters.location}%`);
+          }
+
+          const { data } = await q;
+          for (const learner of (data ?? [])) {
+            if (!seenIds.has(learner.id)) {
+              seenIds.add(learner.id);
+              learners_temp.push(learner);
+            }
+          }
+        }
+
+        learners = learners_temp;
+      } else {
+        // No trade filter — query all active learners with optional location filter
+        let locationQuery = db
+          .from('learners')
+          .select('id, phone, full_name, trade, district, state')
+          .eq('status', 'active');
+
+        if (input.filters.district) {
+          locationQuery = locationQuery.ilike('district', `%${input.filters.district}%`);
+        }
+        if (input.filters.location) {
+          locationQuery = locationQuery.ilike('state', `%${input.filters.location}%`);
+        }
+
+        const { data: locationResults, error: locErr } = await locationQuery;
+        if (locErr) handleSupabaseError(locErr, 'employer.vacancies.broadcast.learnerQuery');
+        learners = locationResults ?? [];
       }
 
-      const { data: matchingLearners, error: learnerError } = await learnerQuery;
-
-      if (learnerError) {
-        handleSupabaseError(learnerError, 'employer.vacancies.broadcast.learnerQuery');
-      }
-
-      let learners = matchingLearners ?? [];
-      const broadcastAt = new Date().toISOString();
+      const { data: matchingLearners, error: learnerError } = { data: null, error: null }; // unused — kept for TS
 
       // 3b. If exclude_applied is true, query existing match records and exclude those learner_ids
       if (input.exclude_applied && learners.length > 0) {
