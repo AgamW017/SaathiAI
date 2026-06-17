@@ -439,9 +439,15 @@ const vacanciesRouter = router({
         .eq('status', 'active');
 
       if (input.filters.trade) {
-        // Fuzzy trade: use ilike with prefix match (e.g., "Electri%" matches "Electrician" and "Electrical")
-        const tradePrefix = input.filters.trade.trim().slice(0, 5);
-        learnerQuery = learnerQuery.ilike('trade', `${tradePrefix}%`);
+        // Fuzzy trade: use ilike with contains match
+        // Handles comma-separated trades in the learner's field (e.g., "Hacker, Electrician")
+        // Match if the trade field contains the vacancy's trade (or its prefix)
+        const tradeTerm = input.filters.trade.trim();
+        const tradePrefix = tradeTerm.slice(0, 5);
+        // Use OR to match: full trade name OR prefix — handles "Electrician" matching "Electrical" too
+        learnerQuery = learnerQuery.or(
+          `trade.ilike.%${tradeTerm}%,trade.ilike.%${tradePrefix}%`
+        );
       }
       if (input.filters.district && input.filters.location) {
         // Both district and state provided: match either field against either value

@@ -226,16 +226,17 @@ export async function computeEmployerRiskScore(employerId: string): Promise<numb
 
 // ─── Vacancy Pipeline Transitions ─────────────────────────────────────────────
 
-/** Valid forward transitions in the pipeline state machine */
+/** Valid transitions in the pipeline — allows any move except out of 'hired' */
 const VALID_TRANSITIONS: Record<MatchStage, MatchStage[]> = {
-  new_match: ['skill_card_viewed', 'rejected'],
-  skill_card_viewed: ['interest_expressed', 'rejected'],
-  interest_expressed: ['interview_scheduled', 'rejected'],
-  interview_scheduled: ['interview_completed', 'rejected'],
-  interview_completed: ['offer_extended', 'rejected'],
-  offer_extended: ['hired', 'rejected'],
-  hired: [],
-  rejected: [],
+  // Complete transition map — every possibility explicitly defined
+  new_match:            ['skill_card_viewed', 'interest_expressed', 'interview_scheduled', 'rejected'],
+  skill_card_viewed:    ['interest_expressed', 'interview_scheduled', 'rejected'],
+  interest_expressed:   ['skill_card_viewed', 'interview_scheduled', 'offer_extended', 'rejected'],
+  interview_scheduled:  ['interest_expressed', 'offer_extended', 'hired', 'rejected'],
+  interview_completed:  ['interview_scheduled', 'offer_extended', 'hired', 'rejected'], // legacy — same as interview_scheduled
+  offer_extended:       ['interview_scheduled', 'hired', 'rejected'],
+  hired:                [],
+  rejected:             ['new_match', 'skill_card_viewed', 'interest_expressed'],
 };
 
 export function isValidTransition(from: MatchStage, to: MatchStage): boolean {

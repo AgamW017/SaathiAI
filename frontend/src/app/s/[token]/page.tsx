@@ -220,7 +220,15 @@ export default function SkillCardPage({ params }: { params: Promise<{ token: str
             <>
               {/* Employer viewing from pipeline — show pipeline actions */}
               <button
-                onClick={() => router.push('/dashboard/employer/pipeline')}
+                onClick={() => {
+                  // Find the match for this learner and navigate to their detail page
+                  const matchParam = new URLSearchParams(window.location.search).get('match_id') || '';
+                  if (matchParam) {
+                    router.push(`/dashboard/employer/pipeline/${matchParam}`);
+                  } else {
+                    router.push('/dashboard/employer/pipeline');
+                  }
+                }}
                 style={{
                   width: '100%', padding: '16px', background: '#004038', color: '#fff',
                   border: 'none', borderRadius: '16px', fontSize: '16px', fontWeight: 700,
@@ -232,7 +240,15 @@ export default function SkillCardPage({ params }: { params: Promise<{ token: str
               </button>
               <div style={{ display: 'flex', gap: 12 }}>
                 <button
-                  onClick={() => router.push('/dashboard/employer/pipeline')}
+                  onClick={() => {
+                    // Navigate to pipeline detail for scheduling — opens the candidate detail with transition options
+                    const matchParam = new URLSearchParams(window.location.search).get('match_id') || '';
+                    if (matchParam) {
+                      router.push(`/dashboard/employer/pipeline/${matchParam}`);
+                    } else {
+                      router.push('/dashboard/employer/pipeline');
+                    }
+                  }}
                   style={{
                     flex: 1, padding: '12px', background: '#f0fdf4', color: '#16a34a',
                     border: '1px solid #bbf7d0', borderRadius: '12px', fontSize: '14px', fontWeight: 600,
@@ -242,14 +258,23 @@ export default function SkillCardPage({ params }: { params: Promise<{ token: str
                   <Calendar size={14} /> Schedule Interview
                 </button>
                 <button
-                  onClick={() => router.push('/dashboard/employer/pipeline')}
+                  onClick={() => {
+                    // Open WhatsApp chat with the learner directly
+                    const phone = data?.learner?.phone;
+                    if (phone) {
+                      const normalizedPhone = phone.length === 10 ? `91${phone}` : phone;
+                      window.open(`https://wa.me/${normalizedPhone}`, '_blank');
+                    } else {
+                      router.push('/dashboard/employer/pipeline');
+                    }
+                  }}
                   style={{
                     flex: 1, padding: '12px', background: '#fff8f1', color: '#fa5d00',
                     border: '1px solid rgba(250,93,0,0.2)', borderRadius: '12px', fontSize: '14px', fontWeight: 600,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer'
                   }}
                 >
-                  <MessageSquare size={14} /> Send Message
+                  <MessageSquare size={14} /> WhatsApp
                 </button>
               </div>
             </>
