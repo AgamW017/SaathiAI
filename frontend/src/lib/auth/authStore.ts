@@ -105,13 +105,21 @@ export const authStore = {
 /**
  * React hook that returns the current auth user and re-renders on auth changes.
  * Safe to use in client components.
+ *
+ * Initializes as `null` to avoid hydration mismatch (server has no localStorage).
+ * The real auth state is read in a useEffect after mount.
  */
 import { useEffect, useState } from 'react';
 
 export function useAuth() {
-  const [user, setUser] = useState<AuthUser | null>(() => authStore.getUser());
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    // Sync from localStorage after mount to avoid SSR/client mismatch
+    setUser(authStore.getUser());
+    setHydrated(true);
+
     function handleChange(e: Event) {
       setUser((e as CustomEvent<AuthUser | null>).detail);
     }
@@ -122,6 +130,7 @@ export function useAuth() {
   return {
     user,
     isLoggedIn: !!user,
+    hydrated,
     dashboardPath: authStore.getDashboardPath(),
     clearAuth: authStore.clearAuth.bind(authStore),
   };

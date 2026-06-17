@@ -48,7 +48,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { t } = useLocale();
-  const { isLoggedIn, user, dashboardPath } = useAuth();
+  const { isLoggedIn, user, dashboardPath, hydrated } = useAuth();
 
   const navLinks = [
     { name: t('nav', 'impact'), path: '/impact' },
@@ -203,7 +203,7 @@ export default function Navbar() {
                 }}
               >
                 <LanguageSwitcher variant="compact" placement="down" />
-                {isLoggedIn ? (
+                {hydrated && isLoggedIn ? (
                   <MotionLink
                     href={dashboardPath}
                     initial={{ opacity: 0 }}
@@ -412,7 +412,7 @@ export default function Navbar() {
                     <LanguageSwitcher variant="full" placement="up" />
                   </div>
 
-                  {isLoggedIn ? (
+                  {hydrated && isLoggedIn ? (
                     <Link
                       href={dashboardPath}
                       onClick={() => setMobileMenuOpen(false)}
