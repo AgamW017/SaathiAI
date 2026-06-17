@@ -69,3 +69,22 @@ SaathiAI does not seek to rebuild or compete with India's sophisticated underlyi
 * **DigiLocker (Push/Pull Schema):** Converts static, vulnerable PDFs into cryptographically signed Learning and Employment Records (LERs) that employers can instantly verify via standard OAuth 2.0 flows.
 * **Skill India Digital Hub (SIDH):** Feeds structured JSON data extracted from conversations straight into centralized profiles, bypassing web registration constraints entirely.
 * **NAPS-2 Direct Benefit Transfer (DBT) Framework:** Intelligently triggers adaptive check-in nudges to ensure the user’s Aadhaar-seeded bank configurations are correctly linked, directly minimizing systemic subsidy delays.
+
+---
+
+## 📁 Repository Structure
+
+The project is structured as a monorepo containing the following components:
+
+- `/frontend`: Next.js web application for the Placement Officer Dashboard, District Console, and Employer Portal.
+- `/backend`: Node.js Express API using tRPC and Supabase to orchestrate all data operations.
+- `/bot`: WhatsApp companion bot orchestrating the conversational interface with the Learner, powered by `whatsapp-web.js` and Gemini/Sarvam AI.
+- `/document_processing_pipeline`: (Upcoming) Microservice for processing and scoring video task assessments and credential verification.
+
+---
+
+## 🚀 Getting Started
+
+Please see **[development.md](./development.md)** for detailed setup instructions and commands for running each component locally.
+
+For a detailed breakdown of which features from the master blueprint have been completed, refer to **[task_list.md](./task_list.md)**.
