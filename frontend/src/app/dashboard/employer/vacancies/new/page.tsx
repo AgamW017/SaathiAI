@@ -47,7 +47,8 @@ export default function NewVacancyPage() {
         setWarning(data.minimum_wage_warning.message);
       }
       // Save vacancy ID and move to targeting step
-      setSavedVacancyId(data.id ?? data.vacancy_id ?? null);
+      // Backend returns { vacancy: { id, ... }, minimum_wage_warning: ... }
+      setSavedVacancyId(data.vacancy?.id ?? data.id ?? null);
       setStep('targeting');
     }
   });
