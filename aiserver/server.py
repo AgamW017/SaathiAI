@@ -1,21 +1,25 @@
 """
-Docling document parsing server.
-POST /convert — accepts multipart/form-data with a 'file' field.
-Returns: { "text": str, "pages": int|null, "metadata": {} }
+SaathiAI AI server.
 
-GPU is attempted first via docling's accelerator_options; falls back to CPU on error.
+Endpoints:
+    POST /convert       — Docling document parsing (multipart/form-data)
+    POST /predict-risk  — Learner dropout risk score (JSON body)
+    GET  /health        — Liveness check
 """
 
-import io
 import logging
 import tempfile
 import os
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.concurrency import run_in_threadpool
+from pydantic import BaseModel
 import uvicorn
+
+from risk_model import predict as _predict_risk
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -96,6 +100,21 @@ async def convert(file: UploadFile = File(...)):
     except Exception as exc:
         log.exception("Conversion failed for %s", filename)
         return JSONResponse(status_code=500, content={"error": str(exc), "message": f"Failed to parse document: {exc}"})
+
+
+class RiskRequest(BaseModel):
+    learner_id: str = ""
+    days_since_last_response: int = 0
+    status: str = "active"
+    profile_completeness: float = 100.0
+    days_to_cohort_end: int = 90
+
+
+@app.post("/predict-risk")
+async def predict_risk(body: RiskRequest):
+    score = _predict_risk(body.model_dump())
+    log.info("predict-risk learner=%s score=%.2f", body.learner_id or "?", score)
+    return {"score": score}
 
 
 @app.get("/health")

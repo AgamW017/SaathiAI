@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { supabase as _supabase } from '../db/client.js';
 import { logger } from '../config/logger.js';
+import { triggerRiskScoreUpdate, computeProfileCompleteness } from '../services/riskService.js';
 
 const supabase = _supabase as any;
 const router = Router();
@@ -76,7 +77,7 @@ router.post('/', authenticate, async (req, res) => {
         continue;
       }
 
-      const { error: insertError } = await supabase.from('learners').insert({
+      const { data: inserted_row, error: insertError } = await supabase.from('learners').insert({
         phone: l.phone,
         full_name: l.name ?? null,
         trade: l.trade ?? null,
@@ -87,10 +88,23 @@ router.post('/', authenticate, async (req, res) => {
         status: 'active',
         risk_score: 0,
         officer_id: officerId,
-      });
+      }).select('id').single();
 
       if (!insertError) {
         inserted++;
+        if (inserted_row?.id) {
+          triggerRiskScoreUpdate(inserted_row.id, {
+            days_since_last_response: 0,
+            status: 'active',
+            profile_completeness: computeProfileCompleteness({
+              full_name: l.name,
+              trade: l.trade,
+              district,
+              phone: l.phone,
+            }),
+            days_to_cohort_end: 90,
+          });
+        }
       } else {
         logger.warn({ insertError, phone: l.phone }, 'Failed to insert learner');
       }

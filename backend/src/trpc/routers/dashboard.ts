@@ -3,6 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { router, officerProcedure, protectedProcedure } from '../trpc.js';
 import { supabase as _supabase } from '../../db/client.js';
 import { handleSupabaseError } from '../errors.js';
+import { triggerRiskScoreUpdate, computeProfileCompleteness } from '../../services/riskService.js';
 const supabase = _supabase as any;
 import type { LearnerRow, ApplicationRow } from '../../db/types.js';
 
@@ -436,7 +437,7 @@ const cohortRouter = router({
           continue;
         }
 
-        const { error } = await supabase.from('learners').insert({
+        const { data: inserted_row, error } = await supabase.from('learners').insert({
           phone: l.phone,
           full_name: l.full_name ?? null,
           trade: l.trade ?? null,
@@ -445,9 +446,24 @@ const cohortRouter = router({
           status: 'active',
           risk_score: 0,
           officer_id: ctx.user.sub,
-        });
+        }).select('id').single();
 
-        if (!error) inserted++;
+        if (!error) {
+          inserted++;
+          if (inserted_row?.id) {
+            triggerRiskScoreUpdate(inserted_row.id, {
+              days_since_last_response: 0,
+              status: 'active',
+              profile_completeness: computeProfileCompleteness({
+                full_name: l.full_name,
+                trade: l.trade,
+                district: l.district,
+                phone: l.phone,
+              }),
+              days_to_cohort_end: 90,
+            });
+          }
+        }
       }
 
       return { cohort: cohort_name, inserted, skipped, total: learners.length };

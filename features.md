@@ -264,6 +264,11 @@ All four surfaces feed from and write to the **same underlying intelligence laye
   - Risk 40–70 → 🟡 Follow up
   - Risk < 40 → 🟢 Routine check
   - AI generates the action reason in plain Hindi (not code/jargon)
+- **Implementation status:** ✅ Risk Prediction Pipeline implemented.
+  - `aiserver/risk_model.py` — heuristic calculator + Random Forest wrapper
+  - `aiserver/train_risk_model.py` — generates dummy data and trains `risk_model.pkl`
+  - `aiserver/server.py` — `POST /predict-risk` endpoint (port 5000)
+  - `backend/src/services/riskService.ts` — fire-and-forget `triggerRiskScoreUpdate` called on every new learner insert; updates `learners.risk_score` asynchronously with a 5 s timeout guard
 - **Micro-interactions:**
   - Swipe right on an item to mark as resolved
   - Swipe left to snooze 3 days
