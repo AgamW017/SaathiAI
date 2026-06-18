@@ -14,7 +14,7 @@ const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const GROQ_TIMEOUT_MS = 30_000;
 
 const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent';
 const GEMINI_TIMEOUT_MS = 60_000;
 
 // --- Types ---

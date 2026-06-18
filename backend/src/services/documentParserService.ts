@@ -57,7 +57,7 @@ type AcceptedMimeType = (typeof ACCEPTED_MIME_TYPES)[number];
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
-const DOCLING_TIMEOUT_MS = 30_000; // 30 seconds
+const DOCLING_TIMEOUT_MS = 3000000;
 
 /** Indian mobile number: exactly 10 digits, first digit 6-9 */
 const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
