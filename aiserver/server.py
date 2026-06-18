@@ -71,8 +71,17 @@ def _convert(file_bytes: bytes, mime_type: str, filename: str):
                 doc = result.document
                 text = doc.export_to_markdown()
                 pages = getattr(doc, "num_pages", None) or len(getattr(doc, "pages", []) or []) or None
-                log.info("Converted %s with %s (%d chars)", filename, label, len(text))
-                return text, pages
+                tables = []
+                for t in getattr(doc, "tables", []):
+                    try:
+                        df = t.export_to_dataframe(doc)
+                        columns = [str(c) for c in df.columns.tolist()]
+                        data = df.fillna("").values.tolist()
+                        tables.append([columns] + data)
+                    except Exception as e:
+                        log.warning("Failed to export table: %s", e)
+                log.info("Converted %s with %s (%d chars, %d tables)", filename, label, len(text), len(tables))
+                return text, pages, tables
             except Exception as exc:
                 if use_gpu:
                     log.warning("GPU conversion failed (%s), retrying with CPU", exc)
@@ -95,8 +104,8 @@ async def convert(file: UploadFile = File(...)):
         return JSONResponse(status_code=400, content={"error": "Empty file"})
 
     try:
-        text, pages = await run_in_threadpool(_convert, file_bytes, mime_type, filename)
-        return {"text": text, "pages": pages, "metadata": {}}
+        text, pages, tables = await run_in_threadpool(_convert, file_bytes, mime_type, filename)
+        return {"text": text, "pages": pages, "tables": tables, "metadata": {}}
     except Exception as exc:
         log.exception("Conversion failed for %s", filename)
         return JSONResponse(status_code=500, content={"error": str(exc), "message": f"Failed to parse document: {exc}"})

@@ -7,6 +7,7 @@ export interface ParseResult {
   text: string;
   pages?: number;
   metadata?: Record<string, unknown>;
+  tables?: string[][][];
 }
 
 export interface ParseError {
@@ -112,6 +113,7 @@ const TRADE_PATTERNS =
 
 export class DocumentParserService {
   private doclingUrl: string;
+  private translationCache: Map<string, Record<string, number>> = new Map();
 
   constructor(doclingUrl?: string) {
     this.doclingUrl =
@@ -195,27 +197,107 @@ export class DocumentParserService {
         : fileArray.map((_, i) => `file-${i + 1}`);
 
     if (mimeType === 'text/csv') {
-      return this.parseLearnersFromCsv(fileArray[0]);
+      const csvResult = this.parseLearnersFromCsv(fileArray[0]);
+      if (csvResult.validEntries.length > 0) return csvResult;
+      
+      // Fallback: Use the new table extraction LLM logic for CSV if fuzzy match failed
+      const text = fileArray[0].toString('utf-8');
+      const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+      const csvTable = lines.map(parseCsvLine);
+      return this.extractLearnersFromTables([csvTable]);
     }
+
+    let allText = '';
+    let allTables: string[][][] = [];
 
     if (mimeType === 'application/pdf') {
       const parseResult = await this.callDocling(fileArray[0], mimeType, nameArray[0]);
-      return this.extractLearners(parseResult.text);
-    }
-
-    if (mimeType === 'image/jpeg' || mimeType === 'image/png') {
+      allText = parseResult.text;
+      if (parseResult.tables) allTables = parseResult.tables;
+    } else if (mimeType === 'image/jpeg' || mimeType === 'image/png') {
       const parseResults = await Promise.all(
         fileArray.map((buf, i) => this.callDocling(buf, mimeType, nameArray[i]))
       );
-      const combinedText = parseResults
-        .map((r) => r.text)
-        .join('\n--- PAGE BREAK ---\n');
-      return this.extractLearners(combinedText);
+      allText = parseResults.map((r) => r.text).join('\n--- PAGE BREAK ---\n');
+      for (const r of parseResults) {
+        if (r.tables) allTables.push(...r.tables);
+      }
+    } else {
+      throw new DocumentParseError({
+        message: `Unsupported MIME type for learner extraction: "${mimeType}".`,
+      });
     }
 
-    throw new DocumentParseError({
-      message: `Unsupported MIME type for learner extraction: "${mimeType}".`,
-    });
+    // Try new table-based extraction first
+    if (allTables.length > 0) {
+      const tableResult = await this.extractLearnersFromTables(allTables);
+      if (tableResult.validEntries.length > 0) {
+        return tableResult;
+      }
+    }
+
+    // Fallback to old raw-text extraction if tables yielded nothing
+    return this.extractLearners(allText);
+  }
+
+  /**
+   * Process extracted structured tables using LLM column mapping.
+   */
+  async extractLearnersFromTables(tables: string[][][]): Promise<ExtractionResult> {
+    const rawLearners: Array<{ name: string; phone: string; trade: string; confidence: number }> = [];
+
+    for (const table of tables) {
+      if (!table || table.length === 0) continue;
+
+      const headerRow = table[0];
+      const sampleRow = table.length > 1 ? table[1] : undefined;
+      const headerKey = JSON.stringify(headerRow.map((h) => normaliseHeader(h)));
+
+      let mapping: Record<string, number> | undefined;
+      let isDataRow = false;
+
+      if (this.translationCache.has(headerKey)) {
+        mapping = this.translationCache.get(headerKey);
+      } else {
+        try {
+          const mappingResponse = await llmService.mapTableColumns(headerRow, sampleRow);
+          if (mappingResponse.status === 'SKIP') {
+            continue;
+          } else if (mappingResponse.status === 'HEADER' && mappingResponse.mapping) {
+            mapping = mappingResponse.mapping;
+            this.translationCache.set(headerKey, mapping);
+          } else if (mappingResponse.status === 'DATA' && mappingResponse.mapping) {
+            mapping = mappingResponse.mapping;
+            isDataRow = true;
+          }
+        } catch (err) {
+          logger.warn({ err }, 'Failed to map table columns, skipping table');
+          continue;
+        }
+      }
+
+      if (!mapping) continue;
+
+      const startIndex = isDataRow ? 0 : 1;
+      for (let i = startIndex; i < table.length; i++) {
+        const row = table[i];
+        const name = mapping.name !== undefined ? (row[mapping.name] ?? '').trim() : '';
+        let phone = mapping.phone !== undefined ? (row[mapping.phone] ?? '').trim().replace(/\D/g, '') : '';
+        const trade = mapping.trade !== undefined ? (row[mapping.trade] ?? '').trim() : '';
+
+        if (phone.startsWith('91') && phone.length === 12) {
+          phone = phone.slice(2);
+        } else if (phone.startsWith('+91')) {
+          phone = phone.slice(3);
+        }
+
+        if (name || phone) {
+          rawLearners.push({ name, phone, trade, confidence: 0.95 });
+        }
+      }
+    }
+
+    return this.validateAndSeparateEntries(rawLearners);
   }
 
   /**
@@ -506,12 +588,14 @@ export class DocumentParserService {
         text?: string;
         pages?: number;
         metadata?: Record<string, unknown>;
+        tables?: string[][][];
       };
 
       return {
         text: data.text ?? '',
         pages: data.pages ?? undefined,
         metadata: data.metadata ?? undefined,
+        tables: data.tables ?? undefined,
       };
     } catch (error: unknown) {
       // Re-throw DocumentParseError directly

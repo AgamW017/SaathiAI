@@ -24,6 +24,15 @@ export interface LlmResponse {
   provider: 'groq' | 'gemini';
 }
 
+export interface TableColumnMapping {
+  status: 'SKIP' | 'HEADER' | 'DATA';
+  mapping?: {
+    name?: number;
+    phone?: number;
+    trade?: number;
+  };
+}
+
 // --- Service ---
 
 export class LlmService {
@@ -103,6 +112,50 @@ export class LlmService {
     }
 
     throw new Error('No LLM API keys configured (neither GROQ_API_KEY nor GEMINI_API_KEY)');
+  }
+
+  /**
+   * Determine the column mapping for a table's header row.
+   *
+   * @param headerRow - The top row of the table
+   * @param sampleRow - Optional subsequent row to help context
+   * @returns A TableColumnMapping identifying if it's a valid table, and the column indices
+   */
+  async mapTableColumns(headerRow: string[], sampleRow?: string[]): Promise<TableColumnMapping> {
+    const prompt = `Analyze this table header and optional sample row to extract user data columns.
+Required columns to identify: 'name', 'phone' (mobile/whatsapp), 'trade' (course/skill).
+
+Header row: ${JSON.stringify(headerRow)}
+Sample row: ${sampleRow ? JSON.stringify(sampleRow) : 'None'}
+
+Instructions:
+1. If the table does not contain user/learner data (e.g. no name or phone), return { "status": "SKIP" }.
+2. If the "Header row" is actually a row of data (no headers present, or data misidentified as header), return { "status": "DATA", "mapping": {...} } where mapping contains the 0-based column indices for "name", "phone", and "trade".
+3. If the "Header row" contains actual headers, return { "status": "HEADER", "mapping": {...} } with the indices.
+
+Respond strictly with a JSON object. Example:
+{
+  "status": "HEADER",
+  "mapping": {
+    "name": 0,
+    "phone": 2,
+    "trade": 3
+  }
+}`;
+    const responseText = await this.generateContent(prompt);
+
+    let cleaned = responseText.trim();
+    if (cleaned.startsWith('\`\`\`')) {
+      cleaned = cleaned.replace(/^\`\`\`(?:json)?\s*/, '').replace(/\s*\`\`\`$/, '');
+    }
+
+    try {
+      const parsed = JSON.parse(cleaned) as TableColumnMapping;
+      return parsed;
+    } catch (error) {
+      logger.error({ error, text: responseText }, 'Failed to parse LLM table column mapping');
+      return { status: 'SKIP' };
+    }
   }
 
   /**
