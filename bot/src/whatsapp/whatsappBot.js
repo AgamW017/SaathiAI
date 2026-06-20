@@ -155,7 +155,8 @@ export class WhatsAppBot {
 
     try {
       const isVoice = message.hasMedia && ['ptt', 'audio'].includes(message.type);
-      const media = isVoice ? await message.downloadMedia() : null;
+      const isDocument = message.hasMedia && ['image', 'document', 'sticker'].includes(message.type);
+      const media = (isVoice || isDocument) ? await message.downloadMedia() : null;
       const author = message.author ?? message.from;
 
       // Get quoted/replied-to message body if this is a reply

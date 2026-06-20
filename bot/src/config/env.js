@@ -16,7 +16,9 @@ export function loadConfig() {
     dataDir: path.resolve(rootDir, process.env.DATA_DIR ?? './data/runtime'),
     jobDataPath: path.resolve(rootDir, process.env.JOB_DATA_PATH ?? './data/jobs.json'),
     supabase: {
-      databaseUrl: process.env.DATABASE_URL ?? ''
+      databaseUrl: process.env.DATABASE_URL ?? '',
+      url: process.env.SUPABASE_URL ?? '',
+      serviceKey: process.env.SUPABASE_SERVICE_KEY ?? ''
     },
     groq: {
       apiKey: process.env.GROQ_API_KEY ?? '',

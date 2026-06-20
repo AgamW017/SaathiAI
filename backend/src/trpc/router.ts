@@ -6,6 +6,7 @@ import { cohortRouter } from './routers/cohort.js';
 import { reportsRouter } from './routers/reports.js';
 import { cohortsRouter } from './routers/cohorts.js';
 import { employerRouter, publicSkillCardRouter } from './routers/employer.js';
+import { officerRouter } from './routers/officer.js';
 
 /**
  * Root tRPC router.
@@ -18,6 +19,7 @@ import { employerRouter, publicSkillCardRouter } from './routers/employer.js';
  *   reports.*    — MIS report generation, listing, and download
  *   employer.*   — Employer portal (vacancies, pipeline, NAPS, analytics)
  *   skillCard.*  — Public skill card (no auth — token-validated)
+ *   officer.*   — Officer onboarding (manual learner enrollment)
  */
 export const appRouter = router({
   auth: authRouter,
@@ -28,6 +30,7 @@ export const appRouter = router({
   reports: reportsRouter,
   employer: employerRouter,
   skillCard: publicSkillCardRouter,
+  officer: officerRouter,
 });
 
 /** Exported type — imported by the frontend to get full type safety */

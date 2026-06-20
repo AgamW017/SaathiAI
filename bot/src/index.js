@@ -12,8 +12,10 @@ import { TranscriptionService } from './services/transcriptionService.js';
 import { SkillCardService } from './services/skillCardService.js';
 import { JobService } from './services/jobService.js';
 import { InterviewService } from './services/interviewService.js';
+import { DocumentStorageService } from './services/documentStorageService.js';
 import { ConversationEngine } from './conversation/conversationEngine.js';
 import { WhatsAppBot } from './whatsapp/whatsappBot.js';
+import { createClient } from '@supabase/supabase-js';
 
 
 const config = loadConfig();
@@ -41,6 +43,18 @@ const skillCardService = new SkillCardService({ store, publicBaseUrl: config.pub
 const jobService = new JobService({ store });
 const interviewService = new InterviewService();
 
+// Create Supabase JS client for storage access (document uploads)
+let documentStorageService = null;
+if (config.supabase.url && config.supabase.serviceKey) {
+  const supabaseClient = createClient(config.supabase.url, config.supabase.serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+  documentStorageService = new DocumentStorageService({ supabaseClient, logger });
+  logger.info('DocumentStorageService initialized');
+} else {
+  logger.warn('SUPABASE_URL or SUPABASE_SERVICE_KEY not set — document upload disabled');
+}
+
 const engine = new ConversationEngine({
   store,
   eventLog,
@@ -49,6 +63,7 @@ const engine = new ConversationEngine({
   jobService,
   interviewService,
   transcriptionService,
+  documentStorageService,
   logger
 });
 
