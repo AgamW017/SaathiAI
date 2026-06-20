@@ -44,7 +44,8 @@ export class ConversationEngine {
     });
 
     const text = await this.textFromIncoming(incoming, session);
-    if (!text) {
+    if (text === null) {
+      // null means voice transcription failed — not applicable to image/document messages
       const reason = session.context.lastVoiceTranscriptionError ?? 'unknown voice transcription error';
       this.logger.warn({ phone: incoming.phone, reason }, 'Voice message could not be transcribed');
       const fallbackReplies = [this.message(t(session.script).voiceUnavailable, { debugReason: reason, intent: 'voice_transcription_failed' })];
@@ -677,6 +678,7 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
       // Update local session state
       session.context.aadhaarPhase = 'certificate';
       session.context.aadhaarName = kycData.name;
+      session.context.certificatePromptSent = true; // We're already asking for certificate in the response below
       session.step = Steps.ONBOARDING_DOCUMENTS;
 
       const displayName = kycData.name || session.collected?.name || '';
