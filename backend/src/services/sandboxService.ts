@@ -98,15 +98,19 @@ async function authenticate(): Promise<string> {
 export async function generateAadhaarOtp(aadhaarNumber: string): Promise<AadhaarOtpResult> {
   const token = await authenticate();
 
-  const res = await fetch(`${baseUrl()}/kyc/aadhaar/otp`, {
+  const res = await fetch(`${baseUrl()}/kyc/aadhaar/okyc/otp`, {
     method: 'POST',
     headers: {
-      authorization: token,  // intentionally no "Bearer " prefix
+      authorization: token,
+      'x-api-key': apiKey(),
+      'x-api-version': '1.0.0',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      '@entity': 'in.co.sandbox.kyc.aadhaar.otp.request',
+      '@entity': 'in.co.sandbox.kyc.aadhaar.okyc.otp.request',
       aadhaar_number: aadhaarNumber,
+      consent: 'Y',
+      reason: 'Identity verification for SaathiAI learner onboarding',
     }),
   });
 
@@ -115,15 +119,15 @@ export async function generateAadhaarOtp(aadhaarNumber: string): Promise<Aadhaar
     throw new Error(`Sandbox generate OTP failed (${res.status}): ${body}`);
   }
 
-  const data = await res.json() as { data?: { transaction_id?: string; reference_id?: string } };
-  const referenceId = data?.data?.reference_id;
-  const transactionId = data?.data?.transaction_id;
+  const data = await res.json() as Record<string, any>;
+  const referenceId = String(data?.data?.reference_id ?? '');
+  const transactionId = String(data?.transaction_id ?? data?.data?.transaction_id ?? '');
 
-  if (!referenceId || !transactionId) {
-    throw new Error('Sandbox OTP response missing reference_id or transaction_id');
+  if (!referenceId) {
+    throw new Error(`Sandbox OTP response missing reference_id. Response: ${JSON.stringify(data)}`);
   }
 
-  return { referenceId, transactionId };
+  return { referenceId, transactionId: transactionId || referenceId };
 }
 
 /**
@@ -137,22 +141,23 @@ export async function verifyAadhaarOtp(
 ): Promise<AadhaarVerifyResult> {
   const token = await authenticate();
 
-  const res = await fetch(`${baseUrl()}/kyc/aadhaar/otp/verify`, {
+  const res = await fetch(`${baseUrl()}/kyc/aadhaar/okyc/otp/verify`, {
     method: 'POST',
     headers: {
       authorization: token,
+      'x-api-key': apiKey(),
+      'x-api-version': '1.0.0',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      '@entity': 'in.co.sandbox.kyc.aadhaar.otp.verify.request',
-      reference_id: referenceId,
-      otp,
+      '@entity': 'in.co.sandbox.kyc.aadhaar.okyc.request',
+      reference_id: String(referenceId),
+      otp: String(otp),
     }),
   });
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    // Surface OTP mismatch as a distinguishable error
     if (res.status === 422 || res.status === 400) {
       const err = new Error(`OTP verification failed (${res.status}): ${body}`) as Error & { otpInvalid: boolean };
       err.otpInvalid = true;
@@ -161,19 +166,21 @@ export async function verifyAadhaarOtp(
     throw new Error(`Sandbox verify OTP failed (${res.status}): ${body}`);
   }
 
-  const json = await res.json() as {
-    data?: {
-      aadhaar_number?: string;
-      name?: string;
-      dob?: string;
-      gender?: string;
-      address?: Record<string, string>;
-      photo?: string;
-    };
-  };
-
+  const json = await res.json() as Record<string, any>;
   const d = json?.data;
   if (!d) throw new Error('Sandbox verify OTP response missing data');
+
+  // Sandbox returns 200 even for invalid/expired OTP — check for error messages
+  if (d.message && !d.name && !d.status) {
+    const err = new Error(d.message) as Error & { otpInvalid: boolean };
+    err.otpInvalid = true;
+    throw err;
+  }
+  if (d.status && d.status !== 'VALID') {
+    const err = new Error(d.message ?? `Aadhaar verification status: ${d.status}`) as Error & { otpInvalid: boolean };
+    err.otpInvalid = true;
+    throw err;
+  }
 
   return {
     aadhaarNumber: d.aadhaar_number ?? '',
