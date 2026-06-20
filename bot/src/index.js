@@ -13,6 +13,7 @@ import { SkillCardService } from './services/skillCardService.js';
 import { JobService } from './services/jobService.js';
 import { InterviewService } from './services/interviewService.js';
 import { DocumentStorageService } from './services/documentStorageService.js';
+import { SandboxKycService } from './services/sandboxKycService.js';
 import { ConversationEngine } from './conversation/conversationEngine.js';
 import { WhatsAppBot } from './whatsapp/whatsappBot.js';
 import { createClient } from '@supabase/supabase-js';
@@ -55,6 +56,10 @@ if (config.supabase.url && config.supabase.serviceKey) {
   logger.warn('SUPABASE_URL or SUPABASE_SERVICE_KEY not set — document upload disabled');
 }
 
+// Create SandboxKycService (requires BACKEND_INTERNAL_URL to be reachable)
+const sandboxKycService = new SandboxKycService();
+logger.info('SandboxKycService initialized (calls backend KYC proxy)');
+
 const engine = new ConversationEngine({
   store,
   eventLog,
@@ -64,6 +69,7 @@ const engine = new ConversationEngine({
   interviewService,
   transcriptionService,
   documentStorageService,
+  sandboxKycService,
   logger
 });
 

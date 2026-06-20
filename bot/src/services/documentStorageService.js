@@ -89,6 +89,39 @@ export class DocumentStorageService {
   }
 
   /**
+   * Upload a base64-encoded JPEG photo (e.g. from Sandbox Aadhaar verify) to Supabase Storage.
+   *
+   * @param {string} phone - Learner's phone number
+   * @param {string} base64String - Base64-encoded JPEG content (no data-URI prefix)
+   * @returns {Promise<string>} The public URL of the uploaded photo
+   * @throws {Error} If upload fails
+   */
+  async uploadBase64Photo(phone, base64String) {
+    const buffer = Buffer.from(base64String, 'base64');
+    const storagePath = `documents/${phone}/aadhaar_photo.jpg`;
+
+    const { error } = await this.supabase.storage
+      .from(BUCKET)
+      .upload(storagePath, buffer, {
+        contentType: 'image/jpeg',
+        upsert: true    // overwrite if re-verified
+      });
+
+    if (error) {
+      this.logger.error?.({ error, phone, path: storagePath }, 'Aadhaar photo upload failed');
+      throw new Error(`Aadhaar photo upload failed: ${error.message}`);
+    }
+
+    const { data: urlData } = this.supabase.storage
+      .from(BUCKET)
+      .getPublicUrl(storagePath);
+
+    const url = urlData?.publicUrl ?? storagePath;
+    this.logger.info?.({ phone, path: storagePath }, 'Aadhaar photo uploaded successfully');
+    return url;
+  }
+
+  /**
    * Upload a document to Supabase Storage with one retry on failure.
    *
    * @param {object} params

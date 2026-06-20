@@ -61,4 +61,12 @@ export class BotStore {
   async queryOne(sql, params = []) {
     return this.backendStore.queryOne(sql, params);
   }
+
+  async saveKycData(phone, kycData) {
+    return this.backendStore.saveKycData(phone, kycData);
+  }
+
+  async saveCertificateUrl(phone, certificateUrl) {
+    return this.backendStore.saveCertificateUrl(phone, certificateUrl);
+  }
 }

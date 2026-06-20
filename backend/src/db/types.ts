@@ -64,6 +64,17 @@ export interface Database {
           created_at: string;
           updated_at: string;
           officer_id: string | null;
+          // Aadhaar KYC columns (migration 004)
+          aadhaar_number: string | null;
+          dob: string | null;
+          gender: string | null;
+          address_line: string | null;
+          address_district: string | null;
+          address_state: string | null;
+          address_pincode: string | null;
+          kyc_status: string;
+          aadhaar_photo_url: string | null;
+          certificate_url: string | null;
         };
         Insert: {
           id?: string;
@@ -78,6 +89,17 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           officer_id?: string | null;
+          // Aadhaar KYC columns (migration 004)
+          aadhaar_number?: string | null;
+          dob?: string | null;
+          gender?: string | null;
+          address_line?: string | null;
+          address_district?: string | null;
+          address_state?: string | null;
+          address_pincode?: string | null;
+          kyc_status?: string;
+          aadhaar_photo_url?: string | null;
+          certificate_url?: string | null;
         };
         Update: {
           phone?: string;
@@ -90,6 +112,17 @@ export interface Database {
           risk_score?: number;
           updated_at?: string;
           officer_id?: string | null;
+          // Aadhaar KYC columns (migration 004)
+          aadhaar_number?: string | null;
+          dob?: string | null;
+          gender?: string | null;
+          address_line?: string | null;
+          address_district?: string | null;
+          address_state?: string | null;
+          address_pincode?: string | null;
+          kyc_status?: string;
+          aadhaar_photo_url?: string | null;
+          certificate_url?: string | null;
         };
       };
       sessions: {
@@ -194,6 +227,7 @@ export interface Database {
           verification_status: VerificationStatus;
           created_at: string;
           updated_at: string;
+          certificate_url: string | null;
         };
         Insert: {
           id?: string;
@@ -204,6 +238,7 @@ export interface Database {
           verification_status?: VerificationStatus;
           created_at?: string;
           updated_at?: string;
+          certificate_url?: string | null;
         };
         Update: {
           trade?: string;
@@ -211,6 +246,7 @@ export interface Database {
           certificate_type?: string | null;
           verification_status?: VerificationStatus;
           updated_at?: string;
+          certificate_url?: string | null;
         };
       };
       placements: {

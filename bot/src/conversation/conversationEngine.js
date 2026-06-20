@@ -6,7 +6,7 @@ import { isAffirmative, isNegative, normalizeText, parseNumberChoice } from '../
 import { detectKeywordIntent, isDistressMessage } from './keywordRouter.js';
 
 export class ConversationEngine {
-  constructor({ store, eventLog, extractionService, skillCardService, jobService, interviewService, transcriptionService, placementTrackerService, employerPingService, documentStorageService, logger }) {
+  constructor({ store, eventLog, extractionService, skillCardService, jobService, interviewService, transcriptionService, placementTrackerService, employerPingService, documentStorageService, sandboxKycService, logger }) {
     this.store = store;
     this.eventLog = eventLog;
     this.extractionService = extractionService;
@@ -17,6 +17,7 @@ export class ConversationEngine {
     this.placementTrackerService = placementTrackerService;
     this.employerPingService = employerPingService;
     this.documentStorageService = documentStorageService;
+    this.sandboxKycService = sandboxKycService ?? null;
     this.logger = logger;
     this.aiClient = extractionService.aiClient;
   }
@@ -194,6 +195,8 @@ export class ConversationEngine {
           return this.handleSkillExtraction(session, text);
         }
         return this.handleDocumentUpload(session, text, incoming.media);
+      case Steps.AADHAAR_OTP_SENT:
+        return this.handleAadhaarOtp(session, text);
       case Steps.SKILL_EXTRACTION:
         return this.handleSkillExtraction(session, text);
       case Steps.SKILL_CARD_SHOWN:
@@ -497,276 +500,317 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
 
   /**
    * Handle the document upload step (ONBOARDING_DOCUMENTS).
-   * Prompts for Aadhaar card, then certificate. Uses AI to classify document
-   * type from text/captions when the user sends documents in any order or
-   * clarifies what a document is via natural language.
+   * Aadhaar KYC + certificate collection sub-flow.
+   *
+   * Phase tracking is done via session.context.aadhaarPhase:
+   *   'number'      — awaiting Aadhaar card photo or typed number
+   *   'otp'         — OTP sent, waiting for user to type it
+   *   'certificate' — Aadhaar done, waiting for certificate upload
+   *   'done'        — both complete, advance to skill extraction
    *
    * @param {object} session - Current user session
-   * @param {string} text - Message text (may be empty if media-only, or a caption/clarification)
-   * @param {Array|object|null} media - Media attachment(s) from the incoming message
-   * @returns {Array} Reply messages
+   * @param {string} text - Message text (may be empty for media-only messages)
+   * @param {Array|object|null} media - Media attachment(s)
+   * @returns {Promise<Array>} Reply messages
    */
   async handleDocumentUpload(session, text, media) {
-    // Initialize document context on first entry
-    if (!session.context.documents) {
-      session.context.documents = [];
-      session.context.awaitingDocument = 'aadhaar';
-      session.context.pendingUnclassifiedDoc = null;
-      return [this.message(
-        'Please upload your Aadhaar card and degree/certificate as photos or PDFs. You can send them in any order.',
-        { intent: 'ask_documents', facts: { awaitingDocument: 'aadhaar' } }
-      )];
+    const messages = t(session.script);
+
+    // ─── Entry point: initialise phase on first visit ─────────────────────────
+    if (!session.context.aadhaarPhase) {
+      session.context.aadhaarPhase = 'number';
+      session.context.aadhaarNumber = null;
+      session.context.aadhaarReferenceId = null;
+      session.context.aadhaarAttempts = 0;
+      session.context.aadhaarRegenCount = 0;
+      session.context.aadhaarName = null;
+      session.context.certificateUrl = null;
+      return [this.message(messages.askAadhaarInput, { intent: 'ask_aadhaar_input' })];
     }
 
-    // Normalize media to an array
+    const phase = session.context.aadhaarPhase;
+
+    // ─── Phase: number ────────────────────────────────────────────────────────
+    if (phase === 'number') {
+      return this._handleAadhaarNumberPhase(session, text, media);
+    }
+
+    // ─── Phase: otp (handled by routeText → handleAadhaarOtp, but guard here) ─
+    if (phase === 'otp') {
+      return this.handleAadhaarOtp(session, text);
+    }
+
+    // ─── Phase: certificate ───────────────────────────────────────────────────
+    if (phase === 'certificate') {
+      return this._handleCertificatePhase(session, text, media);
+    }
+
+    // ─── Phase: done (shouldn't reach here normally) ──────────────────────────
+    session.step = Steps.SKILL_EXTRACTION;
+    return this.handleSkillExtraction(session, text);
+  }
+
+  /**
+   * Sub-handler: collect Aadhaar number (photo or typed).
+   */
+  async _handleAadhaarNumberPhase(session, text, media) {
+    const messages = t(session.script);
     const mediaItems = Array.isArray(media) ? media : (media ? [media] : []);
 
-    // ─── Case: User sent text without media (could be classifying a pending doc) ─
-    if (mediaItems.length === 0 && text) {
-      // If there's a pending unclassified document, use AI to determine type from text
-      if (session.context.pendingUnclassifiedDoc) {
-        const docType = await this._classifyDocumentType(text);
-        if (docType === 'aadhaar' || docType === 'certificate') {
-          // Check if we already have this type
-          const alreadyHas = session.context.documents.some(d => d.documentType === docType);
-          if (alreadyHas) {
-            session.context.pendingUnclassifiedDoc = null;
-            const otherType = docType === 'aadhaar' ? 'certificate' : 'aadhaar';
-            const alreadyHasOther = session.context.documents.some(d => d.documentType === otherType);
-            if (alreadyHasOther) {
-              // Both docs received
-              session.context.awaitingDocument = 'done';
-              session.step = Steps.SKILL_EXTRACTION;
+    // ── User sent a photo/PDF: try to extract Aadhaar number via Docling ──
+    if (mediaItems.length > 0) {
+      const item = mediaItems[0];
+      const mimeType = item.mimetype || item.mimeType || '';
+      const filename = item.filename || 'aadhaar_card';
+
+      if (!this.sandboxKycService) {
+        // Fallback: if KYC service not configured, ask user to type the number
+        return [this.message(messages.aadhaarPhotoUnclear, { intent: 'aadhaar_kyc_unavailable' })];
+      }
+
+      try {
+        const buffer = Buffer.from(item.data, 'base64');
+        const aadhaarNumber = await this.sandboxKycService.extractAadhaarNumber(buffer, mimeType, filename);
+
+        if (aadhaarNumber && /^\d{12}$/.test(aadhaarNumber)) {
+          return this._triggerAadhaarOtp(session, aadhaarNumber);
+        }
+      } catch (err) {
+        this.logger.warn({ err, phone: session.phone }, 'Aadhaar number extraction failed');
+      }
+
+      return [this.message(messages.aadhaarPhotoUnclear, { intent: 'aadhaar_photo_unclear' })];
+    }
+
+    // ── User typed a number: validate ──────────────────────────────────────
+    if (text && text.trim()) {
+      const cleaned = text.trim().replace(/[\s\-]/g, '');
+      if (/^\d{12}$/.test(cleaned)) {
+        return this._triggerAadhaarOtp(session, cleaned);
+      }
+
+      // Not 12 digits — re-prompt
+      return [this.message(messages.askAadhaarInput, { intent: 'aadhaar_number_invalid', facts: { input: text } })];
+    }
+
+    // No media, no text
+    return [this.message(messages.askAadhaarInput, { intent: 'aadhaar_reprompt' })];
+  }
+
+  /**
+   * Call Sandbox to generate OTP and advance session to AADHAAR_OTP_SENT.
+   */
+  async _triggerAadhaarOtp(session, aadhaarNumber) {
+    const messages = t(session.script);
+
+    if (!this.sandboxKycService) {
+      // KYC disabled — skip Aadhaar verification and go straight to certificate
+      session.context.aadhaarPhase = 'certificate';
+      session.context.aadhaarNumber = aadhaarNumber;
+      return [this.message(messages.askCertificate, { intent: 'kyc_skipped_ask_certificate' })];
+    }
+
+    try {
+      const { referenceId } = await this.sandboxKycService.generateAadhaarOtp(aadhaarNumber);
+      session.context.aadhaarNumber = aadhaarNumber;
+      session.context.aadhaarReferenceId = referenceId;
+      session.context.aadhaarAttempts = 0;
+      session.context.aadhaarPhase = 'otp';
+      session.step = Steps.AADHAAR_OTP_SENT;
+      return [this.message(messages.aadhaarOtpSent, { intent: 'aadhaar_otp_sent', facts: { aadhaarNumber } })];
+    } catch (err) {
+      this.logger.error({ err, phone: session.phone }, 'Sandbox generate OTP failed');
+      return [this.message(
+        'There was a problem sending the OTP. Please check your Aadhaar number and try again.',
+        { intent: 'aadhaar_otp_generate_error' }
+      )];
+    }
+  }
+
+  /**
+   * Handle OTP entry (step AADHAAR_OTP_SENT).
+   *
+   * Max 3 OTP entry attempts; then 1 re-generate allowed.
+   */
+  async handleAadhaarOtp(session, text) {
+    const messages = t(session.script);
+    const MAX_OTP_ATTEMPTS = 3;
+    const MAX_REGEN = 1;
+
+    const otp = (text ?? '').trim().replace(/\s/g, '');
+
+    if (!otp || !/^\d{4,8}$/.test(otp)) {
+      return [this.message(messages.aadhaarOtpInvalid, { intent: 'aadhaar_otp_format_invalid' })];
+    }
+
+    const referenceId = session.context.aadhaarReferenceId;
+    if (!referenceId) {
+      // Lost reference ID — restart Aadhaar phase
+      session.context.aadhaarPhase = 'number';
+      session.step = Steps.ONBOARDING_DOCUMENTS;
+      return [this.message(messages.askAadhaarInput, { intent: 'aadhaar_session_lost' })];
+    }
+
+    try {
+      const kycData = await this.sandboxKycService.verifyAadhaarOtp(referenceId, otp);
+
+      // ── Success: upload photo, persist KYC data, advance to certificate ──
+      let aadhaarPhotoUrl = null;
+      if (kycData.photo && this.documentStorageService) {
+        try {
+          aadhaarPhotoUrl = await this.documentStorageService.uploadBase64Photo(session.phone, kycData.photo);
+        } catch (photoErr) {
+          this.logger.warn({ photoErr, phone: session.phone }, 'Aadhaar photo upload failed — continuing without it');
+        }
+      }
+
+      await this.store.saveKycData(session.phone, {
+        aadhaarNumber: kycData.aadhaarNumber || session.context.aadhaarNumber,
+        dob: kycData.dob,
+        gender: kycData.gender,
+        address: kycData.address,
+        aadhaarPhotoUrl,
+        aadhaarName: kycData.name,
+        currentName: session.collected?.name ?? null
+      });
+
+      // Update local session state
+      session.context.aadhaarPhase = 'certificate';
+      session.context.aadhaarName = kycData.name;
+      session.step = Steps.ONBOARDING_DOCUMENTS;
+
+      const displayName = kycData.name || session.collected?.name || '';
+      return [this.message(
+        typeof messages.aadhaarVerified === 'function'
+          ? messages.aadhaarVerified(displayName)
+          : messages.aadhaarVerified,
+        { intent: 'aadhaar_verified', facts: { name: displayName } }
+      )];
+
+    } catch (err) {
+      if (err.otpInvalid) {
+        session.context.aadhaarAttempts = (session.context.aadhaarAttempts ?? 0) + 1;
+
+        if (session.context.aadhaarAttempts >= MAX_OTP_ATTEMPTS) {
+          // Allow one re-generate
+          const regenCount = session.context.aadhaarRegenCount ?? 0;
+          if (regenCount < MAX_REGEN) {
+            session.context.aadhaarRegenCount = regenCount + 1;
+            session.context.aadhaarAttempts = 0;
+            // Regenerate OTP
+            try {
+              const { referenceId: newRef } = await this.sandboxKycService.generateAadhaarOtp(
+                session.context.aadhaarNumber
+              );
+              session.context.aadhaarReferenceId = newRef;
               return [this.message(
-                '✅ All documents received. Let me analyze your skills...',
-                { intent: 'documents_complete', facts: { documentsCount: session.context.documents.length } }
+                `Too many incorrect attempts. A new OTP has been sent to your Aadhaar-registered mobile. Please try again.`,
+                { intent: 'aadhaar_otp_regenerated' }
               )];
+            } catch (regenErr) {
+              this.logger.error({ regenErr, phone: session.phone }, 'OTP re-generate failed');
             }
-            return [this.message(
-              `I already have your ${docType === 'aadhaar' ? 'Aadhaar' : 'certificate'}. Please send your ${otherType === 'aadhaar' ? 'Aadhaar card' : 'degree/certificate'}.`,
-              { intent: 'document_duplicate_type', facts: { docType, awaitingDocument: otherType } }
-            )];
           }
 
-          // Classify the pending doc
-          const pendingDoc = session.context.pendingUnclassifiedDoc;
-          pendingDoc.documentType = docType;
-          session.context.documents.push(pendingDoc);
-          session.context.pendingUnclassifiedDoc = null;
-
-          // Check if we now have both
-          const hasAadhaar = session.context.documents.some(d => d.documentType === 'aadhaar');
-          const hasCertificate = session.context.documents.some(d => d.documentType === 'certificate');
-
-          if (hasAadhaar && hasCertificate) {
-            session.context.awaitingDocument = 'done';
-            session.step = Steps.SKILL_EXTRACTION;
-            return [this.message(
-              '✅ All documents received. Let me analyze your skills...',
-              { intent: 'documents_complete', facts: { documentsCount: session.context.documents.length } }
-            )];
-          }
-
-          const remaining = !hasAadhaar ? 'Aadhaar card' : 'degree/certificate';
-          session.context.awaitingDocument = !hasAadhaar ? 'aadhaar' : 'certificate';
+          // Exhausted retries — restart Aadhaar number phase
+          session.context.aadhaarPhase = 'number';
+          session.context.aadhaarReferenceId = null;
+          session.context.aadhaarAttempts = 0;
+          session.context.aadhaarRegenCount = 0;
+          session.step = Steps.ONBOARDING_DOCUMENTS;
           return [this.message(
-            `✅ Got it, saved as ${docType === 'aadhaar' ? 'Aadhaar' : 'Certificate'}. Now please send your ${remaining}.`,
-            { intent: 'document_classified', facts: { docType, documentsCount: session.context.documents.length } }
+            'OTP verification failed too many times. Please start again by sending your Aadhaar card.',
+            { intent: 'aadhaar_otp_exhausted' }
           )];
         }
 
-        // AI couldn't classify — ask more clearly
-        return [this.message(
-          'I couldn\'t understand which document that is. Please reply with "Aadhaar" or "Certificate" / "Degree" to let me know.',
-          { intent: 'document_classify_failed', facts: { text } }
-        )];
+        return [this.message(messages.aadhaarOtpInvalid, {
+          intent: 'aadhaar_otp_invalid',
+          facts: { attempt: session.context.aadhaarAttempts, max: MAX_OTP_ATTEMPTS }
+        })];
       }
 
-      // No pending doc and no media — re-prompt
-      const neededDocs = this._getNeededDocsList(session);
+      this.logger.error({ err, phone: session.phone }, 'Sandbox verify OTP unexpected error');
       return [this.message(
-        `Please send your ${neededDocs} as a photo (PNG/JPEG) or PDF file.`,
-        { intent: 'reprompt_document', facts: { awaitingDocument: session.context.awaitingDocument } }
+        'Something went wrong verifying your OTP. Please try again.',
+        { intent: 'aadhaar_otp_error' }
+      )];
+    }
+  }
+
+  /**
+   * Sub-handler: collect the skill/training certificate.
+   */
+  async _handleCertificatePhase(session, text, media) {
+    const messages = t(session.script);
+
+    // Entry: send the certificate prompt if we haven't yet
+    if (!session.context.certificatePromptSent) {
+      session.context.certificatePromptSent = true;
+      return [this.message(messages.askCertificate, { intent: 'ask_certificate' })];
+    }
+
+    const mediaItems = Array.isArray(media) ? media : (media ? [media] : []);
+    if (mediaItems.length === 0) {
+      return [this.message(messages.askCertificate, { intent: 'certificate_reprompt' })];
+    }
+
+    const item = mediaItems[0];
+    const mimeType = item.mimetype || item.mimeType || '';
+    const sizeBytes = item.filesize || item.sizeBytes || (item.data ? Buffer.from(item.data, 'base64').length : 0);
+    const filename = item.filename || 'certificate';
+
+    if (!this.documentStorageService) {
+      this.logger.error({ phone: session.phone }, 'DocumentStorageService not configured');
+      return [this.message(
+        'Document upload is temporarily unavailable. Please try again later.',
+        { intent: 'document_service_unavailable' }
       )];
     }
 
-    // ─── Case: User sent media ─────────────────────────────────────────────────
-    const replies = [];
-    for (const item of mediaItems) {
-      const mimeType = item.mimetype || item.mimeType || '';
-      const sizeBytes = item.filesize || item.sizeBytes || (item.data ? Buffer.from(item.data, 'base64').length : 0);
-      const filename = item.filename || `document_${Date.now()}`;
-
-      // Validate
-      if (!this.documentStorageService) {
-        this.logger.error({ phone: session.phone }, 'DocumentStorageService not configured');
-        replies.push(this.message(
-          'Document upload is temporarily unavailable. Please try again later.',
-          { intent: 'document_service_unavailable' }
-        ));
-        continue;
+    const validation = this.documentStorageService.validateFile(mimeType, sizeBytes);
+    if (!validation.valid) {
+      if (sizeBytes > 10 * 1024 * 1024) {
+        return [this.message(
+          'This file is too large. Please send a file smaller than 10 MB.',
+          { intent: 'document_size_error', facts: { sizeBytes } }
+        )];
       }
-
-      const validation = this.documentStorageService.validateFile(mimeType, sizeBytes);
-      if (!validation.valid) {
-        if (sizeBytes > 10 * 1024 * 1024) {
-          replies.push(this.message(
-            'This file is too large. Please send a file smaller than 10 MB.',
-            { intent: 'document_size_error', facts: { sizeBytes } }
-          ));
-        } else {
-          replies.push(this.message(
-            'This file format is not accepted. Please send your document as PNG, JPEG, or PDF only.',
-            { intent: 'document_format_error', facts: { mimeType } }
-          ));
-        }
-        continue;
-      }
-
-      // Upload the file
-      let uploadResult;
-      try {
-        const buffer = Buffer.from(item.data, 'base64');
-        uploadResult = await this.documentStorageService.uploadDocument({
-          phone: session.phone,
-          filename,
-          buffer,
-          mimeType
-        });
-      } catch (uploadError) {
-        this.logger.error({ error: uploadError, phone: session.phone }, 'Document upload failed after retry');
-        replies.push(this.message(
-          'Sorry, there was a problem uploading your document. Please try sending it again.',
-          { intent: 'document_upload_failed', facts: { awaitingDocument: session.context.awaitingDocument } }
-        ));
-        continue;
-      }
-
-      // Try to classify document type from text/caption + filename
-      let docType = await this._classifyDocumentType(text || filename);
-
-      // If we already have one type, the other must be the remaining one
-      const hasAadhaar = session.context.documents.some(d => d.documentType === 'aadhaar');
-      const hasCertificate = session.context.documents.some(d => d.documentType === 'certificate');
-
-      if (!docType) {
-        // If only one doc type is missing, auto-assign
-        if (hasAadhaar && !hasCertificate) {
-          docType = 'certificate';
-        } else if (!hasAadhaar && hasCertificate) {
-          docType = 'aadhaar';
-        }
-      }
-
-      const docMetadata = {
-        url: uploadResult.url,
-        path: uploadResult.path,
-        mimeType: uploadResult.metadata.mimeType,
-        sizeBytes: uploadResult.metadata.sizeBytes,
-        uploadedAt: new Date().toISOString()
-      };
-
-      if (docType) {
-        // We know what it is — store it
-        session.context.documents.push({ ...docMetadata, documentType: docType });
-
-        const nowHasAadhaar = session.context.documents.some(d => d.documentType === 'aadhaar');
-        const nowHasCertificate = session.context.documents.some(d => d.documentType === 'certificate');
-
-        if (nowHasAadhaar && nowHasCertificate) {
-          session.context.awaitingDocument = 'done';
-          replies.push(this.message(
-            '✅ All documents received. Let me analyze your skills...',
-            { intent: 'documents_complete', facts: { documentsCount: session.context.documents.length } }
-          ));
-        } else {
-          const remaining = !nowHasAadhaar ? 'Aadhaar card' : 'degree/certificate';
-          session.context.awaitingDocument = !nowHasAadhaar ? 'aadhaar' : 'certificate';
-          replies.push(this.message(
-            `✅ ${docType === 'aadhaar' ? 'Aadhaar' : 'Certificate'} received. Now please send your ${remaining}.`,
-            { intent: `document_${docType}_received`, facts: { documentsCount: session.context.documents.length } }
-          ));
-        }
-      } else {
-        // Can't determine type — store as pending and ask
-        session.context.pendingUnclassifiedDoc = docMetadata;
-        replies.push(this.message(
-          '📎 Got your document! Is this your Aadhaar card or your degree/certificate? Please reply with "Aadhaar" or "Certificate".',
-          { intent: 'ask_document_type', facts: { filename } }
-        ));
-      }
-
-      // If all documents received, advance
-      if (session.context.awaitingDocument === 'done') {
-        session.step = Steps.SKILL_EXTRACTION;
-        break;
-      }
+      return [this.message(
+        'This file format is not accepted. Please send your certificate as PNG, JPEG, or PDF only.',
+        { intent: 'document_format_error', facts: { mimeType } }
+      )];
     }
 
-    if (replies.length === 0) {
-      const neededDocs = this._getNeededDocsList(session);
-      replies.push(this.message(
-        `Please send your ${neededDocs} as a photo (PNG/JPEG) or PDF file.`,
-        { intent: 'reprompt_document', facts: { awaitingDocument: session.context.awaitingDocument } }
-      ));
+    let uploadResult;
+    try {
+      const buffer = Buffer.from(item.data, 'base64');
+      uploadResult = await this.documentStorageService.uploadDocument({
+        phone: session.phone,
+        filename,
+        buffer,
+        mimeType
+      });
+    } catch (uploadError) {
+      this.logger.error({ error: uploadError, phone: session.phone }, 'Certificate upload failed');
+      return [this.message(
+        'Sorry, there was a problem uploading your certificate. Please try sending it again.',
+        { intent: 'certificate_upload_failed' }
+      )];
     }
 
-    return replies;
-  }
-
-  /**
-   * Use AI to classify if a text/caption/filename refers to an Aadhaar card or a certificate.
-   * Returns 'aadhaar', 'certificate', or null if unclear.
-   */
-  async _classifyDocumentType(text) {
-    if (!text || !text.trim()) return null;
-
-    const normalized = text.toLowerCase().trim();
-
-    // Quick keyword checks first (no AI call needed)
-    const aadhaarKeywords = ['aadhaar', 'aadhar', 'adhar', 'aadhar', 'आधार', 'uid', 'uidai'];
-    const certKeywords = ['certificate', 'degree', 'diploma', 'marksheet', 'iti', 'pmkvy', 
-      'प्रमाणपत्र', 'सर्टिफिकेट', 'डिग्री', 'cert', 'qualification', 'passing'];
-
-    if (aadhaarKeywords.some(kw => normalized.includes(kw))) return 'aadhaar';
-    if (certKeywords.some(kw => normalized.includes(kw))) return 'certificate';
-
-    // Use AI for ambiguous cases
-    if (this.aiClient && this.aiClient.isConfigured()) {
-      try {
-        const result = await this.aiClient.generateJson({
-          prompt: `The user sent a document and said: "${text}". 
-Is this their Aadhaar card (Indian identity document) or their educational certificate/degree/diploma?
-Reply with {"type": "aadhaar"} or {"type": "certificate"} or {"type": "unknown"} if you cannot determine.`,
-          schema: {
-            type: 'object',
-            properties: { type: { type: 'string', enum: ['aadhaar', 'certificate', 'unknown'] } },
-            required: ['type']
-          }
-        });
-
-        if (result && result.type && result.type !== 'unknown') {
-          return result.type;
-        }
-      } catch (err) {
-        this.logger.warn({ err }, 'AI document classification failed, falling back to null');
-      }
+    // Persist certificate URL to DB
+    try {
+      await this.store.saveCertificateUrl(session.phone, uploadResult.url);
+    } catch (dbErr) {
+      this.logger.warn({ dbErr, phone: session.phone }, 'Failed to save certificate URL to DB');
     }
 
-    return null;
-  }
+    session.context.aadhaarPhase = 'done';
+    session.context.certificateUrl = uploadResult.url;
+    session.step = Steps.SKILL_EXTRACTION;
 
-  /**
-   * Get a human-readable list of which documents are still needed.
-   */
-  _getNeededDocsList(session) {
-    const hasAadhaar = session.context.documents.some(d => d.documentType === 'aadhaar');
-    const hasCertificate = session.context.documents.some(d => d.documentType === 'certificate');
-
-    if (!hasAadhaar && !hasCertificate) return 'Aadhaar card and degree/certificate';
-    if (!hasAadhaar) return 'Aadhaar card';
-    if (!hasCertificate) return 'degree/certificate';
-    return 'documents';
+    return [this.message(messages.certificateSaved, { intent: 'certificate_saved', facts: { url: uploadResult.url } })];
   }
 
   async handleSkillExtraction(session, text) {

@@ -13,10 +13,10 @@
 - [ ] Feature 1.2.3 — Weekly Match Refresh (cron jobs pending)
 - [ ] Feature 1.2.4 — Proactive Opportunity Alerts
 
-### 1.3 SKILL VERIFICATION — VIDEO TASK ASSESSMENT
+<!-- ### 1.3 SKILL VERIFICATION — VIDEO TASK ASSESSMENT
 - [ ] Feature 1.3.1 — Task Video Request
 - [ ] Feature 1.3.2 — AI Video Scoring Engine (document_processing_pipeline is pending)
-- [ ] Feature 1.3.3 — Skill Badge Improvement Loop
+- [ ] Feature 1.3.3 — Skill Badge Improvement Loop -->
 
 ### 1.4 INTERVIEW PREPARATION
 - [ ] Feature 1.4.1 — Pre-Interview Briefing

@@ -86,7 +86,21 @@ const copy = {
     placed: (name) =>
       `🎊 बधाई हो ${name} ji! यह बहुत बड़ी बात है.\n\nपहले दिन के लिए कुछ tips चाहिए?`,
     firstDayTips:
-      '💼 पहले दिन के लिए:\n✅ 15 मिनट पहले पहुँचें\n✅ जरूरी tools/PPE साथ रखें\n✅ Supervisor का नाम पूछें\n✅ पहले दिन ज्यादा observe करें\n✅ अपनी सीखने वाली बातें note करें\n\nAll the best! आप कर सकते हैं.'
+      '💼 पहले दिन के लिए:\n✅ 15 मिनट पहले पहुँचें\n✅ जरूरी tools/PPE साथ रखें\n✅ Supervisor का नाम पूछें\n✅ पहले दिन ज्यादा observe करें\n✅ अपनी सीखने वाली बातें note करें\n\nAll the best! आप कर सकते हैं.',
+    askAadhaarInput:
+      'कृपया अपना Aadhaar card का photo भेजें, या सीधे अपना 12-digit Aadhaar number type करें।',
+    aadhaarPhotoUnclear:
+      'Photo से Aadhaar number नहीं पढ़ पाया। कृपया साफ़ photo भेजें या number directly type करें।',
+    aadhaarOtpSent:
+      'आपके Aadhaar से linked mobile पर OTP भेजा गया है। कृपया वह OTP यहाँ share करें।',
+    aadhaarOtpInvalid:
+      'OTP match नहीं हुआ। कृपया check करके फिर से try करें।',
+    aadhaarVerified: (name) =>
+      `✅ आपका Aadhaar verify हो गया, ${name} ji! अब कृपया अपना skill/training certificate भेजें।`,
+    askCertificate:
+      'कृपया अपने skill/training certificate की photo या PDF भेजें।',
+    certificateSaved:
+      '✅ Certificate save हो गया। आपकी profile अब complete है!'
   },
   roman: {
     welcomeNew:
@@ -137,7 +151,21 @@ const copy = {
     voiceUnavailable: 'Voice note mila, lekin main saaf sun nahi paaya. Please wahi jawab text mein bhej dijiye.',
     placed: (name) => `🎊 Badhai ho ${name} ji! Yeh bahut badi baat hai.\n\nPehle din ke liye kuch tips chahiye?`,
     firstDayTips:
-      '💼 Pehle din ke liye:\n✅ 15 minutes pehle pahunchein\n✅ zaroori tools/PPE saath rakhein\n✅ Supervisor ka naam poochhein\n✅ pehle din zyada observe karein\n✅ learning notes banaate rahein\n\nAll the best! Aap kar sakte hain.'
+      '💼 Pehle din ke liye:\n✅ 15 minutes pehle pahunchein\n✅ zaroori tools/PPE saath rakhein\n✅ Supervisor ka naam poochhein\n✅ pehle din zyada observe karein\n✅ learning notes banaate rahein\n\nAll the best! Aap kar sakte hain.',
+    askAadhaarInput:
+      'Kripaya apne Aadhaar card ki photo bhejein, ya seedha apna 12-digit Aadhaar number type karein.',
+    aadhaarPhotoUnclear:
+      'Photo se Aadhaar number nahi padh paya. Kripaya saaf photo bhejein ya number directly type karein.',
+    aadhaarOtpSent:
+      'Aapke Aadhaar se linked mobile par OTP bheja gaya hai. Kripaya woh OTP yahan share karein.',
+    aadhaarOtpInvalid:
+      'OTP match nahi hua. Kripaya check karke phir se try karein.',
+    aadhaarVerified: (name) =>
+      `✅ Aapka Aadhaar verify ho gaya, ${name} ji! Ab kripaya apna skill/training certificate bhejein.`,
+    askCertificate:
+      'Kripaya apne skill/training certificate ki photo ya PDF bhejein.',
+    certificateSaved:
+      '✅ Certificate save ho gaya. Aapki profile ab complete hai!'
   },
   english: {
     welcomeNew:
@@ -187,7 +215,21 @@ const copy = {
     voiceUnavailable: 'I received your voice note, but I could not hear it clearly. Please send the same answer as text.',
     placed: (name) => `🎊 Congratulations ${name} ji! That is a big step.\n\nWould you like first-day tips?`,
     firstDayTips:
-      '💼 For your first day:\n✅ arrive 15 minutes early\n✅ carry required tools/PPE\n✅ ask for your supervisor name\n✅ observe carefully on day one\n✅ note what you learn\n\nAll the best. You can do this.'
+      '💼 For your first day:\n✅ arrive 15 minutes early\n✅ carry required tools/PPE\n✅ ask for your supervisor name\n✅ observe carefully on day one\n✅ note what you learn\n\nAll the best. You can do this.',
+    askAadhaarInput:
+      'Please send a photo of your Aadhaar card, or type your 12-digit Aadhaar number.',
+    aadhaarPhotoUnclear:
+      "I couldn't read an Aadhaar number from the image. Please send a clearer photo or type the number directly.",
+    aadhaarOtpSent:
+      'An OTP has been sent to your Aadhaar-registered mobile number. Please share the OTP here.',
+    aadhaarOtpInvalid:
+      "The OTP doesn't match. Please check and try again.",
+    aadhaarVerified: (name) =>
+      `✅ Your Aadhaar has been verified, ${name}! Now please send your skill/training certificate.`,
+    askCertificate:
+      'Please send a photo or PDF of your skill/training certificate.',
+    certificateSaved:
+      '✅ Certificate saved. Your profile is now complete!'
   }
 };
 

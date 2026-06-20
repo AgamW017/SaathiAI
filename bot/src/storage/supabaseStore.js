@@ -321,6 +321,94 @@ export class SupabaseStore {
     );
   }
 
+  // ─── KYC ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Persist Aadhaar KYC data to the learners table after a successful OTP verify.
+   *
+   * @param {string} phone - Learner phone number
+   * @param {object} kycData
+   * @param {string} kycData.aadhaarNumber
+   * @param {string} kycData.dob - YYYY-MM-DD
+   * @param {string} kycData.gender
+   * @param {object} kycData.address - { line, district, state, pincode }
+   * @param {string|null} kycData.aadhaarPhotoUrl - Supabase Storage URL
+   * @param {string} kycData.aadhaarName - Name from Aadhaar card
+   * @param {string|null} kycData.currentName - Name already on record (for reconciliation)
+   */
+  async saveKycData(phone, kycData) {
+    const {
+      aadhaarNumber,
+      dob,
+      gender,
+      address = {},
+      aadhaarPhotoUrl = null,
+      aadhaarName,
+      currentName
+    } = kycData;
+
+    // Reconcile names per spec: pick the longer of the two if they match well enough
+    const resolvedName = reconcileNames(currentName, aadhaarName);
+
+    const row = await this.queryOne(
+      `UPDATE learners
+       SET aadhaar_number   = $1,
+           dob              = $2,
+           gender           = $3,
+           address_line     = $4,
+           address_district = $5,
+           address_state    = $6,
+           address_pincode  = $7,
+           kyc_status       = 'verified',
+           aadhaar_photo_url = $8,
+           full_name        = COALESCE($9, full_name),
+           updated_at       = NOW()
+       WHERE phone = $10
+       RETURNING *`,
+      [
+        aadhaarNumber,
+        dob || null,
+        gender || null,
+        address.line || null,
+        address.district || null,
+        address.state || null,
+        address.pincode || null,
+        aadhaarPhotoUrl,
+        resolvedName,
+        phone
+      ]
+    );
+
+    if (!row) throw new Error(`saveKycData: no learner found for phone ${phone}`);
+    return row;
+  }
+
+  /**
+   * Persist the certificate URL to both learners and skill_cards tables.
+   *
+   * @param {string} phone - Learner phone number
+   * @param {string} certificateUrl - Public URL of uploaded certificate
+   */
+  async saveCertificateUrl(phone, certificateUrl) {
+    // Update learners table
+    await this.query(
+      `UPDATE learners SET certificate_url = $1, updated_at = NOW() WHERE phone = $2`,
+      [certificateUrl, phone]
+    );
+
+    // Update the most recent skill_card row (if any)
+    await this.query(
+      `UPDATE skill_cards
+       SET certificate_url = $1, updated_at = NOW()
+       WHERE learner_id = (SELECT id FROM learners WHERE phone = $2)
+         AND created_at = (
+           SELECT MAX(created_at) FROM skill_cards
+           WHERE learner_id = (SELECT id FROM learners WHERE phone = $2)
+         )`,
+      [certificateUrl, phone]
+    );
+  }
+
   // ─── Internal helpers ─────────────────────────────────────────────────────
 
   async getLatestSessionRow(learnerId) {
@@ -474,4 +562,47 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value
   );
+}
+
+/**
+ * Reconcile a learner's existing name with the name returned by Aadhaar KYC.
+ *
+ * Rule (per spec): normalise both names to lowercase word sets.
+ * If the minimum word count of the two names has n words, and those n words
+ * all appear in the other name → names match → return the longer name.
+ * Otherwise return null (mismatch — caller should flag for manual review;
+ * we don't overwrite the existing name).
+ *
+ * @param {string|null} currentName - Name already recorded for the learner
+ * @param {string|null} aadhaarName - Name from Aadhaar card
+ * @returns {string|null}
+ */
+function reconcileNames(currentName, aadhaarName) {
+  if (!aadhaarName) return currentName ?? null;
+  if (!currentName) return aadhaarName;
+
+  const normalise = (s) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9ऀ-ॿ\s]/g, '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+  const wordsA = normalise(currentName);
+  const wordsB = normalise(aadhaarName);
+
+  const shorter = wordsA.length <= wordsB.length ? wordsA : wordsB;
+  const longerWords = wordsA.length > wordsB.length ? wordsA : wordsB;
+  const longer = wordsA.length > wordsB.length ? currentName : aadhaarName;
+
+  const n = shorter.length;
+  const allMatch = shorter.every((w) => longerWords.includes(w));
+
+  if (n > 0 && allMatch) {
+    return longer; // prefer the more complete name
+  }
+
+  // Names don't match well enough — keep existing name, do not overwrite
+  return currentName;
 }

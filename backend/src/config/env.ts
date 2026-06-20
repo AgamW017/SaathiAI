@@ -51,6 +51,12 @@ export const config = {
   aiserver: {
     url: optionalEnv('AISERVER_URL', 'http://localhost:5000'),
   },
+
+  sandbox: {
+    apiKey: process.env.SANDBOX_API_KEY ?? '',
+    apiSecret: process.env.SANDBOX_API_SECRET ?? '',
+    baseUrl: optionalEnv('SANDBOX_BASE_URL', 'https://test-api.sandbox.co.in'),
+  },
 } as const;
 
 export type Config = typeof config;

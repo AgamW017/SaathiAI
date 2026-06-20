@@ -21,7 +21,8 @@ const app = express();
 // ─── Core middleware ───────────────────────────────────────────────────────
 app.use(helmet());
 app.use(cors({ origin: config.cors.origins, credentials: true }));
-app.use(express.json({ limit: '1mb' }));
+// 15 MB limit — needed for base64-encoded Aadhaar card images sent to /internal/extract-aadhaar
+app.use(express.json({ limit: '15mb' }));
 app.use(requestLogger);
 
 // ─── Health check ──────────────────────────────────────────────────────────
