@@ -938,6 +938,7 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
       jobSummary += `   🏢 ${job.employerName}\n`;
       jobSummary += `   📍 ${location}  💰 ${salary}\n`;
       if (job.openings > 1) jobSummary += `   👥 ${job.openings} openings\n`;
+      jobSummary += `   📌 Source: ${job.source ?? 'SaathiAI'}\n`;
       jobSummary += '\n';
     });
 
@@ -994,7 +995,9 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
         const location = job.location || job.district || '';
         moreMsg += `*${alreadyShown + index + 1}. ${job.role}*\n`;
         moreMsg += `   🏢 ${job.employerName}\n`;
-        moreMsg += `   📍 ${location}  💰 ${salary}\n\n`;
+        moreMsg += `   📍 ${location}  💰 ${salary}\n`;
+        moreMsg += `   📌 Source: ${job.source ?? 'SaathiAI'}\n`;
+        moreMsg += '\n';
       });
 
       if (session.script === 'devanagari') {
@@ -1023,6 +1026,42 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
         return [this.message('Please type the job number you\'re interested in, or "MORE" to see the rest.')];
       }
       return [this.message('Please job number likhein jisme interest hai, ya "MORE" likhein baaki dekhne ke liye.')];
+    }
+
+    // SIDH jobs: send the apply link instead of recording an internal application
+    if (selectedJob.detailUrl) {
+      await this.eventLog.record({
+        learnerId: session.learnerId,
+        phone: session.phone,
+        eventType: EventTypes.JOB_APPLIED,
+        stepBefore: session.step,
+        stepAfter: Steps.JOB_APPLIED,
+        metadata: { jobId: selectedJob.id, employerName: selectedJob.employerName, source: selectedJob.source, detailUrl: selectedJob.detailUrl }
+      });
+
+      session.selectedJob = selectedJob;
+      session.step = Steps.JOB_APPLIED;
+      session.placementStatus = PlacementStatus.APPLIED;
+
+      let sidhMsg = '';
+      if (session.script === 'devanagari') {
+        sidhMsg = `बढ़िया! *${selectedJob.role}* में interest के लिए शुक्रिया! 🎉\n\n`;
+        sidhMsg += `यह job *Skill India Digital Hub* पर listed है। नीचे दिए link पर जाकर apply करें:\n\n`;
+        sidhMsg += `🔗 ${selectedJob.detailUrl}\n\n`;
+        sidhMsg += `Apply करने के बाद हमें बताएं। शुभकामनाएं! 🌟`;
+      } else if (session.script === 'english') {
+        sidhMsg = `Great choice! You selected *${selectedJob.role}* at ${selectedJob.employerName}. 🎉\n\n`;
+        sidhMsg += `This job is listed on *Skill India Digital Hub*. Apply directly here:\n\n`;
+        sidhMsg += `🔗 ${selectedJob.detailUrl}\n\n`;
+        sidhMsg += `Let us know once you've applied. Best of luck! 🌟`;
+      } else {
+        sidhMsg = `Bahut badhiya! *${selectedJob.role}* ke liye interest dikhane ka shukriya! 🎉\n\n`;
+        sidhMsg += `Yeh job *Skill India Digital Hub* par listed hai. Neeche diye link par jaakar apply karein:\n\n`;
+        sidhMsg += `🔗 ${selectedJob.detailUrl}\n\n`;
+        sidhMsg += `Apply karne ke baad humein batayein. All the best! 🌟`;
+      }
+
+      return [this.message(sidhMsg)];
     }
 
     await this.jobService.apply({

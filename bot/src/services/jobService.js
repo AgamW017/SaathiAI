@@ -1,49 +1,24 @@
 import { randomUUID } from 'node:crypto';
 
+const BACKEND_URL = process.env.BACKEND_INTERNAL_URL ?? 'http://localhost:4000';
+const BOT_SECRET = process.env.BOT_INTERNAL_SECRET ?? 'dev-bot-secret';
+
 export class JobService {
   constructor({ store }) {
     this.store = store;
   }
 
-  async matchJobs({ trade, district, limit = 50 }) {
-    const jobs = await this.store.listJobs();
+  async matchJobs({ trade, district, state, limit = 50 }) {
+    // Query all three sources in parallel
+    const [jobs, vacancies, sidhJobs] = await Promise.all([
+      this.store.listJobs().then(rows =>
+        rows.map(j => ({ ...j, source: 'SaathiAI' }))
+      ),
+      this._fetchVacancies(),
+      this._fetchSidhJobs(trade, state),
+    ]);
 
-    // Also query active vacancies from the employer portal
-    // Use ILIKE for fuzzy trade matching at SQL level
-    let vacancies = [];
-    try {
-      const tradePattern = `%${(trade ?? '').trim()}%`;
-      const rows = await this.store.query(
-        `SELECT v.id, v.title, v.trade_required, v.salary_min, v.salary_max, v.district, v.state, v.openings, v.naps_eligible, v.created_at,
-                e.company_name
-         FROM vacancies v
-         LEFT JOIN employers e ON e.id = v.employer_id
-         WHERE v.status = 'active'
-         ORDER BY v.created_at DESC`
-      );
-      vacancies = (rows ?? []).map((r) => ({
-        id: r.id,
-        role: r.title,
-        trade: r.trade_required,
-        employerName: r.company_name ?? 'Employer',
-        salaryMin: r.salary_min,
-        salaryMax: r.salary_max,
-        district: r.district ?? '',
-        location: r.district ?? '',
-        state: r.state ?? '',
-        openings: r.openings ?? 1,
-        type: r.naps_eligible ? 'apprenticeship' : 'regular',
-        verified: true,
-        distanceKm: null,
-        postedText: timeAgo(r.created_at),
-        is_active: true,
-      }));
-    } catch (err) {
-      // If vacancies table doesn't exist yet, just continue with jobs table
-      console.error('[JobService] Vacancies query failed:', err.message);
-    }
-
-    const allJobs = uniqueJobs([...vacancies, ...jobs]);
+    const allJobs = uniqueJobs([...vacancies, ...sidhJobs, ...jobs]);
     // Support multiple trades (comma-separated in the trade field)
     const learnerTrades = (trade ?? '').split(',').map(t => normalize(t.trim())).filter(Boolean);
     const normalizedDistrict = normalize(district);
@@ -59,9 +34,82 @@ export class JobService {
     const remote = tradeMatched.filter((job) => !locationMatches(job, normalizedDistrict));
 
     const result = uniqueJobs([...local, ...remote]).slice(0, limit);
-    const vacancyTrades = vacancies.map(v => v.trade).join(', ');
-    console.log(`[JobService] matchJobs: learnerTrades="${learnerTrades.join(', ')}" learnerDistrict="${district}" | vacancies=${vacancies.length} (trades: ${vacancyTrades}) jobs=${jobs.length} | tradeMatched=${tradeMatched.length} local=${local.length} total=${result.length}`);
+    console.log(`[JobService] matchJobs: learnerTrades="${learnerTrades.join(', ')}" learnerDistrict="${district}" | vacancies=${vacancies.length} sidhJobs=${sidhJobs.length} jobs=${jobs.length} | tradeMatched=${tradeMatched.length} local=${local.length} total=${result.length}`);
     return result;
+  }
+
+  async _fetchVacancies() {
+    try {
+      const rows = await this.store.query(
+        `SELECT v.id, v.title, v.trade_required, v.salary_min, v.salary_max, v.district, v.state, v.openings, v.naps_eligible, v.created_at,
+                e.company_name
+         FROM vacancies v
+         LEFT JOIN employers e ON e.id = v.employer_id
+         WHERE v.status = 'active'
+         ORDER BY v.created_at DESC`
+      );
+      return (rows ?? []).map((r) => ({
+        id: r.id,
+        role: r.title,
+        trade: r.trade_required,
+        employerName: r.company_name ?? 'Employer',
+        salaryMin: r.salary_min,
+        salaryMax: r.salary_max,
+        district: r.district ?? '',
+        location: r.district ?? '',
+        state: r.state ?? '',
+        openings: r.openings ?? 1,
+        type: r.naps_eligible ? 'apprenticeship' : 'regular',
+        verified: true,
+        distanceKm: null,
+        postedText: timeAgo(r.created_at),
+        is_active: true,
+        source: 'SaathiAI',
+      }));
+    } catch (err) {
+      console.error('[JobService] Vacancies query failed:', err.message);
+      return [];
+    }
+  }
+
+  async _fetchSidhJobs(trade, state) {
+    if (!trade || !state) return [];
+    try {
+      const resp = await fetch(`${BACKEND_URL}/internal/jobs/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bot-secret': BOT_SECRET },
+        body: JSON.stringify({ jobTitle: trade, state }),
+        signal: AbortSignal.timeout(90_000),
+      });
+      if (!resp.ok) {
+        console.error(`[JobService] SIDH fetch HTTP ${resp.status}`);
+        return [];
+      }
+      const data = await resp.json();
+      return (data.jobs ?? []).map((job, i) => ({
+        id: job.sidhId ?? `sidh-${i}`,
+        role: job.title ?? 'Job Opening',
+        trade: job.sector ?? trade,
+        employerName: job.company ?? 'Employer',
+        salaryMin: null,
+        salaryMax: null,
+        salaryRangeText: job.salaryText ?? null,
+        district: job.venue ?? '',
+        location: job.venue || job.location || state,
+        state: job.location ?? state,
+        openings: job.vacancyCount ?? null,
+        type: 'regular',
+        verified: false,
+        distanceKm: null,
+        postedText: job.date ?? 'Recently',
+        is_active: true,
+        source: job.source ?? 'Skill India Digital Hub',
+        detailUrl: job.detailUrl ?? null,
+      }));
+    } catch (err) {
+      console.error('[JobService] SIDH fetch failed:', err.message);
+      return [];
+    }
   }
 
   async apply({ phone, learnerId, job, cardUrl }) {
