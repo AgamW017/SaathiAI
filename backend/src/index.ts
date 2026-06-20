@@ -11,6 +11,8 @@ import { requestLogger } from './middleware/logger.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 import { internalRouter } from './routes/internal.js';
+import { documentsRouter } from './routes/documents.js';
+import { cohortsApiRouter } from './routes/cohortsApi.js';
 import { appRouter } from './trpc/router.js';
 import { createContext } from './trpc/context.js';
 
@@ -38,6 +40,10 @@ app.use(
     },
   })
 );
+
+// ─── Document parsing + cohort REST routes ──────────────────────────────────
+app.use('/api/documents', documentsRouter);
+app.use('/api/cohorts', cohortsApiRouter);
 
 // ─── Internal REST routes (bot webhooks — not migrated to tRPC) ────────────
 app.use('/admin', internalRouter);

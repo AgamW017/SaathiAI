@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { trpc } from '../../../../lib/trpc/client';
-import Papa from 'papaparse';
 
 function Skeleton({ width = '100%', height = '16px', radius = '6px' }: { width?: string; height?: string; radius?: string }) {
   return (
@@ -16,148 +15,6 @@ function Skeleton({ width = '100%', height = '16px', radius = '6px' }: { width?:
         animation: 'shimmer 1.4s infinite',
       }}
     />
-  );
-}
-
-// ─── Modal ────────────────────────────────────────────────────────────────────
-
-function UploadCsvModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) {
-  const [cohortName, setCohortName] = useState('');
-  const [trade, setTrade] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadMutation = trpc.cohorts.uploadCsv.useMutation();
-
-  if (!isOpen) return null;
-
-  const handleUpload = () => {
-    if (!cohortName) {
-      setError('Cohort name is required.');
-      return;
-    }
-    if (!file) {
-      setError('Please select a CSV file.');
-      return;
-    }
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const learners = results.data.map((row: any) => {
-          const normalizedRow: Record<string, string> = {};
-          for (const key in row) {
-            const normKey = key.toLowerCase().replace(/[\s_]/g, '');
-            normalizedRow[normKey] = row[key];
-          }
-          
-          return {
-            phone: normalizedRow.phone || normalizedRow.phonenumber || normalizedRow.number || '',
-            full_name: normalizedRow.name || normalizedRow.fullname || '',
-          };
-        }).filter(l => l.phone);
-
-        if (learners.length === 0) {
-          setError('No valid learners found. Ensure the CSV has a "phone" or "number" column.');
-          return;
-        }
-
-        uploadMutation.mutate({ cohort_name: cohortName, trade: trade || undefined, learners }, {
-          onSuccess: () => {
-            setCohortName('');
-            setTrade('');
-            setFile(null);
-            setError(null);
-            onSuccess();
-          },
-          onError: (err) => setError(err.message),
-        });
-      },
-      error: (err) => setError(`CSV Parse error: ${err.message}`),
-    });
-  };
-
-  return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 1000, backdropFilter: 'blur(4px)'
-    }}>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        style={{
-          background: '#fff', padding: '24px', borderRadius: '16px', width: '100%', maxWidth: '400px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-        }}
-      >
-        <h2 style={{ margin: '0 0 16px', fontSize: '20px', color: '#0f161e' }}>Upload Cohort CSV</h2>
-        
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#333942', marginBottom: '8px' }}>Cohort Name</label>
-          <input
-            value={cohortName}
-            onChange={e => setCohortName(e.target.value)}
-            placeholder="e.g. Batch 2024 - Ranchi"
-            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #e0e0dc', fontSize: '14px', outline: 'none' }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#333942', marginBottom: '8px' }}>Trade (Optional)</label>
-          <input
-            value={trade}
-            onChange={e => setTrade(e.target.value)}
-            placeholder="e.g. Fitter"
-            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #e0e0dc', fontSize: '14px', outline: 'none' }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#333942', marginBottom: '8px' }}>CSV File</label>
-          <div 
-            onClick={() => fileInputRef.current?.click()}
-            style={{ 
-              border: '2px dashed #e0e0dc', borderRadius: '8px', padding: '24px', textAlign: 'center', 
-              cursor: 'pointer', background: '#fafafa', color: '#615f5c', fontSize: '14px'
-            }}
-          >
-            {file ? file.name : 'Click to select CSV file'}
-          </div>
-          <input
-            type="file"
-            accept=".csv"
-            ref={fileInputRef}
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              if (e.target.files && e.target.files[0]) {
-                setFile(e.target.files[0]);
-              }
-            }}
-          />
-          <p style={{ fontSize: '12px', color: '#a09d99', marginTop: '8px' }}>Expected columns: name, phone</p>
-        </div>
-
-        {error && <div style={{ padding: '10px', background: '#fee2e2', color: '#dc2626', fontSize: '13px', borderRadius: '8px', marginBottom: '16px' }}>{error}</div>}
-
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-          <button 
-            onClick={onClose}
-            style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#f3f4f6', color: '#374151', fontWeight: 600, cursor: 'pointer' }}
-          >
-            Cancel
-          </button>
-          <button 
-            onClick={handleUpload}
-            disabled={uploadMutation.isPending}
-            style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#004038', color: '#fff', fontWeight: 600, cursor: uploadMutation.isPending ? 'not-allowed' : 'pointer' }}
-          >
-            {uploadMutation.isPending ? 'Uploading...' : 'Upload'}
-          </button>
-        </div>
-      </motion.div>
-    </div>
   );
 }
 
@@ -270,8 +127,7 @@ function CohortsTable() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CohortsPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const utils = trpc.useUtils();
+  const router = useRouter();
 
   return (
     <>
@@ -295,15 +151,15 @@ export default function CohortsPage() {
               Manage your ITI batches and upload new cohorts.
             </p>
           </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
+          <button
+            onClick={() => router.push('/dashboard/officer/cohorts/upload')}
             style={{
               background: '#004038', color: '#fff', border: 'none', padding: '10px 20px',
               borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(0,64,56,0.2)'
             }}
           >
-            + Upload CSV
+            + Upload Document
           </button>
         </motion.div>
 
@@ -323,17 +179,6 @@ export default function CohortsPage() {
           <CohortsTable />
         </motion.div>
       </div>
-
-      <UploadCsvModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSuccess={() => {
-          setIsModalOpen(false);
-          utils.cohorts.list.invalidate();
-          utils.dashboard.cohortStats.invalidate();
-          utils.dashboard.priorityInbox.invalidate();
-        }}
-      />
     </>
   );
 }

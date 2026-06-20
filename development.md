@@ -56,5 +56,43 @@ pnpm exec puppeteer browsers install chrome
 - `pnpm start`: Start the bot. Open `http://localhost:3000` to scan the WhatsApp QR code.
 - `pnpm run test`: Run Vitest tests for the bot logic.
 
-## 4. Document Processing Pipeline (`/document_processing_pipeline`)
+## 4. AI Server (`/aiserver`)
+The Python FastAPI server handles document parsing and learner risk prediction.
+
+**Prerequisites:**
+- Python 3.10+
+
+**Setup:**
+```bash
+cd aiserver
+pip install -r requirements.txt
+```
+
+**Train the risk model (run once before starting the server):**
+```bash
+python train_risk_model.py
+# Generates risk_data.csv and risk_model.pkl in the aiserver directory
+```
+
+**Commands:**
+- `uvicorn server:app --port 5000 --reload`: Start the server with hot-reload.
+- `uvicorn server:app --port 5000`: Start in production mode.
+
+**Endpoints:**
+- `POST /convert` — Docling document parsing (multipart/form-data with `file` field)
+- `POST /predict-risk` — Learner dropout risk score prediction (JSON body)
+- `GET /health` — Liveness check
+
+**Risk prediction request example:**
+```bash
+curl -X POST http://localhost:5000/predict-risk \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"active","days_since_last_response":7,"profile_completeness":60,"days_to_cohort_end":20}'
+# Returns: {"score": 42.5}
+```
+
+**Environment variable (backend):**
+Add `AISERVER_URL=http://localhost:5000` to `backend/.env.local`. The backend calls `/predict-risk` as a fire-and-forget background task after every new learner is created. If the aiserver is unreachable, learner creation is unaffected (the `risk_score` stays at `0` and is updated later).
+
+## 5. Document Processing Pipeline (`/document_processing_pipeline`)
 *Note: This component is currently pending implementation. It will be used for AI Video Scoring and Credential extraction.*

@@ -47,6 +47,10 @@ export const config = {
   log: {
     level: process.env.LOG_LEVEL ?? 'info',
   },
+
+  aiserver: {
+    url: optionalEnv('AISERVER_URL', 'http://localhost:5000'),
+  },
 } as const;
 
 export type Config = typeof config;
