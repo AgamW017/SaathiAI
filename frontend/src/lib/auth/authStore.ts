@@ -47,8 +47,8 @@ const ROLE_DASHBOARD: Record<string, string> = {
   learner: '/dashboard/learner',
   employer: '/dashboard/employer',
   officer: '/dashboard/officer',
-  dssdo: '/dashboard/officer',
-  admin: '/dashboard/officer',
+  dssdo: '/dashboard/officer/district',
+  admin: '/dashboard/officer/district',
   trainee: '/dashboard/learner',
 };
 
@@ -97,7 +97,7 @@ export const authStore = {
   /** Returns the dashboard URL for the current user's role */
   getDashboardPath(): string {
     const user = this.getUser();
-    if (!user) return '/login';
+    if (!user) return '/signin';
     return ROLE_DASHBOARD[user.role] ?? '/';
   },
 };

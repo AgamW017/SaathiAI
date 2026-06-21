@@ -498,6 +498,16 @@ const cohortRouter = router({
       let inserted = 0;
       let skipped = 0;
 
+      const { data: cohort, error: cohortError } = await supabase
+        .from('cohorts')
+        .insert({ name: cohort_name, officer_id: ctx.user.sub })
+        .select('id, name')
+        .single();
+
+      if (cohortError) {
+        throw new Error(`Failed to create cohort: ${cohortError.message}`);
+      }
+
       for (const l of learners) {
         // Check if learner already exists (deduplication by phone)
         const { data: existing } = await supabase
@@ -516,7 +526,7 @@ const cohortRouter = router({
           full_name: l.full_name ?? null,
           trade: l.trade ?? null,
           district: l.district ?? null,
-          cohort: cohort_name,
+          cohort_id: cohort.id,
           status: 'active',
           risk_score: 0,
           officer_id: ctx.user.sub,
@@ -563,7 +573,7 @@ const reportsRouter = router({
       const { data, error } = await query;
       if (error) handleSupabaseError(error, 'dashboard.reports.cohortHealth');
 
-      const learners = (data ?? []) as Pick<LearnerRow, 'status' | 'risk_score' | 'cohort'>[];
+      const learners = (data ?? []) as Pick<LearnerRow, 'status' | 'risk_score' | 'cohort_id'>[];
       const total = learners.length;
       const placed = learners.filter((l) => l.status === 'placed').length;
       const at_risk = learners.filter((l) => l.status === 'at_risk').length;

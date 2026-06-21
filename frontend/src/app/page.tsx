@@ -12,6 +12,7 @@ import ImpactSection from '../components/sections/ImpactSection';
 import QuoteSection from '../components/sections/QuoteSection';
 import LanguageShowcase from '../components/sections/LanguageShowcase';
 import FinalCTA from '../components/sections/FinalCTA';
+import WorkingIntelligenceSection from '../components/sections/WorkingIntelligenceSection';
 import Footer from '../components/sections/Footer';
 
 export default function Page() {
@@ -27,6 +28,7 @@ export default function Page() {
         <SolutionSection />
         <FunnelSection />
         <TechStackSection />
+        <WorkingIntelligenceSection />
         <ImpactSection />
         <QuoteSection />
         <LanguageShowcase />

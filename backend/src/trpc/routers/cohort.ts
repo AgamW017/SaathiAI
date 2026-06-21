@@ -177,7 +177,7 @@ export const cohortRouter = router({
           .insert({
             phone: entry.phone,
             full_name: entry.name || null,
-            cohort: cohortName,
+            cohort_id: cohort.id,
             status: 'active',
             risk_score: 0,
             officer_id: officerId,
@@ -281,7 +281,7 @@ export const cohortRouter = router({
           const { data: learners } = await supabase
             .from('learners')
             .select('status')
-            .eq('cohort', cohort.name)
+            .eq('cohort_id', cohort.id)
             .eq('officer_id', officerId);
 
           const allLearners = learners ?? [];
@@ -311,7 +311,7 @@ export const cohortRouter = router({
             const { data: placedLearners } = await supabase
               .from('learners')
               .select('id')
-              .eq('cohort', cohort.name)
+              .eq('cohort_id', cohort.id)
               .eq('status', 'placed');
 
             if (placedLearners && placedLearners.length > 0) {
@@ -390,7 +390,7 @@ export const cohortRouter = router({
       const { data: learners, error: learnersError } = await supabase
         .from('learners')
         .select('id, phone, full_name, status, trade, district, created_at, updated_at')
-        .eq('cohort', cohort.name)
+        .eq('cohort_id', cohort.id)
         .eq('officer_id', officerId)
         .order('created_at', { ascending: true });
 

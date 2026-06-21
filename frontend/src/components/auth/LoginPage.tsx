@@ -46,9 +46,9 @@ const ROLES = [
     color: '#2563eb',
   },
   {
-    id: 'admin',
+    id: 'dssdo',
     labelKey: 'role_admin_label',
-    emoji: '🛡️',
+    emoji: '🏛️',
     hintKey: 'role_admin_hint',
     color: '#6b21a8',
   },
@@ -533,7 +533,6 @@ function LoginForm({
   const signinMutation = trpc.auth.signin.useMutation({
     onSuccess(data) {
       authStore.setAuth(data);
-      router.push(authStore.getDashboardPath());
     },
     onError(err) {
       setServerError(err.message);
@@ -561,7 +560,7 @@ function LoginForm({
     jobseeker: 'learner',
     employer: 'employer',
     trainer: 'officer',
-    admin: 'dssdo',
+    dssdo: 'dssdo',
   };
 
   const onSubmit = (data: LoginInputs) => {
@@ -1842,10 +1841,10 @@ export default function LoginPage() {
   const { isLoggedIn, dashboardPath } = useAuth();
 
   useEffect(() => {
-    if (isLoggedIn) {
-      router.replace(dashboardPath);
+    if (isLoggedIn && dashboardPath !== '/signin') {
+      window.location.href = dashboardPath;
     }
-  }, [isLoggedIn, dashboardPath, router]);
+  }, [isLoggedIn, dashboardPath]);
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1023px)');

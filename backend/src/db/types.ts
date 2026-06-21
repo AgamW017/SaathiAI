@@ -58,7 +58,7 @@ export interface Database {
           trade: string | null;
           district: string | null;
           state: string | null;
-          cohort: string | null;
+          cohort_id: string | null;
           status: LearnerStatus;
           risk_score: number;
           created_at: string;
@@ -83,7 +83,7 @@ export interface Database {
           trade?: string | null;
           district?: string | null;
           state?: string | null;
-          cohort?: string | null;
+          cohort_id?: string | null;
           status?: LearnerStatus;
           risk_score?: number;
           created_at?: string;
@@ -107,7 +107,7 @@ export interface Database {
           trade?: string | null;
           district?: string | null;
           state?: string | null;
-          cohort?: string | null;
+          cohort_id?: string | null;
           status?: LearnerStatus;
           risk_score?: number;
           updated_at?: string;
@@ -123,6 +123,35 @@ export interface Database {
           kyc_status?: string;
           aadhaar_photo_url?: string | null;
           certificate_url?: string | null;
+        };
+      };
+      cohorts: {
+        Row: {
+          id: string;
+          name: string;
+          officer_id: string;
+          status: string;
+          source_document_url: string | null;
+          extraction_metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          officer_id: string;
+          status?: string;
+          source_document_url?: string | null;
+          extraction_metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          status?: string;
+          source_document_url?: string | null;
+          extraction_metadata?: Json;
+          updated_at?: string;
         };
       };
       sessions: {

@@ -84,7 +84,6 @@ router.post('/', authenticate, async (req, res) => {
         district,
         state,
         cohort_id: cohort.id,
-        cohort: cohort.name,
         status: 'active',
         risk_score: 0,
         officer_id: officerId,

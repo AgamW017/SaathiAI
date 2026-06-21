@@ -51,8 +51,8 @@ export default function Navbar() {
   const { isLoggedIn, user, dashboardPath, hydrated } = useAuth();
 
   const navLinks = [
-    { name: t('nav', 'impact'), path: '/impact' },
-    { name: t('nav', 'howItWorks'), path: '/how-it-works' },
+    { name: t('nav', 'impact'), path: '#impact' },
+    { name: t('nav', 'howItWorks'), path: '#how-it-works' },
   ];
 
   useEffect(() => {

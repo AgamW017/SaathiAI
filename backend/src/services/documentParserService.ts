@@ -465,6 +465,12 @@ export class DocumentParserService {
       cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
     }
 
+    // Extract JSON array from response — handles preamble text before the array
+    const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      cleaned = arrayMatch[0];
+    }
+
     const parsed = JSON.parse(cleaned);
 
     if (!Array.isArray(parsed)) {
