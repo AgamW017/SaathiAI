@@ -1128,6 +1128,43 @@ export const publicSkillCardRouter = router({
 
       return { success: true };
     }),
+
+  getByUuid: publicProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ input }) => {
+      const { data, error } = await db
+        .from('skill_cards')
+        .select(`
+          id, trade, skills, certificate_type, verification_status,
+          learners (
+            full_name, trade, district, state
+          )
+        `)
+        .eq('id', input.id)
+        .single();
+
+      if (error || !data) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Skill card not found' });
+      }
+
+      const learner = data.learners;
+
+      return {
+        learner: {
+          full_name: learner.full_name,
+          trade: learner.trade,
+          district: learner.district,
+          state: learner.state,
+        },
+        skillCard: {
+          id: data.id,
+          trade: data.trade,
+          skills: data.skills,
+          certificate_type: data.certificate_type,
+          verification_status: data.verification_status,
+        },
+      };
+    }),
 });
 
 // ─── Combined Employer Router ─────────────────────────────────────────────────

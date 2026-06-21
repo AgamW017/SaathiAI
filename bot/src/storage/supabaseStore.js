@@ -4,7 +4,7 @@ import { StepNames } from '../constants/steps.js';
 const { Pool } = pg;
 
 export class SupabaseStore {
-  constructor({ supabase, publicBaseUrl }) {
+  constructor({ supabase, publicBaseUrl, frontendUrl }) {
     if (!supabase.databaseUrl) {
       throw new Error('DATABASE_URL is required for direct Postgres connection');
     }
@@ -14,6 +14,7 @@ export class SupabaseStore {
       ssl: { rejectUnauthorized: false }
     });
     this.publicBaseUrl = publicBaseUrl.replace(/\/$/, '');
+    this.frontendUrl = (frontendUrl || publicBaseUrl).replace(/\/$/, '');
   }
 
   async init() {
@@ -189,7 +190,7 @@ export class SupabaseStore {
     );
 
     if (!row) throw new Error('Failed to save skill card: no row returned');
-    return mapSkillCardRow(row, learner, this.publicBaseUrl);
+    return mapSkillCardRow(row, learner, this.frontendUrl);
   }
 
   async getLatestSkillCardByPhone(phone) {
@@ -208,7 +209,7 @@ export class SupabaseStore {
       [learnerId]
     );
     if (!row) return null;
-    return mapSkillCardRow(row, row.learner_json, this.publicBaseUrl);
+    return mapSkillCardRow(row, row.learner_json, this.frontendUrl);
   }
 
   async getSkillCardById(id) {
@@ -220,7 +221,7 @@ export class SupabaseStore {
       [id]
     );
     if (!row) return null;
-    return mapSkillCardRow(row, row.learner_json, this.publicBaseUrl);
+    return mapSkillCardRow(row, row.learner_json, this.frontendUrl);
   }
 
   // ─── Jobs ─────────────────────────────────────────────────────────────────
@@ -474,13 +475,13 @@ function mapLearnerRow(row, latestCard, publicBaseUrl) {
   };
 }
 
-function mapSkillCardRow(row, learner, publicBaseUrl) {
+function mapSkillCardRow(row, learner, frontendUrl) {
   const l = learner ?? {};
   return {
     id: row.id,
     phone: l.phone,
     learnerId: row.learner_id,
-    url: `${publicBaseUrl}/card/${row.id}`,
+    url: `${frontendUrl}/card/${row.id}`,
     name: l.full_name ?? l.name,
     trade: row.trade,
     district: l.district,

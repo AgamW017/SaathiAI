@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
 export class SkillCardService {
-  constructor({ store, publicBaseUrl }) {
+  constructor({ store, frontendUrl }) {
     this.store = store;
-    this.publicBaseUrl = publicBaseUrl.replace(/\/$/, '');
+    this.frontendUrl = frontendUrl.replace(/\/$/, '');
   }
 
   async create({ phone, learner, collected }) {
     const id = randomUUID();
-    const url = `${this.publicBaseUrl}/card/${id}`;
+    const url = `${this.frontendUrl}/card/${id}`;
     const card = {
       id,
       phone,

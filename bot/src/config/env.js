@@ -12,6 +12,7 @@ export function loadConfig() {
     env: process.env.NODE_ENV ?? 'development',
     port: readNumber('PORT', 3000),
     publicBaseUrl: process.env.PUBLIC_BASE_URL ?? 'https://yourdomain.com',
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3006',
     botDisplayName: process.env.BOT_DISPLAY_NAME ?? 'SaathiAI',
     dataDir: path.resolve(rootDir, process.env.DATA_DIR ?? './data/runtime'),
     jobDataPath: path.resolve(rootDir, process.env.JOB_DATA_PATH ?? './data/jobs.json'),

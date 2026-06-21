@@ -30,7 +30,7 @@ const aiClient = new LlmClient({
   gemini: config.gemini
 }, logger);
 const runtimeStore = new JsonStore({ dataDir: config.dataDir, jobDataPath: config.jobDataPath });
-const backendStore = new SupabaseStore({ supabase: config.supabase, publicBaseUrl: config.publicBaseUrl });
+const backendStore = new SupabaseStore({ supabase: config.supabase, publicBaseUrl: config.publicBaseUrl, frontendUrl: config.frontendUrl });
 const store = new BotStore({ runtimeStore, backendStore });
 await store.init();
 
@@ -40,7 +40,7 @@ dashboard.start();
 
 const extractionService = new ExtractionService({ aiClient, logger });
 const transcriptionService = new TranscriptionService({ config: config.sarvam, logger });
-const skillCardService = new SkillCardService({ store, publicBaseUrl: config.publicBaseUrl });
+const skillCardService = new SkillCardService({ store, frontendUrl: config.frontendUrl });
 const jobService = new JobService({ store });
 const interviewService = new InterviewService();
 
