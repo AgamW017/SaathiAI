@@ -50,7 +50,7 @@ vi.mock('../../lib/trpc/client', () => ({
 import InlineChatPanel from './InlineChatPanel';
 
 describe('InlineChatPanel', () => {
-  let mockMutate: ReturnType<typeof vi.fn>;
+  let mockMutate: (...args: any[]) => any;
   let mockRefetch: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {

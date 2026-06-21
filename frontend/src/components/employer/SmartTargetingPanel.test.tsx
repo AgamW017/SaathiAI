@@ -17,7 +17,12 @@ const mockPreviewQuery = {
 };
 
 const mockBroadcastMutate = vi.fn();
-const mockBroadcastMutation = {
+const mockBroadcastMutation: {
+  mutate: ReturnType<typeof vi.fn>;
+  isPending: boolean;
+  _simulateSuccess?: any;
+  _simulateError?: any;
+} = {
   mutate: mockBroadcastMutate,
   isPending: false,
 };
@@ -70,8 +75,8 @@ describe('SmartTargetingPanel - Filter Inputs', () => {
     mockPreviewQuery.data = undefined;
     mockPreviewQuery.isLoading = false;
     mockPreviewQuery.isError = false;
-    (mockBroadcastMutation as any)._simulateSuccess = undefined;
-    (mockBroadcastMutation as any)._simulateError = undefined;
+    mockBroadcastMutation._simulateSuccess = undefined;
+    mockBroadcastMutation._simulateError = undefined;
     mockBroadcastMutation.isPending = false;
   });
 
@@ -112,8 +117,8 @@ describe('SmartTargetingPanel - Zero Match Warning', () => {
     mockPreviewQuery.data = { count: 0 };
     mockPreviewQuery.isLoading = false;
     mockPreviewQuery.isError = false;
-    (mockBroadcastMutation as any)._simulateSuccess = undefined;
-    (mockBroadcastMutation as any)._simulateError = undefined;
+    mockBroadcastMutation._simulateSuccess = undefined;
+    mockBroadcastMutation._simulateError = undefined;
     mockBroadcastMutation.isPending = false;
   });
 
@@ -160,8 +165,8 @@ describe('SmartTargetingPanel - Confirmation Dialog', () => {
     mockPreviewQuery.data = { count: 25 };
     mockPreviewQuery.isLoading = false;
     mockPreviewQuery.isError = false;
-    (mockBroadcastMutation as any)._simulateSuccess = undefined;
-    (mockBroadcastMutation as any)._simulateError = undefined;
+    mockBroadcastMutation._simulateSuccess = undefined;
+    mockBroadcastMutation._simulateError = undefined;
     mockBroadcastMutation.isPending = false;
   });
 
@@ -232,8 +237,8 @@ describe('SmartTargetingPanel - Success Notification', () => {
     mockPreviewQuery.data = { count: 12 };
     mockPreviewQuery.isLoading = false;
     mockPreviewQuery.isError = false;
-    (mockBroadcastMutation as any)._simulateSuccess = { count: 12, broadcast_at: '2024-06-01T12:00:00Z' };
-    (mockBroadcastMutation as any)._simulateError = undefined;
+    mockBroadcastMutation._simulateSuccess = { count: 12, broadcast_at: '2024-06-01T12:00:00Z' };
+    mockBroadcastMutation._simulateError = undefined;
     mockBroadcastMutation.isPending = false;
   });
 
@@ -272,8 +277,8 @@ describe('SmartTargetingPanel - Broadcast Failure and Retry', () => {
     mockPreviewQuery.data = { count: 10 };
     mockPreviewQuery.isLoading = false;
     mockPreviewQuery.isError = false;
-    (mockBroadcastMutation as any)._simulateSuccess = undefined;
-    (mockBroadcastMutation as any)._simulateError = { message: 'Unable to reach messaging service' };
+    mockBroadcastMutation._simulateSuccess = undefined;
+    mockBroadcastMutation._simulateError = { message: 'Unable to reach messaging service' };
     mockBroadcastMutation.isPending = false;
   });
 
