@@ -138,7 +138,7 @@ export default function Navbar() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: scrolled ? '0 24px 0 28px' : '0 20px 0 24px',
+                padding: scrolled ? '0 32px' : '0 24px',
                 transition: 'padding 0.35s ease',
               }}
             >
@@ -215,7 +215,7 @@ export default function Navbar() {
                       color: 'var(--color-saathi-teal)',
                       textDecoration: 'none',
                       padding: '8px 16px',
-                      borderRadius: '12px',
+                      borderRadius: '999px',
                       background: 'rgba(0, 64, 56, 0.08)',
                       display: 'flex',
                       alignItems: 'center',
@@ -245,50 +245,64 @@ export default function Navbar() {
                     Dashboard
                   </MotionLink>
                 ) : (
-                  <>
-                    <MotionLink
-                      href="/signin"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.3 }}
-                      style={{
-                        fontFamily: 'var(--font-body)',
-                        fontWeight: 500,
-                        fontSize: 14,
-                        color: 'var(--color-saathi-teal)',
-                        textDecoration: 'none',
-                        padding: '8px 12px',
-                        borderRadius: '12px',
-                        transition: 'color 0.2s, background 0.2s',
-                      }}
-                      whileHover={{
-                        color: 'var(--color-action-flame)',
-                        backgroundColor: 'rgba(250,93,0,0.06)',
-                      }}
-                    >
-                      {t('nav', 'signIn')}
-                    </MotionLink>
+                  <MotionLink
+                    href="/signin"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 500,
+                      fontSize: 14,
+                      color: 'var(--color-saathi-teal)',
+                      textDecoration: 'none',
+                      padding: '8px 12px',
+                      borderRadius: '999px',
+                      transition: 'color 0.2s, background 0.2s',
+                    }}
+                    whileHover={{
+                      color: 'var(--color-action-flame)',
+                      backgroundColor: 'rgba(250,93,0,0.06)',
+                    }}
+                  >
+                    {t('nav', 'signIn')}
+                  </MotionLink>
+                )}
 
+                {hydrated && (
+                  <>
+                    <div
+                      style={{
+                        width: '1px',
+                        height: '24px',
+                        background: 'rgba(0,64,56,0.1)',
+                        margin: '0 4px',
+                      }}
+                    />
                     <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.35 }}
-                      whileHover={{ scale: 1.04 }}
-                      whileTap={{ scale: 0.96 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.35 }}
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                  >
+                    <Button
+                      variant="flame"
+                      href="http://wa.me/9068666560"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: '8px 18px',
+                        fontSize: '13px',
+                        borderRadius: '999px',
+                        boxShadow: 'var(--shadow-card-warm)',
+                        background: 'var(--color-action-flame)',
+                        color: 'white',
+                        textDecoration: 'none',
+                      }}
                     >
-                      <Button
-                        variant="flame"
-                        style={{
-                          padding: '8px 18px',
-                          fontSize: '13px',
-                          borderRadius: '999px',
-                          boxShadow: 'var(--shadow-card-warm)',
-                          background: 'var(--color-action-flame)',
-                          color: 'white',
-                        }}
-                      >
-                        {t('nav', 'tryFree')}
-                      </Button>
+                      {t('nav', 'tryFree')}
+                    </Button>
                     </motion.div>
                   </>
                 )}
@@ -423,7 +437,7 @@ export default function Navbar() {
                         color: 'var(--color-saathi-teal)',
                         textDecoration: 'none',
                         padding: '12px 16px',
-                        borderRadius: '10px',
+                        borderRadius: '999px',
                         background: 'rgba(0, 64, 56, 0.08)',
                         display: 'flex',
                         alignItems: 'center',
@@ -450,39 +464,52 @@ export default function Navbar() {
                       Go to Dashboard
                     </Link>
                   ) : (
-                    <>
-                      <Link
-                        href="/signin"
-                        onClick={() => setMobileMenuOpen(false)}
-                        style={{
-                          fontFamily: 'var(--font-body)',
-                          fontWeight: 500,
-                          fontSize: 15,
-                          color: 'var(--color-saathi-teal)',
-                          textDecoration: 'none',
-                          padding: '12px 8px',
-                          borderRadius: '10px',
-                          display: 'block',
-                        }}
-                      >
-                        {t('nav', 'signIn')}
-                      </Link>
+                    <Link
+                      href="/signin"
+                      onClick={() => setMobileMenuOpen(false)}
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 500,
+                        fontSize: 15,
+                        color: 'var(--color-saathi-teal)',
+                        textDecoration: 'none',
+                        padding: '12px 8px',
+                        borderRadius: '999px',
+                        display: 'block',
+                      }}
+                    >
+                      {t('nav', 'signIn')}
+                    </Link>
+                  )}
 
-                      <Button
-                        variant="flame"
-                        onClick={() => setMobileMenuOpen(false)}
+                  {hydrated && (
+                    <>
+                      <div
                         style={{
-                          padding: '12px',
-                          fontSize: '15px',
-                          borderRadius: '10px',
-                          width: '100%',
-                          justifyContent: 'center',
-                          background: 'var(--color-action-flame)',
-                          color: 'white',
-                          marginTop: '4px',
+                          height: '1px',
+                          background: 'rgba(0,64,56,0.08)',
+                          margin: '8px 0',
                         }}
-                      >
-                        {t('nav', 'tryFree')}
+                      />
+                      <Button
+                      variant="flame"
+                      href="http://wa.me/9068666560"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setMobileMenuOpen(false)}
+                      style={{
+                        padding: '12px',
+                        fontSize: '15px',
+                        borderRadius: '999px',
+                        width: '100%',
+                        justifyContent: 'center',
+                        background: 'var(--color-action-flame)',
+                        color: 'white',
+                        marginTop: '8px',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      {t('nav', 'tryFree')}
                       </Button>
                     </>
                   )}

@@ -99,8 +99,7 @@ export default function Hero() {
           </motion.p>
 
           <motion.div {...fadeUp(0.55)} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '36px' }}>
-            <Button variant="flame">{t('hero', 'cta1')}</Button>
-            <Button variant="teal-outline">{t('hero', 'cta2')}</Button>
+            <Button variant="flame" href="http://wa.me/9068666560" target="_blank" rel="noopener noreferrer">{t('nav', 'tryFree')}</Button>
           </motion.div>
 
           {/* Trust strip */}
