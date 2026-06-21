@@ -69,4 +69,8 @@ export class BotStore {
   async saveCertificateUrl(phone, certificateUrl) {
     return this.backendStore.saveCertificateUrl(phone, certificateUrl);
   }
+
+  async savePlacementDetails(phone, details) {
+    return this.backendStore.savePlacementDetails(phone, details);
+  }
 }

@@ -7,6 +7,12 @@ import {
   revokeSession,
   signupUser,
 } from '../../services/authService.js';
+import {
+  generateAadhaarOtp,
+  verifyAadhaarOtp,
+  initEntityLockerSession,
+  getEntityDetails,
+} from '../../services/sandboxService.js';
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -40,7 +46,7 @@ const SignupInput = z.discriminatedUnion('role', [
   }),
   z.object({
     role: z.literal('employer'),
-    email: z.string().email('Valid email required'),
+    email: z.string().email('Valid email required').optional(),
     phone: z.string().regex(/^\+?[0-9]{10,13}$/).optional(),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     company_name: z.string().min(2, 'Company name required'),
@@ -49,6 +55,28 @@ const SignupInput = z.discriminatedUnion('role', [
       .string()
       .regex(/^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/, 'Invalid Udyam format')
       .optional(),
+    verification_type: z.enum(['none', 'aadhaar', 'entitylocker']).default('none'),
+    aadhaar_kyc: z.object({
+      aadhaarNumber: z.string(),
+      name: z.string(),
+      dob: z.string(),
+      gender: z.string(),
+      address: z.object({
+        line: z.string().nullable(),
+        district: z.string().nullable(),
+        state: z.string().nullable(),
+        pincode: z.string().nullable(),
+      }),
+      photoUrl: z.string().optional(),
+    }).optional(),
+    entity_data: z.object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string(),
+      mobile: z.string(),
+      dateOfIncorporation: z.string(),
+      verifiedBy: z.enum(['pan', 'ud', 'cin']),
+    }).optional(),
   }),
   z.object({
     role: z.literal('officer'),
@@ -160,4 +188,57 @@ export const authRouter = router({
   me: protectedProcedure.query(({ ctx }) => {
     return { user: ctx.user };
   }),
+
+  // ─── Employer Aadhaar KYC ─────────────────────────────────────────────────
+
+  /** Generate Aadhaar OTP for employer signup */
+  employerAadhaarOtp: publicProcedure
+    .input(z.object({ aadhaarNumber: z.string().regex(/^\d{12}$/, 'Must be exactly 12 digits') }))
+    .mutation(async ({ input }) => {
+      try {
+        return await generateAadhaarOtp(input.aadhaarNumber);
+      } catch (err: any) {
+        throw new TRPCError({ code: 'BAD_GATEWAY', message: err.message ?? 'OTP generation failed' });
+      }
+    }),
+
+  /** Verify Aadhaar OTP and return KYC data for employer signup */
+  employerAadhaarVerify: publicProcedure
+    .input(z.object({ referenceId: z.string().min(1), otp: z.string().regex(/^\d{4,8}$/) }))
+    .mutation(async ({ input }) => {
+      try {
+        return await verifyAadhaarOtp(input.referenceId, input.otp);
+      } catch (err: any) {
+        const e = err as Error & { otpInvalid?: boolean };
+        if (e.otpInvalid) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: e.message ?? 'Invalid OTP' });
+        }
+        throw new TRPCError({ code: 'BAD_GATEWAY', message: e.message ?? 'OTP verification failed' });
+      }
+    }),
+
+  // ─── EntityLocker KYC ────────────────────────────────────────────────────
+
+  /** Initiate an EntityLocker session and return the authorization URL */
+  initEntityLockerSession: publicProcedure
+    .input(z.object({ redirectUrl: z.string().url() }))
+    .mutation(async ({ input }) => {
+      const consentExpiry = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
+      try {
+        return await initEntityLockerSession('signup', input.redirectUrl, consentExpiry);
+      } catch (err: any) {
+        throw new TRPCError({ code: 'BAD_GATEWAY', message: err.message ?? 'EntityLocker session init failed' });
+      }
+    }),
+
+  /** Fetch entity details after the EntityLocker consent redirect */
+  getEntityLockerDetails: publicProcedure
+    .input(z.object({ sessionId: z.string().min(1) }))
+    .query(async ({ input }) => {
+      try {
+        return await getEntityDetails(input.sessionId);
+      } catch (err: any) {
+        throw new TRPCError({ code: 'BAD_GATEWAY', message: err.message ?? 'Failed to fetch entity details' });
+      }
+    }),
 });

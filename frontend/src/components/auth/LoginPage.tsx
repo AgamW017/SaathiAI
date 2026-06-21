@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useId } from 'react';
+import React, { useState, useEffect, useId, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
@@ -19,38 +19,7 @@ const loginSchema = z.object({
   password: z.string().min(1, 'passwordRequired'),
 });
 
-const signupSchema = z
-  .object({
-    companyName: z.string().min(2, 'companyNameMin'),
-    contactName: z.string().min(2, 'contactNameMin'),
-    mobile: z
-      .string()
-      .regex(/^\d{10}$/, 'validMobile'),
-    email: z.string().email('validEmail'),
-    password: z
-      .string()
-      .min(8, 'passwordMin')
-      .regex(/[A-Z]/, 'passwordUppercase')
-      .regex(/[0-9]/, 'passwordNumber'),
-    confirmPassword: z.string(),
-    udyam: z
-      .string()
-      .optional()
-      .refine(
-        (v) => !v || /^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/.test(v),
-        'udyamFormat',
-      ),
-    terms: z.literal(true, {
-      errorMap: () => ({ message: 'acceptTerms' }),
-    }),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: 'passwordsNotMatch',
-    path: ['confirmPassword'],
-  });
-
 type LoginInputs = z.infer<typeof loginSchema>;
-type SignupInputs = z.infer<typeof signupSchema>;
 
 // ─── Role Config ─────────────────────────────────────────────────────────────
 
@@ -710,44 +679,685 @@ function LoginForm({
   );
 }
 
-// ─── SignupForm ───────────────────────────────────────────────────────────────
+// ─── Shared: PasswordField with strength bar ──────────────────────────────────
+
+function PasswordField({
+  id,
+  label,
+  value,
+  onChange,
+  error,
+  autoComplete = 'new-password',
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+  autoComplete?: string;
+}) {
+  const { t } = useLocale();
+  const strength = getPasswordStrength(value);
+  return (
+    <FormField label={label} id={id} error={error}>
+      <Input
+        id={id}
+        type="password"
+        autoComplete={autoComplete}
+        placeholder="••••••••"
+        hasError={!!error}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {value && (
+        <div style={{ marginTop: '6px' }}>
+          <div style={{ height: '4px', background: '#e5e7eb', borderRadius: '999px', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '100%',
+                width: `${(strength.score / 5) * 100}%`,
+                background: strength.color,
+                borderRadius: '999px',
+                transition: 'width 0.3s ease, background 0.3s ease',
+              }}
+            />
+          </div>
+          <span style={{ fontSize: '11px', color: strength.color, fontWeight: 500, marginTop: '2px', display: 'block' }}>
+            {t('login', strength.labelKey)}
+          </span>
+        </div>
+      )}
+    </FormField>
+  );
+}
+
+// ─── Shared: Contact + Password form (used after verification) ────────────────
+
+const contactSchema = z
+  .object({
+    contactName: z.string().min(2, 'contactNameMin'),
+    email: z.string().email('validEmail').optional().or(z.literal('')),
+    mobile: z.string().regex(/^\d{10}$/, 'validMobile').optional().or(z.literal('')),
+    password: z.string().min(8, 'passwordMin').regex(/[A-Z]/, 'passwordUppercase').regex(/[0-9]/, 'passwordNumber'),
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.password === d.confirmPassword, { message: 'passwordsNotMatch', path: ['confirmPassword'] })
+  .refine((d) => d.email || d.mobile, { message: 'emailOrPhoneRequired', path: ['email'] });
+
+type ContactInputs = z.infer<typeof contactSchema>;
+
+function ContactForm({
+  onSubmit,
+  isLoading,
+  serverError,
+  companyName,
+  prefillName,
+  prefillEmail,
+  prefillMobile,
+}: {
+  onSubmit: (data: ContactInputs) => void;
+  isLoading: boolean;
+  serverError: string;
+  companyName?: string;
+  prefillName?: string;
+  prefillEmail?: string;
+  prefillMobile?: string;
+}) {
+  const { t } = useLocale();
+  const formId = useId();
+  const [password, setPassword] = useState('');
+
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ContactInputs>({
+    resolver: zodResolver(contactSchema),
+    mode: 'onBlur',
+    defaultValues: { contactName: prefillName ?? '', email: prefillEmail ?? '', mobile: prefillMobile ?? '' },
+  });
+
+  const watchedPassword = watch('password', '');
+
+  useEffect(() => {
+    if (prefillName) setValue('contactName', prefillName);
+    if (prefillEmail) setValue('email', prefillEmail);
+    if (prefillMobile) setValue('mobile', prefillMobile.replace(/^\+91/, ''));
+  }, [prefillName, prefillEmail, prefillMobile, setValue]);
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      {companyName && (
+        <div style={{ padding: '10px 14px', borderRadius: '10px', background: '#f0fdf4', border: '1px solid #86efac', fontSize: '13px', color: '#166534' }}>
+          Company: <strong>{companyName}</strong>
+        </div>
+      )}
+
+      <FormField label="Your Full Name" id={`${formId}-name`} error={errors.contactName?.message}>
+        <Input id={`${formId}-name`} type="text" placeholder="Your full name" hasError={!!errors.contactName} {...register('contactName')} />
+      </FormField>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <FormField label="Work Email" id={`${formId}-email`} error={errors.email?.message}>
+          <Input id={`${formId}-email`} type="email" autoComplete="email" placeholder="you@company.com" hasError={!!errors.email} {...register('email')} />
+        </FormField>
+        <FormField label="Mobile (for login)" id={`${formId}-mobile`} error={errors.mobile?.message}>
+          <div style={{ display: 'flex' }}>
+            <span style={{ display: 'flex', alignItems: 'center', padding: '0 10px', background: '#f5f5f5', border: '1.5px solid #c0bbb6', borderRight: 'none', borderRadius: '12px 0 0 12px', fontSize: '13px', color: '#615f5c', fontWeight: 600, whiteSpace: 'nowrap' }}>+91</span>
+            <Input id={`${formId}-mobile`} type="tel" maxLength={10} placeholder="9876543210" hasError={!!errors.mobile} {...register('mobile')} style={{ borderRadius: '0 12px 12px 0' }} />
+          </div>
+        </FormField>
+      </div>
+
+      <PasswordField
+        id={`${formId}-password`}
+        label="Password"
+        value={watchedPassword}
+        onChange={(v) => setValue('password', v, { shouldValidate: true })}
+        error={errors.password?.message}
+      />
+
+      <FormField label="Confirm Password" id={`${formId}-confirm`} error={errors.confirmPassword?.message}>
+        <Input id={`${formId}-confirm`} type="password" autoComplete="new-password" placeholder="••••••••" hasError={!!errors.confirmPassword} {...register('confirmPassword')} />
+      </FormField>
+
+      {serverError && (
+        <div role="alert" style={{ padding: '10px 14px', borderRadius: '10px', background: '#fee2e2', color: '#dc2626', fontSize: '13px', fontWeight: 500 }}>
+          {serverError}
+        </div>
+      )}
+
+      <SubmitButton isLoading={isLoading} label="Create Account" color="#fa5d00" />
+    </form>
+  );
+}
+
+// ─── Verification method tabs ─────────────────────────────────────────────────
+
+type VerifTab = 'entitylocker' | 'aadhaar' | 'unverified';
+
+function VerifTabBar({ active, onChange }: { active: VerifTab; onChange: (t: VerifTab) => void }) {
+  const tabs: { id: VerifTab; label: string; badge?: string }[] = [
+    { id: 'entitylocker', label: 'EntityLocker', badge: 'Recommended' },
+    { id: 'aadhaar', label: 'Aadhaar' },
+    { id: 'unverified', label: 'Unverified' },
+  ];
+
+  return (
+    <div style={{ display: 'flex', background: '#f5f4f2', borderRadius: '14px', padding: '4px', gap: '4px', marginBottom: '20px' }}>
+      {tabs.map((tab) => {
+        const isActive = active === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onChange(tab.id)}
+            style={{
+              flex: 1,
+              padding: '9px 6px',
+              borderRadius: '11px',
+              border: 'none',
+              background: isActive ? '#fff' : 'transparent',
+              color: isActive ? '#fa5d00' : '#615f5c',
+              fontWeight: isActive ? 700 : 500,
+              fontSize: '12px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: isActive ? '0 1px 6px rgba(0,0,0,0.08)' : 'none',
+              fontFamily: 'inherit',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '2px',
+            }}
+          >
+            <span>{tab.label}</span>
+            {tab.badge && (
+              <span style={{ fontSize: '9px', background: isActive ? '#fa5d0020' : 'transparent', color: '#fa5d00', borderRadius: '4px', padding: '1px 4px', fontWeight: 700 }}>
+                {tab.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── EntityLocker Tab ─────────────────────────────────────────────────────────
+
+type ELState = 'idle' | 'loading' | 'callback_loading' | 'form' | 'success';
+
+function EntityLockerTab({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
+  const [state, setState] = useState<ELState>('idle');
+  const [serverError, setServerError] = useState('');
+  const [entityData, setEntityData] = useState<{
+    id: string; name: string; email: string; mobile: string;
+    dateOfIncorporation: string; verifiedBy: string;
+  } | null>(null);
+  const [callbackSessionId, setCallbackSessionId] = useState<string | null>(null);
+
+  const initMutation = trpc.auth.initEntityLockerSession.useMutation();
+  const signupMutation = trpc.auth.signup.useMutation({
+    onSuccess(data) { authStore.setAuth(data); setState('success'); },
+    onError(err) { setServerError(err.message); },
+  });
+
+  const entityQuery = trpc.auth.getEntityLockerDetails.useQuery(
+    { sessionId: callbackSessionId ?? '' },
+    { enabled: !!callbackSessionId }
+  );
+
+  // Detect EntityLocker callback via window.location on mount (avoids useSearchParams Suspense)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const isCallback = params.get('el_callback') === '1';
+    const storedSessionId = sessionStorage.getItem('el_session_id');
+    if (isCallback && storedSessionId) {
+      setState('callback_loading');
+      setCallbackSessionId(storedSessionId);
+    }
+  }, []);
+
+  // Handle query result when callbackSessionId is set
+  useEffect(() => {
+    if (!callbackSessionId) return;
+    if (entityQuery.data) {
+      setEntityData(entityQuery.data);
+      sessionStorage.removeItem('el_session_id');
+      setState('form');
+      const url = new URL(window.location.href);
+      url.searchParams.delete('el_callback');
+      window.history.replaceState({}, '', url.toString());
+    } else if (entityQuery.error) {
+      setServerError(entityQuery.error.message ?? 'Failed to fetch entity details');
+      setState('idle');
+      setCallbackSessionId(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entityQuery.data, entityQuery.error]);
+
+  const handleEntityLockerLogin = async () => {
+    setServerError('');
+    setState('loading');
+    try {
+      const redirectUrl =
+        (typeof window !== 'undefined' ? window.location.origin : 'https://app.saathi.ai') +
+        '/signin?el_callback=1';
+      const result = await initMutation.mutateAsync({ redirectUrl });
+      sessionStorage.setItem('el_session_id', result.sessionId);
+      window.location.href = result.authorizationUrl;
+    } catch (err: any) {
+      setServerError(err.message ?? 'Failed to initiate EntityLocker session');
+      setState('idle');
+    }
+  };
+
+  const handleFormSubmit = (data: ContactInputs) => {
+    if (!entityData) return;
+    setServerError('');
+    signupMutation.mutate({
+      role: 'employer',
+      email: data.email || entityData.email || undefined,
+      phone: data.mobile ? `+91${data.mobile}` : (entityData.mobile ? `+91${entityData.mobile}` : undefined),
+      password: data.password,
+      company_name: entityData.name,
+      contact_name: data.contactName,
+      verification_type: 'entitylocker',
+      entity_data: {
+        id: entityData.id,
+        name: entityData.name,
+        email: entityData.email,
+        mobile: entityData.mobile,
+        dateOfIncorporation: entityData.dateOfIncorporation,
+        verifiedBy: entityData.verifiedBy as 'pan' | 'ud' | 'cin',
+      },
+    });
+  };
+
+  if (state === 'success') return <SuccessState shouldReduceMotion={shouldReduceMotion} />;
+
+  if (state === 'callback_loading') {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 0', color: '#615f5c' }}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }}>
+          <circle cx="12" cy="12" r="10" stroke="#e5e7eb" strokeWidth="2.5" />
+          <path d="M12 2a10 10 0 0 1 10 10" stroke="#fa5d00" strokeWidth="2.5" strokeLinecap="round" />
+        </svg>
+        <p style={{ margin: 0, fontSize: '14px' }}>Fetching entity details from EntityLocker…</p>
+      </div>
+    );
+  }
+
+  if (state === 'form' && entityData) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ padding: '14px', borderRadius: '12px', background: '#f0fdf4', border: '1px solid #86efac' }}>
+          <div style={{ fontSize: '12px', color: '#166534', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="12" r="10" stroke="#16a34a" strokeWidth="2"/></svg>
+            EntityLocker Verified
+          </div>
+          <div style={{ fontSize: '13px', color: '#0f161e' }}>
+            <div><strong>Company:</strong> {entityData.name}</div>
+            <div><strong>Incorporated:</strong> {entityData.dateOfIncorporation}</div>
+            <div><strong>Verified via:</strong> {entityData.verifiedBy.toUpperCase()}</div>
+          </div>
+        </div>
+        <p style={{ fontSize: '13px', color: '#615f5c', margin: 0 }}>
+          Confirm your personal contact details and set a password:
+        </p>
+        <ContactForm
+          onSubmit={handleFormSubmit}
+          isLoading={signupMutation.isPending}
+          serverError={serverError}
+          companyName={entityData.name}
+          prefillEmail={entityData.email}
+          prefillMobile={entityData.mobile}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ padding: '14px', borderRadius: '12px', background: '#fff7ed', border: '1px solid #fed7aa', fontSize: '13px', color: '#9a3412', lineHeight: 1.5 }}>
+        <strong>Recommended:</strong> EntityLocker is India's official business identity platform.
+        Verify your company instantly using your PAN, Udyam, or CIN number.
+      </div>
+
+      {serverError && (
+        <div role="alert" style={{ padding: '10px 14px', borderRadius: '10px', background: '#fee2e2', color: '#dc2626', fontSize: '13px', fontWeight: 500 }}>
+          {serverError}
+        </div>
+      )}
+
+      <motion.button
+        type="button"
+        onClick={handleEntityLockerLogin}
+        disabled={state === 'loading'}
+        whileHover={state === 'loading' ? {} : { scale: 1.01 }}
+        whileTap={state === 'loading' ? {} : { scale: 0.98 }}
+        style={{
+          width: '100%',
+          padding: '14px',
+          borderRadius: '14px',
+          border: '2px solid #1a56db',
+          background: state === 'loading' ? '#eff6ff' : '#fff',
+          color: '#1a56db',
+          fontSize: '15px',
+          fontWeight: 700,
+          cursor: state === 'loading' ? 'not-allowed' : 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          fontFamily: 'inherit',
+          transition: 'all 0.2s ease',
+        }}
+      >
+        {state === 'loading' ? (
+          <>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.8s linear infinite' }}>
+              <circle cx="12" cy="12" r="10" stroke="rgba(26,86,219,0.3)" strokeWidth="2.5" />
+              <path d="M12 2a10 10 0 0 1 10 10" stroke="#1a56db" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+            Redirecting to EntityLocker…
+          </>
+        ) : (
+          <>
+            {/* EntityLocker / DigiLocker logo */}
+            <svg width="24" height="24" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+              <rect width="64" height="64" rx="12" fill="#1a56db"/>
+              <path d="M16 44V20h10c8 0 14 5.4 14 12s-6 12-14 12H16z" fill="#fff"/>
+              <rect x="44" y="20" width="6" height="24" rx="3" fill="#fff"/>
+            </svg>
+            Login with EntityLocker
+          </>
+        )}
+      </motion.button>
+
+      <p style={{ textAlign: 'center', fontSize: '12px', color: '#9ca3af', margin: 0 }}>
+        You will be redirected to EntityLocker's secure portal and brought back here.
+      </p>
+    </div>
+  );
+}
+
+// ─── Aadhaar Tab ──────────────────────────────────────────────────────────────
+
+type AadhaarState = 'number' | 'otp' | 'verified' | 'form' | 'success';
+
+const OTP_TIMEOUT_SECONDS = 120;
+
+function AadhaarTab({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
+  const [state, setState] = useState<AadhaarState>('number');
+  const [serverError, setServerError] = useState('');
+  const [aadhaarInput, setAadhaarInput] = useState('');
+  const [referenceId, setReferenceId] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [kycData, setKycData] = useState<{
+    aadhaarNumber: string; name: string; dob: string; gender: string;
+    address: { line: string | null; district: string | null; state: string | null; pincode: string | null };
+    photo: string;
+  } | null>(null);
+  const [countdown, setCountdown] = useState(OTP_TIMEOUT_SECONDS);
+  const [canResend, setCanResend] = useState(false);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const otpMutation = trpc.auth.employerAadhaarOtp.useMutation();
+  const verifyMutation = trpc.auth.employerAadhaarVerify.useMutation();
+  const signupMutation = trpc.auth.signup.useMutation({
+    onSuccess(data) { authStore.setAuth(data); setState('success'); },
+    onError(err) { setServerError(err.message); },
+  });
+
+  const startCountdown = useCallback(() => {
+    setCountdown(OTP_TIMEOUT_SECONDS);
+    setCanResend(false);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(countdownRef.current!);
+          setCanResend(true);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+  }, []);
+
+  useEffect(() => () => { if (countdownRef.current) clearInterval(countdownRef.current); }, []);
+
+  const handleSendOtp = async () => {
+    const cleaned = aadhaarInput.replace(/\s/g, '');
+    if (!/^\d{12}$/.test(cleaned)) {
+      setServerError('Please enter a valid 12-digit Aadhaar number.');
+      return;
+    }
+    setServerError('');
+    try {
+      const result = await otpMutation.mutateAsync({ aadhaarNumber: cleaned });
+      setReferenceId(result.referenceId);
+      setState('otp');
+      startCountdown();
+    } catch (err: any) {
+      setServerError(err.message ?? 'Failed to send OTP.');
+    }
+  };
+
+  const handleResendOtp = async () => {
+    const cleaned = aadhaarInput.replace(/\s/g, '');
+    setOtpError('');
+    setServerError('');
+    setOtp('');
+    try {
+      const result = await otpMutation.mutateAsync({ aadhaarNumber: cleaned });
+      setReferenceId(result.referenceId);
+      startCountdown();
+    } catch (err: any) {
+      setServerError(err.message ?? 'Failed to resend OTP.');
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!/^\d{4,8}$/.test(otp.trim())) {
+      setOtpError('Please enter a valid OTP (4–8 digits).');
+      return;
+    }
+    setOtpError('');
+    try {
+      const result = await verifyMutation.mutateAsync({ referenceId, otp: otp.trim() });
+      setKycData(result);
+      setState('verified');
+    } catch (err: any) {
+      setOtpError(err.message ?? 'Invalid OTP. Please try again.');
+    }
+  };
+
+  const handleFormSubmit = (data: ContactInputs) => {
+    if (!kycData) return;
+    setServerError('');
+    signupMutation.mutate({
+      role: 'employer',
+      email: data.email || undefined,
+      phone: data.mobile ? `+91${data.mobile}` : undefined,
+      password: data.password,
+      company_name: data.contactName, // employer name from their entry
+      contact_name: data.contactName,
+      verification_type: 'aadhaar',
+      aadhaar_kyc: {
+        aadhaarNumber: kycData.aadhaarNumber,
+        name: kycData.name,
+        dob: kycData.dob,
+        gender: kycData.gender,
+        address: kycData.address,
+      },
+    });
+  };
+
+  if (state === 'success') return <SuccessState shouldReduceMotion={shouldReduceMotion} />;
+
+  if (state === 'verified' || state === 'form') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        {/* KYC Summary Card */}
+        <div style={{ padding: '14px', borderRadius: '12px', background: '#f0fdf4', border: '1px solid #86efac', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+          {kycData?.photo && (
+            <img
+              src={`data:image/jpeg;base64,${kycData.photo}`}
+              alt="Aadhaar photo"
+              style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid #86efac' }}
+            />
+          )}
+          <div style={{ fontSize: '13px', color: '#0f161e' }}>
+            <div style={{ fontSize: '12px', color: '#166534', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="12" r="10" stroke="#16a34a" strokeWidth="2"/></svg>
+              Aadhaar Verified
+            </div>
+            <div><strong>{kycData?.name}</strong></div>
+            <div style={{ color: '#615f5c' }}>DOB: {kycData?.dob} · {kycData?.gender}</div>
+            {kycData?.address?.district && (
+              <div style={{ color: '#615f5c' }}>{kycData.address.district}, {kycData.address.state}</div>
+            )}
+          </div>
+        </div>
+        <p style={{ fontSize: '13px', color: '#615f5c', margin: 0 }}>
+          Enter your contact details and password for logging into SaathiAI:
+        </p>
+        <ContactForm
+          onSubmit={handleFormSubmit}
+          isLoading={signupMutation.isPending}
+          serverError={serverError}
+          prefillName={kycData?.name}
+        />
+      </div>
+    );
+  }
+
+  if (state === 'otp') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ padding: '12px 14px', borderRadius: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', fontSize: '13px', color: '#1e40af' }}>
+          An OTP has been sent to the mobile number registered with Aadhaar ending in …{aadhaarInput.slice(-4)}.
+          Please enter it below.
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={{ fontSize: '13px', fontWeight: 600, color: '#333942' }}>Enter OTP</label>
+          <Input
+            id="aadhaar-otp"
+            type="tel"
+            maxLength={8}
+            placeholder="Enter OTP"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+            hasError={!!otpError}
+          />
+          {otpError && <span role="alert" style={{ fontSize: '12px', color: '#dc2626', fontWeight: 500 }}>{otpError}</span>}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {canResend ? (
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={otpMutation.isPending}
+              style={{ fontSize: '13px', color: '#fa5d00', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}
+            >
+              {otpMutation.isPending ? 'Resending…' : 'Resend OTP'}
+            </button>
+          ) : (
+            <span style={{ fontSize: '13px', color: '#9ca3af' }}>
+              Resend in {countdown}s
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => { setState('number'); setOtp(''); setOtpError(''); }}
+            style={{ fontSize: '13px', color: '#615f5c', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}
+          >
+            Change number
+          </button>
+        </div>
+
+        <ActionButton
+          onClick={handleVerifyOtp}
+          isLoading={verifyMutation.isPending}
+          label="Verify OTP"
+          color="#004038"
+        />
+      </div>
+    );
+  }
+
+  // state === 'number'
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ padding: '12px 14px', borderRadius: '10px', background: '#f5f4f2', fontSize: '13px', color: '#615f5c', lineHeight: 1.5 }}>
+        Verify your identity via Aadhaar OTP. An OTP will be sent to the mobile number registered with your Aadhaar.
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <label style={{ fontSize: '13px', fontWeight: 600, color: '#333942' }}>Aadhaar Number</label>
+        <Input
+          id="aadhaar-number"
+          type="tel"
+          maxLength={12}
+          placeholder="12-digit Aadhaar number"
+          value={aadhaarInput}
+          onChange={(e) => setAadhaarInput(e.target.value.replace(/\D/g, ''))}
+          hasError={!!serverError}
+        />
+        {serverError && <span role="alert" style={{ fontSize: '12px', color: '#dc2626', fontWeight: 500 }}>{serverError}</span>}
+      </div>
+
+      <ActionButton
+        onClick={handleSendOtp}
+        isLoading={otpMutation.isPending}
+        label="Send OTP"
+        color="#004038"
+      />
+    </div>
+  );
+}
+
+// ─── Unverified SignupForm ────────────────────────────────────────────────────
 
 type SignupState = 'form' | 'success';
 
-function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
+const simpleSignupSchema = z
+  .object({
+    companyName: z.string().min(2, 'companyNameMin'),
+    contactName: z.string().min(2, 'contactNameMin'),
+    mobile: z.string().regex(/^\d{10}$/, 'validMobile'),
+    email: z.string().email('validEmail'),
+    password: z.string().min(8, 'passwordMin').regex(/[A-Z]/, 'passwordUppercase').regex(/[0-9]/, 'passwordNumber'),
+    confirmPassword: z.string(),
+    udyam: z.string().optional().refine((v) => !v || /^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/.test(v), 'udyamFormat'),
+    terms: z.literal(true, { errorMap: () => ({ message: 'acceptTerms' }) }),
+  })
+  .refine((d) => d.password === d.confirmPassword, { message: 'passwordsNotMatch', path: ['confirmPassword'] });
+
+type SimpleSignupInputs = z.infer<typeof simpleSignupSchema>;
+
+function UnverifiedSignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
   const { t } = useLocale();
-  const router = useRouter();
   const [state, setState] = useState<SignupState>('form');
   const [serverError, setServerError] = useState('');
-  const [passwordVal, setPasswordVal] = useState('');
   const formId = useId();
 
   const signupMutation = trpc.auth.signup.useMutation({
-    onSuccess(data) {
-      authStore.setAuth(data);
-      setState('success');
-    },
-    onError(err) {
-      setServerError(err.message);
-    },
+    onSuccess(data) { authStore.setAuth(data); setState('success'); },
+    onError(err) { setServerError(err.message); },
   });
 
-  const isLoading = signupMutation.isPending;
-
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm<SignupInputs>({
-    resolver: zodResolver(signupSchema),
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<SimpleSignupInputs>({
+    resolver: zodResolver(simpleSignupSchema),
     mode: 'onBlur',
   });
 
   const watchedPassword = watch('password', '');
-  const strength = getPasswordStrength(watchedPassword);
 
-  const onSubmit = (data: SignupInputs) => {
+  const onSubmit = (data: SimpleSignupInputs) => {
     setServerError('');
     signupMutation.mutate({
       role: 'employer',
@@ -757,220 +1367,98 @@ function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
       company_name: data.companyName,
       contact_name: data.contactName,
       udyam: data.udyam || undefined,
+      verification_type: 'none',
     });
   };
 
-  if (state === 'success') {
-    return <SuccessState shouldReduceMotion={shouldReduceMotion} />;
-  }
+  if (state === 'success') return <SuccessState shouldReduceMotion={shouldReduceMotion} />;
 
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      noValidate
-      style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
-    >
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-        <FormField
-          label={t('login', 'companyName')}
-          id={`${formId}-company`}
-          error={errors.companyName?.message}
-        >
-          <Input
-            id={`${formId}-company`}
-            type="text"
-            placeholder="Acme Pvt Ltd"
-            hasError={!!errors.companyName}
-            {...register('companyName')}
-          />
-        </FormField>
+    <form onSubmit={handleSubmit(onSubmit)} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div style={{ padding: '10px 14px', borderRadius: '10px', background: '#fef9c3', border: '1px solid #fde68a', fontSize: '12px', color: '#854d0e' }}>
+        Unverified accounts have limited access. Use EntityLocker or Aadhaar to unlock full features.
+      </div>
 
-        <FormField
-          label={t('login', 'contactPerson')}
-          id={`${formId}-contact`}
-          error={errors.contactName?.message}
-        >
-          <Input
-            id={`${formId}-contact`}
-            type="text"
-            placeholder={t('login', 'fullNamePlaceholder')}
-            hasError={!!errors.contactName}
-            {...register('contactName')}
-          />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <FormField label={t('login', 'companyName')} id={`${formId}-company`} error={errors.companyName?.message}>
+          <Input id={`${formId}-company`} type="text" placeholder="Acme Pvt Ltd" hasError={!!errors.companyName} {...register('companyName')} />
+        </FormField>
+        <FormField label={t('login', 'contactPerson')} id={`${formId}-contact`} error={errors.contactName?.message}>
+          <Input id={`${formId}-contact`} type="text" placeholder={t('login', 'fullNamePlaceholder')} hasError={!!errors.contactName} {...register('contactName')} />
         </FormField>
       </div>
 
       <FormField label={t('login', 'mobileNumber')} id={`${formId}-mobile`} error={errors.mobile?.message}>
-        <div style={{ display: 'flex', gap: '0' }}>
-          <span
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '0 12px',
-              background: '#f5f5f5',
-              border: '1.5px solid #c0bbb6',
-              borderRight: 'none',
-              borderRadius: '12px 0 0 12px',
-              fontSize: '14px',
-              color: '#615f5c',
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            +91
-          </span>
-          <Input
-            id={`${formId}-mobile`}
-            type="tel"
-            maxLength={10}
-            placeholder="9876543210"
-            hasError={!!errors.mobile}
-            {...register('mobile')}
-            style={{ borderRadius: '0 12px 12px 0' }}
-          />
+        <div style={{ display: 'flex' }}>
+          <span style={{ display: 'flex', alignItems: 'center', padding: '0 12px', background: '#f5f5f5', border: '1.5px solid #c0bbb6', borderRight: 'none', borderRadius: '12px 0 0 12px', fontSize: '14px', color: '#615f5c', fontWeight: 600, whiteSpace: 'nowrap' }}>+91</span>
+          <Input id={`${formId}-mobile`} type="tel" maxLength={10} placeholder="9876543210" hasError={!!errors.mobile} {...register('mobile')} style={{ borderRadius: '0 12px 12px 0' }} />
         </div>
       </FormField>
 
       <FormField label={t('login', 'workEmail')} id={`${formId}-email`} error={errors.email?.message}>
-        <Input
-          id={`${formId}-email`}
-          type="email"
-          autoComplete="email"
-          placeholder="hr@company.com"
-          hasError={!!errors.email}
-          {...register('email')}
-        />
+        <Input id={`${formId}-email`} type="email" autoComplete="email" placeholder="hr@company.com" hasError={!!errors.email} {...register('email')} />
       </FormField>
 
-      <FormField label={t('login', 'password')} id={`${formId}-password`} error={errors.password?.message}>
-        <Input
-          id={`${formId}-password`}
-          type="password"
-          autoComplete="new-password"
-          placeholder="••••••••"
-          hasError={!!errors.password}
-          {...register('password')}
-          onChange={(e) => {
-            setPasswordVal(e.target.value);
-            register('password').onChange(e);
-          }}
-        />
-        {/* Password strength bar */}
-        {watchedPassword && (
-          <div style={{ marginTop: '6px' }}>
-            <div
-              style={{
-                height: '4px',
-                background: '#e5e7eb',
-                borderRadius: '999px',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  height: '100%',
-                  width: `${(strength.score / 5) * 100}%`,
-                  background: strength.color,
-                  borderRadius: '999px',
-                  transition: 'width 0.3s ease, background 0.3s ease',
-                }}
-              />
-            </div>
-            <span style={{ fontSize: '11px', color: strength.color, fontWeight: 500, marginTop: '2px', display: 'block' }}>
-              {t('login', strength.labelKey)}
-            </span>
-          </div>
-        )}
+      <PasswordField
+        id={`${formId}-password`}
+        label={t('login', 'password')}
+        value={watchedPassword}
+        onChange={(v) => setValue('password', v, { shouldValidate: true })}
+        error={errors.password?.message}
+      />
+
+      <FormField label={t('login', 'confirmPassword')} id={`${formId}-confirm`} error={errors.confirmPassword?.message}>
+        <Input id={`${formId}-confirm`} type="password" autoComplete="new-password" placeholder={t('login', 'repeatPasswordPlaceholder')} hasError={!!errors.confirmPassword} {...register('confirmPassword')} />
       </FormField>
 
-      <FormField
-        label={t('login', 'confirmPassword')}
-        id={`${formId}-confirm`}
-        error={errors.confirmPassword?.message}
-      >
-        <Input
-          id={`${formId}-confirm`}
-          type="password"
-          autoComplete="new-password"
-          placeholder={t('login', 'repeatPasswordPlaceholder')}
-          hasError={!!errors.confirmPassword}
-          {...register('confirmPassword')}
-        />
+      <FormField label={t('login', 'udyamLabel')} id={`${formId}-udyam`} error={errors.udyam?.message}>
+        <Input id={`${formId}-udyam`} type="text" placeholder="UDYAM-XX-00-0000000" hasError={!!errors.udyam} {...register('udyam')} />
       </FormField>
 
-      <FormField
-        label={t('login', 'udyamLabel')}
-        id={`${formId}-udyam`}
-        error={errors.udyam?.message}
-      >
-        <Input
-          id={`${formId}-udyam`}
-          type="text"
-          placeholder="UDYAM-XX-00-0000000"
-          hasError={!!errors.udyam}
-          {...register('udyam')}
-        />
-      </FormField>
-
-      {/* Terms */}
-      <label
-        htmlFor={`${formId}-terms`}
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '10px',
-          cursor: 'pointer',
-          marginTop: '2px',
-        }}
-      >
-        <input
-          id={`${formId}-terms`}
-          type="checkbox"
-          {...register('terms')}
-          style={{
-            marginTop: '2px',
-            width: '16px',
-            height: '16px',
-            accentColor: '#004038',
-            cursor: 'pointer',
-            flexShrink: 0,
-          }}
-        />
+      <label htmlFor={`${formId}-terms`} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', marginTop: '2px' }}>
+        <input id={`${formId}-terms`} type="checkbox" {...register('terms')} style={{ marginTop: '2px', width: '16px', height: '16px', accentColor: '#004038', cursor: 'pointer', flexShrink: 0 }} />
         <span style={{ fontSize: '12px', color: '#615f5c', lineHeight: 1.5 }}>
           {t('login', 'termsAgreePrefix')}{' '}
-          <a href="#" style={{ color: '#004038', fontWeight: 600, textDecoration: 'none' }}>
-            {t('login', 'termsOfService')}
-          </a>{' '}
+          <a href="#" style={{ color: '#004038', fontWeight: 600, textDecoration: 'none' }}>{t('login', 'termsOfService')}</a>{' '}
           {t('login', 'termsAgreeAnd')}{' '}
-          <a href="#" style={{ color: '#004038', fontWeight: 600, textDecoration: 'none' }}>
-            {t('login', 'privacyPolicy')}
-          </a>
+          <a href="#" style={{ color: '#004038', fontWeight: 600, textDecoration: 'none' }}>{t('login', 'privacyPolicy')}</a>
         </span>
       </label>
-      {errors.terms && errors.terms.message && (
-        <span role="alert" style={{ fontSize: '12px', color: '#dc2626', fontWeight: 500 }}>
-          {t('login', errors.terms.message, errors.terms.message)}
-        </span>
-      )}
+      {errors.terms?.message && <span role="alert" style={{ fontSize: '12px', color: '#dc2626', fontWeight: 500 }}>{t('login', errors.terms.message, errors.terms.message)}</span>}
 
-      {serverError && (
-        <div
-          role="alert"
-          style={{
-            padding: '10px 14px',
-            borderRadius: '10px',
-            background: '#fee2e2',
-            color: '#dc2626',
-            fontSize: '13px',
-            fontWeight: 500,
-          }}
-        >
-          {serverError}
-        </div>
-      )}
+      {serverError && <div role="alert" style={{ padding: '10px 14px', borderRadius: '10px', background: '#fee2e2', color: '#dc2626', fontSize: '13px', fontWeight: 500 }}>{serverError}</div>}
 
-      <SubmitButton isLoading={isLoading} label={t('login', 'createAccount')} color="#fa5d00" />
+      <SubmitButton isLoading={signupMutation.isPending} label={t('login', 'createAccount')} color="#fa5d00" />
     </form>
+  );
+}
+
+// ─── SignupForm (orchestrator) ────────────────────────────────────────────────
+
+function SignupForm({ shouldReduceMotion }: { shouldReduceMotion: boolean }) {
+  const [activeVerifTab, setActiveVerifTab] = useState<VerifTab>('entitylocker');
+
+  return (
+    <div>
+      <VerifTabBar active={activeVerifTab} onChange={setActiveVerifTab} />
+      <AnimatePresence mode="wait">
+        {activeVerifTab === 'entitylocker' && (
+          <motion.div key="el" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+            <EntityLockerTab shouldReduceMotion={shouldReduceMotion} />
+          </motion.div>
+        )}
+        {activeVerifTab === 'aadhaar' && (
+          <motion.div key="aadhaar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+            <AadhaarTab shouldReduceMotion={shouldReduceMotion} />
+          </motion.div>
+        )}
+        {activeVerifTab === 'unverified' && (
+          <motion.div key="unverified" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+            <UnverifiedSignupForm shouldReduceMotion={shouldReduceMotion} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -1034,6 +1522,44 @@ function SubmitButton({
             strokeWidth="2.5"
             strokeLinecap="round"
           />
+        </svg>
+      )}
+      {isLoading ? t('login', 'pleaseWait') : label}
+    </motion.button>
+  );
+}
+
+function ActionButton({
+  onClick,
+  isLoading,
+  label,
+  color,
+}: {
+  onClick: () => void;
+  isLoading: boolean;
+  label: string;
+  color: string;
+}) {
+  const { t } = useLocale();
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      disabled={isLoading}
+      whileHover={isLoading ? {} : { scale: 1.01, boxShadow: `0 6px 20px ${color}30` }}
+      whileTap={isLoading ? {} : { scale: 0.98 }}
+      style={{
+        width: '100%', padding: '13px', borderRadius: '14px', border: 'none',
+        background: isLoading ? `${color}80` : color, color: '#fff', fontSize: '15px',
+        fontWeight: 600, cursor: isLoading ? 'not-allowed' : 'pointer', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: 'inherit',
+        marginTop: '4px', transition: 'background 0.2s ease',
+      }}
+    >
+      {isLoading && (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 0.8s linear infinite' }}>
+          <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" />
+          <path d="M12 2a10 10 0 0 1 10 10" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
       )}
       {isLoading ? t('login', 'pleaseWait') : label}

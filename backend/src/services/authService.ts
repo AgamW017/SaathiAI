@@ -99,12 +99,29 @@ type SignupPayload =
   | { role: 'learner'; phone: string; password: string; full_name: string }
   | {
       role: 'employer';
-      email: string;
+      email?: string;
       phone?: string;
       password: string;
       company_name: string;
       contact_name: string;
       udyam?: string;
+      verification_type?: 'none' | 'aadhaar' | 'entitylocker';
+      aadhaar_kyc?: {
+        aadhaarNumber: string;
+        name: string;
+        dob: string;
+        gender: string;
+        address: { line: string | null; district: string | null; state: string | null; pincode: string | null };
+        photoUrl?: string;
+      };
+      entity_data?: {
+        id: string;
+        name: string;
+        email: string;
+        mobile: string;
+        dateOfIncorporation: string;
+        verifiedBy: 'pan' | 'ud' | 'cin';
+      };
     }
   | {
       role: 'officer';
@@ -133,6 +150,10 @@ export async function signupUser(payload: SignupPayload): Promise<LoginResult> {
   // 1. Create the Supabase Auth user
   const email = 'email' in payload ? payload.email : undefined;
   const phone = 'phone' in payload ? payload.phone : undefined;
+
+  if (role === 'employer' && !email && !phone) {
+    throw Object.assign(new Error('Email or phone number is required for employer signup'), { status: 400 });
+  }
   const full_name =
     'full_name' in payload
       ? payload.full_name
@@ -182,29 +203,57 @@ export async function signupUser(payload: SignupPayload): Promise<LoginResult> {
   // 3. For employer: create row in employers table + store metadata
   if (role === 'employer') {
     const emp = payload as Extract<SignupPayload, { role: 'employer' }>;
+    const verType = emp.verification_type ?? 'none';
 
-    // Create employers table row so FK constraints work immediately
+    const verificationStatus =
+      verType === 'aadhaar' ? 'aadhaar_verified' :
+      verType === 'entitylocker' ? 'entitylocker_verified' :
+      'phone_verified';
+
+    // Derive company_name from entity data if available
+    const companyName =
+      verType === 'entitylocker' && emp.entity_data
+        ? emp.entity_data.name
+        : emp.company_name;
+
+    const employerRow: Record<string, any> = {
+      id: userId,
+      company_name: companyName,
+      contact_name: emp.contact_name,
+      udyam_number: emp.udyam ?? null,
+      verification_status: verificationStatus,
+      verification_type: verType,
+    };
+
+    if (verType === 'aadhaar' && emp.aadhaar_kyc) {
+      employerRow.aadhaar_name = emp.aadhaar_kyc.name;
+      employerRow.aadhaar_dob = emp.aadhaar_kyc.dob;
+      employerRow.aadhaar_gender = emp.aadhaar_kyc.gender;
+      employerRow.aadhaar_address = emp.aadhaar_kyc.address;
+      employerRow.aadhaar_photo_url = emp.aadhaar_kyc.photoUrl ?? null;
+    }
+
+    if (verType === 'entitylocker' && emp.entity_data) {
+      employerRow.entity_id = emp.entity_data.id;
+      employerRow.entity_date_of_incorp = emp.entity_data.dateOfIncorporation;
+      employerRow.entity_verified_by = emp.entity_data.verifiedBy;
+    }
+
     const { error: empError } = await supabase
       .from('employers')
-      .upsert({
-        id: userId,
-        company_name: emp.company_name,
-        udyam_number: emp.udyam ?? null,
-        verification_status: 'phone_verified',
-      }, { onConflict: 'id' });
+      .upsert(employerRow, { onConflict: 'id' });
 
     if (empError) {
       logger.error({ error: empError, userId }, 'Failed to create employer profile row');
-      // Non-fatal: user can still call profile.upsert later
     }
 
-    // Update user metadata with employer-specific data
     await supabaseAdmin.updateUserById(userId, {
       user_metadata: {
         role,
-        company_name: emp.company_name,
+        company_name: companyName,
         contact_name: emp.contact_name,
         udyam: emp.udyam ?? null,
+        verification_type: verType,
       },
     });
   }

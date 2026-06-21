@@ -7,7 +7,17 @@ const keywordMap = [
   { intent: 'help', patterns: ['help', 'madad', 'help chahiye', 'मदद'] },
   { intent: 'stop', patterns: ['stop', 'mat bhejo', 'unsubscribe', 'बंद करो', 'मत भेजो'] },
   { intent: 'start', patterns: ['start', 'shuru', 'शुरू'] },
-  { intent: 'status', patterns: ['status', 'स्थिति'] }
+  { intent: 'status', patterns: ['status', 'स्थिति'] },
+  {
+    intent: 'placed',
+    patterns: [
+      'placed', 'got placed', 'job mili', 'job mil gyi', 'job mil gayi', 'job lag gyi', 'job lag gayi',
+      'naukri mili', 'naukri lag gyi', 'naukri mil gyi', 'kaam mila', 'kaam lag gya', 'kaam lag gaya',
+      'selected hun', 'selected ho gaya', 'selected ho gyi', 'joining', 'joining ho gyi',
+      'नौकरी मिली', 'नौकरी लग गई', 'काम मिला', 'काम लग गया', 'सेलेक्ट हो गया',
+      'placement ho gyi', 'placement ho gayi', 'placement mili'
+    ]
+  }
 ];
 
 const distressPatterns = [

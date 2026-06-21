@@ -17,17 +17,21 @@ export class JobService {
       this._fetchVacancies(),
       this._fetchSidhJobs(trade, state),
     ]);
-
-    const allJobs = uniqueJobs([...vacancies, ...sidhJobs, ...jobs]);
+    // console.log("SIDH jobs",sidhJobs)
+    // console.log("Vacancies",vacancies)
+    // console.log("Jobs", jobs)
     // Support multiple trades (comma-separated in the trade field)
     const learnerTrades = (trade ?? '').split(',').map(t => normalize(t.trim())).filter(Boolean);
     const normalizedDistrict = normalize(district);
 
-    // Only filter by trade — location is used for sorting priority, not exclusion
+    // Only filter by trade for SaathiAI jobs and vacancies — SIDH jobs are already filtered by the API
     // Match against both trade_required AND job title, for ANY of learner's trades
-    const tradeMatched = allJobs.filter((job) => 
+    const saathiJobs = uniqueJobs([...vacancies, ...jobs]);
+    const saathiMatched = saathiJobs.filter((job) => 
       learnerTrades.some(lt => tradeMatches(job.trade, lt) || tradeMatches(job.role, lt))
     );
+
+    const tradeMatched = uniqueJobs([...saathiMatched, ...sidhJobs]);
 
     // Sort: local jobs first, then rest
     const local = tradeMatched.filter((job) => locationMatches(job, normalizedDistrict));

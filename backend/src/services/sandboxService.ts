@@ -182,6 +182,10 @@ export async function verifyAadhaarOtp(
     throw err;
   }
 
+  // Sandbox sometimes returns the photo with a data URI prefix; strip it so
+  // callers always get a raw base64 JPEG string.
+  const rawPhoto = (d.photo ?? '').replace(/^data:[^;]+;base64,/, '');
+
   return {
     aadhaarNumber: d.aadhaar_number ?? '',
     name: d.name ?? '',
@@ -193,7 +197,104 @@ export async function verifyAadhaarOtp(
       state: d.address?.['state'] ?? null,
       pincode: d.address?.['pc'] ?? d.address?.['pincode'] ?? null,
     },
-    photo: d.photo ?? '',
+    photo: rawPhoto,
+  };
+}
+
+// ─── EntityLocker ─────────────────────────────────────────────────────────────
+
+export interface EntityLockerSessionResult {
+  authorizationUrl: string;
+  sessionId: string;
+}
+
+export interface EntityDetails {
+  id: string;
+  name: string;
+  email: string;
+  mobile: string;
+  dateOfIncorporation: string; // DD/MM/YYYY
+  verifiedBy: 'pan' | 'ud' | 'cin';
+}
+
+/**
+ * Initiate an EntityLocker session and return the authorization URL + session ID.
+ * `redirectUrl` must be HTTPS and is where EntityLocker sends the user after consent.
+ */
+export async function initEntityLockerSession(
+  flow: 'signin' | 'signup',
+  redirectUrl: string,
+  consentExpiry: number,
+): Promise<EntityLockerSessionResult> {
+  const token = await authenticate();
+
+  const res = await fetch(`${baseUrl()}/kyc/entitylocker/sessions/init`, {
+    method: 'POST',
+    headers: {
+      authorization: token,
+      'x-api-key': apiKey(),
+      'x-api-version': '1.0.0',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      '@entity': 'in.co.sandbox.kyc.entitylocker.session.request',
+      flow,
+      redirect_url: redirectUrl,
+      consent_expiry: consentExpiry,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`EntityLocker session init failed (${res.status}): ${body}`);
+  }
+
+  const json = await res.json() as Record<string, any>;
+  const data = json?.data;
+  if (!data?.authorization_url || !data?.session_id) {
+    throw new Error(`EntityLocker session response missing fields: ${JSON.stringify(json)}`);
+  }
+
+  return {
+    authorizationUrl: data.authorization_url,
+    sessionId: data.session_id,
+  };
+}
+
+/**
+ * Fetch entity details after the user has completed the EntityLocker consent flow.
+ * Call this with the session_id from initEntityLockerSession after the redirect callback.
+ */
+export async function getEntityDetails(sessionId: string): Promise<EntityDetails> {
+  const token = await authenticate();
+
+  const res = await fetch(`${baseUrl()}/kyc/entitylocker/sessions/${encodeURIComponent(sessionId)}/entity`, {
+    method: 'GET',
+    headers: {
+      authorization: token,
+      'x-api-key': apiKey(),
+      'x-api-version': '1.0.0',
+    },
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`EntityLocker get entity details failed (${res.status}): ${body}`);
+  }
+
+  const json = await res.json() as Record<string, any>;
+  const d = json?.data;
+  if (!d?.name) {
+    throw new Error(`EntityLocker entity response missing data: ${JSON.stringify(json)}`);
+  }
+
+  return {
+    id: d.id ?? '',
+    name: d.name ?? '',
+    email: d.email ?? '',
+    mobile: d.mobile ?? '',
+    dateOfIncorporation: d.date_of_incorporation ?? '',
+    verifiedBy: d.verified_by ?? 'pan',
   };
 }
 

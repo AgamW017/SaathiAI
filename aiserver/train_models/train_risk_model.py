@@ -23,7 +23,7 @@ from sklearn.metrics import mean_absolute_error
 
 RANDOM_SEED = 42
 N_ROWS = 1000
-OUTPUT_DIR = Path(__file__).parent
+OUTPUT_DIR = Path(__file__).parent.parent
 
 _STATUS_ENCODING = {0: "placed", 1: "active", 2: "at_risk", 3: "dropped"}
 _STATUS_SCORE = {0: 0.0, 1: 10.0, 2: 30.0, 3: 50.0}

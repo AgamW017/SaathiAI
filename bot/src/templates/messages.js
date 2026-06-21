@@ -1,3 +1,17 @@
+// Shown before language is known — must be self-contained in multiple scripts
+export const LANGUAGE_MENU = `🌐 *SaathiAI* में आपका स्वागत है! / Welcome to SaathiAI!
+
+अपनी भाषा चुनें / Choose your language:
+
+1. English
+2. हिंदी (Hindi)
+3. Hinglish (हिंगलिश)
+4. मराठी (Marathi)
+5. ગુજરાતી (Gujarati)
+6. বাংলা (Bengali)
+
+Number type karein / नंबर टाइप करें (1-6)`;
+
 const labels = {
   devanagari: {
     yes: 'हाँ, सही है',
@@ -100,7 +114,12 @@ const copy = {
     askCertificate:
       'कृपया अपने skill/training certificate की photo या PDF भेजें।',
     certificateSaved:
-      '✅ Certificate save हो गया। आपकी profile अब complete है!'
+      '✅ Certificate save हो गया। आपकी profile अब complete है!',
+    languageSet: 'बढ़िया! मैं अब आपसे हिंदी में बात करूंगा।',
+    askPlacementDetails:
+      '🎊 बहुत बधाई! नई job के बारे में बताइए:\n\n• Company का नाम\n• आपका Role/Position\n• Salary (अगर share करना हो)\n• Location / शहर\n• Joining date (अगर पता हो)\n\nएक message में सब बता दीजिए।',
+    placementSaved:
+      '✅ आपकी placement details save हो गई! आपका placement officer इन्हें देख सकते हैं।\n\nAll the best नई job पर! 🌟'
   },
   roman: {
     welcomeNew:
@@ -165,7 +184,12 @@ const copy = {
     askCertificate:
       'Kripaya apne skill/training certificate ki photo ya PDF bhejein.',
     certificateSaved:
-      '✅ Certificate save ho gaya. Aapki profile ab complete hai!'
+      '✅ Certificate save ho gaya. Aapki profile ab complete hai!',
+    languageSet: 'Badhiya! Main ab aapse Hinglish mein baat karunga.',
+    askPlacementDetails:
+      '🎊 Bahut badhai! Apni new job ke baare mein batao:\n\n• Company ka naam\n• Aapka Role/Position\n• Salary (agar batana ho)\n• Location / sheher\n• Joining date (agar pata ho)\n\nEk message mein sab bata do.',
+    placementSaved:
+      '✅ Aapki placement details save ho gayi! Aapka placement officer inhe dekh sakte hain.\n\nAll the best nai job par! 🌟'
   },
   english: {
     welcomeNew:
@@ -229,7 +253,12 @@ const copy = {
     askCertificate:
       'Please send a photo or PDF of your skill/training certificate.',
     certificateSaved:
-      '✅ Certificate saved. Your profile is now complete!'
+      '✅ Certificate saved. Your profile is now complete!',
+    languageSet: 'Great! I will now communicate with you in English.',
+    askPlacementDetails:
+      '🎊 Congratulations! Please share your new job details:\n\n• Company name\n• Your Role/Position\n• Salary (if you want to share)\n• Location / city\n• Joining date (if known)\n\nSend everything in one message.',
+    placementSaved:
+      '✅ Your placement details have been saved! Your placement officer can now view them.\n\nAll the best at the new job! 🌟'
   }
 };
 

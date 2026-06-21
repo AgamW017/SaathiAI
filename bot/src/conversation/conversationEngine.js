@@ -1,9 +1,18 @@
 import { EventTypes, PlacementStatus, StepNames, Steps } from '../constants/steps.js';
 import { isDocumentUploadEnabled } from '../constants/config.js';
-import { t, withOptions } from '../templates/messages.js';
+import { t, withOptions, LANGUAGE_MENU } from '../templates/messages.js';
 import { chooseScript } from '../utils/scriptDetector.js';
 import { isAffirmative, isNegative, normalizeText, parseNumberChoice } from '../utils/text.js';
 import { detectKeywordIntent, isDistressMessage } from './keywordRouter.js';
+
+const LANGUAGE_OPTIONS = [
+  { value: 'english', script: 'english', label: 'English' },
+  { value: 'hindi', script: 'devanagari', label: 'हिंदी' },
+  { value: 'hinglish', script: 'roman', label: 'Hinglish' },
+  { value: 'marathi', script: 'devanagari', label: 'मराठी' },
+  { value: 'gujarati', script: 'roman', label: 'ગુજરાતી' },
+  { value: 'bengali', script: 'roman', label: 'বাংলা' },
+];
 
 export class ConversationEngine {
   constructor({ store, eventLog, extractionService, skillCardService, jobService, interviewService, transcriptionService, placementTrackerService, employerPingService, documentStorageService, sandboxKycService, logger }) {
@@ -54,7 +63,10 @@ export class ConversationEngine {
       return { replies: draftedReplies, session };
     }
 
-    session.script = chooseScript(session, text);
+    // Only auto-detect script if the user hasn't locked their language preference
+    if (!session.language) {
+      session.script = chooseScript(session, text);
+    }
     session.lastInteractionAt = new Date().toISOString();
     session.context.lastQuotedBody = incoming.quotedBody ?? null;
 
@@ -119,6 +131,7 @@ export class ConversationEngine {
       learnerId: learner?.id ?? null,
       step: learner?.step ?? Steps.NEW,
       script: learner?.script ?? null,
+      language: learner?.language ?? null,
       placementStatus: learner?.placementStatus ?? PlacementStatus.ONBOARDING,
       collected: {
         name: learner?.name ?? null,
@@ -183,6 +196,8 @@ export class ConversationEngine {
     switch (session.step) {
       case Steps.NEW:
         return this.startOnboarding(session);
+      case Steps.LANGUAGE_SELECT:
+        return this.handleLanguageSelect(session, text);
       case Steps.ONBOARDING_NAME:
         return this.handleName(session, text);
       case Steps.ONBOARDING_TRADE:
@@ -218,6 +233,8 @@ export class ConversationEngine {
         return this.placementTrackerService.handleRetentionResponse(session, text);
       case Steps.EMPLOYER_PING_REPLY:
         return this.handleEmployerPingReply(session, text);
+      case Steps.PLACEMENT_DETAILS:
+        return this.handlePlacementDetails(session, text);
       case Steps.PLACED:
       case Steps.STOPPED:
       case Steps.TRACKING:
@@ -232,6 +249,11 @@ export class ConversationEngine {
    * aware of what the bot can do (JOBS, CARD, PRACTICE, etc.)
    */
   async handleFreeformWithAI(session, text) {
+    // Check for placement signal even in freeform states
+    if (detectKeywordIntent(text) === 'placed') {
+      return this.enterPlacementDetailsFlow(session);
+    }
+
     const stepName = StepNames[session.step] ?? 'idle';
     const capabilities = 'JOBS (find matching jobs), CARD (view skill card), PRACTICE (interview practice), STATUS (check status), HELP (see options)';
 
@@ -294,6 +316,10 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
       return this.showJobs(session);
     }
 
+    if (keyword === 'placed') {
+      return this.enterPlacementDetailsFlow(session);
+    }
+
     if (keyword === 'start' && session.step === Steps.STOPPED) {
       session.step = session.collected?.name ? Steps.SKILL_CARD_SHOWN : Steps.NEW;
       return this.routeText(session, 'hello');
@@ -307,10 +333,35 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
   }
 
   startOnboarding(session) {
+    // If language already set (returning user), skip straight to name
+    if (session.language) {
+      const messages = t(session.script);
+      session.step = Steps.ONBOARDING_NAME;
+      session.placementStatus = PlacementStatus.ONBOARDING;
+      return [this.message(`${messages.welcomeNew}\n\n${messages.askName}`)];
+    }
+    session.step = Steps.LANGUAGE_SELECT;
+    session.placementStatus = PlacementStatus.ONBOARDING;
+    return [this.message(LANGUAGE_MENU, { intent: 'language_menu', facts: { aiGenerated: true } })];
+  }
+
+  handleLanguageSelect(session, text) {
+    const choice = parseNumberChoice(text, LANGUAGE_OPTIONS.length);
+    const lang = choice ? LANGUAGE_OPTIONS[choice - 1] : null;
+
+    if (!lang) {
+      return [this.message(LANGUAGE_MENU, { intent: 'language_reprompt', facts: { aiGenerated: true } })];
+    }
+
+    session.language = lang.value;
+    session.script = lang.script;
+
     const messages = t(session.script);
     session.step = Steps.ONBOARDING_NAME;
-    session.placementStatus = PlacementStatus.ONBOARDING;
-    return [this.message(`${messages.welcomeNew}\n\n${messages.askName}`)];
+    return [
+      this.message(messages.languageSet, { intent: 'language_set', facts: { aiGenerated: true } }),
+      this.message(`${messages.welcomeNew}\n\n${messages.askName}`, { intent: 'welcome' })
+    ];
   }
 
   async handleName(session, text) {
@@ -864,6 +915,7 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
     const messages = t(session.script);
     const learner = await this.store.upsertLearner(session.phone, {
       script: session.script,
+      language: session.language ?? null,
       step: session.step,
       placementStatus: session.placementStatus,
       ...session.collected
@@ -1151,6 +1203,77 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
     return [];
   }
 
+  enterPlacementDetailsFlow(session) {
+    const messages = t(session.script);
+    // Don't re-enter if already collecting placement details
+    if (session.step === Steps.PLACEMENT_DETAILS) {
+      return [this.message(messages.askPlacementDetails, { intent: 'ask_placement_details' })];
+    }
+    session.step = Steps.PLACEMENT_DETAILS;
+    session.placementStatus = PlacementStatus.PLACED;
+    return [
+      this.message(messages.placed(session.collected?.name ?? 'Dost'), { intent: 'placed_congrats' }),
+      this.message(messages.askPlacementDetails, { intent: 'ask_placement_details' })
+    ];
+  }
+
+  async handlePlacementDetails(session, text) {
+    const messages = t(session.script);
+
+    const placementSchema = {
+      type: 'object',
+      properties: {
+        company: { type: 'string' },
+        role: { type: 'string' },
+        salary: { type: 'string' },
+        location: { type: 'string' },
+        joiningDate: { type: 'string' }
+      },
+      required: ['company', 'role', 'salary', 'location', 'joiningDate']
+    };
+
+    let details = {};
+    try {
+      const extracted = await this.aiClient.generateJson({
+        prompt: `Extract placement/job details from this message. Return empty strings for missing fields.\nLanguage: ${session.language ?? session.script ?? 'hindi'}\nMessage: ${JSON.stringify(text)}\n\nReturn JSON: { company, role, salary, location, joiningDate }`,
+        schema: placementSchema
+      });
+      if (extracted) details = extracted;
+    } catch (err) {
+      this.logger.warn({ err, phone: session.phone }, 'Placement detail extraction failed');
+    }
+
+    // Save to DB even if extraction is partial
+    try {
+      await this.store.savePlacementDetails(session.phone, details);
+    } catch (dbErr) {
+      this.logger.error({ dbErr, phone: session.phone }, 'Failed to save placement details');
+    }
+
+    await this.eventLog.record({
+      learnerId: session.learnerId,
+      phone: session.phone,
+      eventType: EventTypes.PLACEMENT_REPORTED,
+      stepBefore: Steps.PLACEMENT_DETAILS,
+      stepAfter: Steps.PLACED,
+      metadata: { ...details }
+    });
+
+    // Schedule post-placement salary and retention checks
+    if (this.placementTrackerService && session.learnerId) {
+      const placementDate = new Date().toISOString();
+      try {
+        await this.placementTrackerService.scheduleSalaryCapture(session.learnerId, placementDate);
+        await this.placementTrackerService.scheduleRetentionChecks(session.learnerId, placementDate);
+      } catch (scheduleErr) {
+        this.logger.warn({ scheduleErr, phone: session.phone }, 'Could not schedule post-placement checks');
+      }
+    }
+
+    session.step = Steps.PLACED;
+    return [this.message(messages.placementSaved, { intent: 'placement_saved' })];
+  }
+
   async startInterview(session) {
     const messages = t(session.script);
     const questions = this.interviewService.pickQuestions(session.collected.trade);
@@ -1277,6 +1400,7 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
     const learner = await this.store.upsertLearner(session.phone, {
       id: session.learnerId,
       script: session.script,
+      language: session.language ?? null,
       step: session.step,
       placementStatus: session.placementStatus,
       cardUrl: session.cardUrl,

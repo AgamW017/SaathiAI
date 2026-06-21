@@ -244,11 +244,12 @@ Answer: ${JSON.stringify(answer)}
 };
 
 function replyPrompt({ script, intent, facts, brief, session }) {
+  const effectiveLanguage = session?.language ?? script;
   return `
 You are SaathiAI, a WhatsApp career companion for Indian vocational graduates (ITI/PMKVY/JSS).
 You talk like a helpful elder brother/sister who genuinely cares about the learner's career.
 
-Language/script: ${languageName(script)}
+Language/script: ${languageName(effectiveLanguage)}
 Tone: warm, encouraging, slightly informal, practical. Like a supportive friend who knows the job market.
 - Use the learner's name with "ji" naturally
 - Use WhatsApp formatting: *bold* for emphasis, emojis sparingly but meaningfully
@@ -298,9 +299,13 @@ function publicSessionSummary(session) {
 }
 
 function languageName(script) {
-  if (script === 'devanagari') return 'Devanagari Hindi';
   if (script === 'english') return 'simple English';
-  return 'Roman Hinglish';
+  if (script === 'hindi') return 'Hindi (Devanagari script)';
+  if (script === 'devanagari') return 'Hindi (Devanagari script)';
+  if (script === 'marathi') return 'Marathi (मराठी) - use Devanagari script';
+  if (script === 'gujarati') return 'Gujarati (ગુજરાતી) - use Gujarati script';
+  if (script === 'bengali') return 'Bengali (বাংলা) - use Bengali script';
+  return 'Roman Hinglish (Hinglish — mix of Hindi words written in English letters)';
 }
 
 function sanitizeReply(text = '') {

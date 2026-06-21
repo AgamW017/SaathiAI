@@ -247,7 +247,7 @@ export default function Navbar() {
                 ) : (
                   <>
                     <MotionLink
-                      href="/login"
+                      href="/signin"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.3 }}
@@ -452,7 +452,7 @@ export default function Navbar() {
                   ) : (
                     <>
                       <Link
-                        href="/login"
+                        href="/signin"
                         onClick={() => setMobileMenuOpen(false)}
                         style={{
                           fontFamily: 'var(--font-body)',

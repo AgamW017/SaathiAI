@@ -58,6 +58,7 @@ export class SupabaseStore {
       learnerId: learner.id,
       phone,
       step: row.data.step ?? numberFromStepText(row.step),
+      language: row.data.language ?? learner.language ?? null,
       collected: {
         ...row.data.collected,
         name: row.data.collected?.name ?? learner.name,
@@ -127,8 +128,8 @@ export class SupabaseStore {
     const set = learnerPatchToRow(phone, patch);
 
     const row = await this.queryOne(
-      `INSERT INTO learners (phone, full_name, trade, district, state, status, risk_score)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+      `INSERT INTO learners (phone, full_name, trade, district, state, status, risk_score, language)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        ON CONFLICT (phone) DO UPDATE SET
          full_name  = COALESCE(EXCLUDED.full_name, learners.full_name),
          trade      = COALESCE(EXCLUDED.trade, learners.trade),
@@ -136,6 +137,7 @@ export class SupabaseStore {
          state      = COALESCE(EXCLUDED.state, learners.state),
          status     = COALESCE(EXCLUDED.status, learners.status),
          risk_score = COALESCE(EXCLUDED.risk_score, learners.risk_score),
+         language   = COALESCE(EXCLUDED.language, learners.language),
          updated_at = NOW()
        RETURNING *`,
       [
@@ -145,7 +147,8 @@ export class SupabaseStore {
         set.district ?? null,
         set.state ?? null,
         set.status ?? 'active',
-        set.risk_score ?? 0
+        set.risk_score ?? 0,
+        set.language ?? null
       ]
     );
 
@@ -157,6 +160,32 @@ export class SupabaseStore {
 
   async ensureLearner(phone, patch = {}) {
     return this.upsertLearner(phone, patch);
+  }
+
+  async savePlacementDetails(phone, details = {}) {
+    const row = await this.queryOne(
+      `UPDATE learners
+       SET placement_company     = COALESCE($1, placement_company),
+           placement_role        = COALESCE($2, placement_role),
+           placement_salary      = COALESCE($3, placement_salary),
+           placement_location    = COALESCE($4, placement_location),
+           placement_date        = COALESCE($5, placement_date),
+           placement_reported_at = NOW(),
+           status                = 'placed',
+           updated_at            = NOW()
+       WHERE phone = $6
+       RETURNING *`,
+      [
+        details.company ?? null,
+        details.role ?? null,
+        details.salary ?? null,
+        details.location ?? null,
+        details.joiningDate ?? null,
+        phone
+      ]
+    );
+    if (!row) throw new Error(`savePlacementDetails: no learner found for phone ${phone}`);
+    return row;
   }
 
   async findLearnerId(phone) {
@@ -430,7 +459,8 @@ function learnerPatchToRow(phone, patch = {}) {
     district: patch.district ?? null,
     state: patch.state ?? null,
     status: patch.status ?? learnerStatusFromPlacement(patch.placementStatus) ?? null,
-    risk_score: patch.riskScore ?? null
+    risk_score: patch.riskScore ?? null,
+    language: patch.language ?? null
   };
 }
 
@@ -440,6 +470,7 @@ function sessionSnapshot(session, learnerId) {
     learnerId,
     step: session.step,
     script: session.script,
+    language: session.language ?? null,
     placementStatus: session.placementStatus,
     collected: session.collected ?? {},
     cardUrl: session.cardUrl ?? null,
@@ -466,6 +497,7 @@ function mapLearnerRow(row, latestCard, publicBaseUrl) {
     district: row.district,
     state: row.state,
     status: row.status,
+    language: row.language ?? null,
     placementStatus: placementFromLearnerStatus(row.status),
     cardUrl: latestCard?.url ?? null,
     skillCardId: latestCard?.id ?? null,

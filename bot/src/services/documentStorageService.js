@@ -97,7 +97,9 @@ export class DocumentStorageService {
    * @throws {Error} If upload fails
    */
   async uploadBase64Photo(phone, base64String) {
-    const buffer = Buffer.from(base64String, 'base64');
+    // Strip data URI prefix if Sandbox returns "data:image/jpeg;base64,..." form
+    const raw = base64String.replace(/^data:[^;]+;base64,/, '');
+    const buffer = Buffer.from(raw, 'base64');
     const storagePath = `documents/${phone}/aadhaar_photo.jpg`;
 
     const { error } = await this.supabase.storage

@@ -15,3 +15,5 @@ pnpm-lock.yaml
 
 # Local Netlify folder
 .netlify
+
+repomix-output.xml
