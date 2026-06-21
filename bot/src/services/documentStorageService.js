@@ -45,6 +45,41 @@ export class DocumentStorageService {
     }
     this.supabase = supabaseClient;
     this.logger = logger || console;
+    this._bucketReady = false;
+  }
+
+  /**
+   * Ensure the storage bucket exists, creating it if necessary.
+   * Result is cached so subsequent calls are a no-op.
+   */
+  async ensureBucket() {
+    if (this._bucketReady) return;
+
+    const { data, error } = await this.supabase.storage.getBucket(BUCKET);
+    if (data) {
+      this._bucketReady = true;
+      return;
+    }
+
+    // Bucket doesn't exist — create it
+    this.logger.info?.({ bucket: BUCKET }, 'Storage bucket not found, creating it');
+    const { error: createError } = await this.supabase.storage.createBucket(BUCKET, {
+      public: true,
+      fileSizeLimit: MAX_FILE_SIZE_BYTES,
+      allowedMimeTypes: [...ALLOWED_MIME_TYPES],
+    });
+
+    if (createError) {
+      // Another process may have created it concurrently — re-check
+      const { data: recheck } = await this.supabase.storage.getBucket(BUCKET);
+      if (!recheck) {
+        this.logger.error?.({ error: createError, bucket: BUCKET }, 'Failed to create storage bucket');
+        throw new Error(`Cannot create storage bucket "${BUCKET}": ${createError.message}`);
+      }
+    }
+
+    this._bucketReady = true;
+    this.logger.info?.({ bucket: BUCKET }, 'Storage bucket ready');
   }
 
   /**
@@ -97,6 +132,8 @@ export class DocumentStorageService {
    * @throws {Error} If upload fails
    */
   async uploadBase64Photo(phone, base64String) {
+    await this.ensureBucket();
+
     // Strip data URI prefix if Sandbox returns "data:image/jpeg;base64,..." form
     const raw = base64String.replace(/^data:[^;]+;base64,/, '');
     const buffer = Buffer.from(raw, 'base64');
@@ -135,6 +172,8 @@ export class DocumentStorageService {
    * @throws {Error} If upload fails after retry
    */
   async uploadDocument({ phone, filename, buffer, mimeType }) {
+    await this.ensureBucket();
+
     const storagePath = this.generateStoragePath(phone, filename);
     const sizeBytes = buffer.length;
 

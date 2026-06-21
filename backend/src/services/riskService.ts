@@ -43,7 +43,7 @@ export function triggerRiskScoreUpdate(learnerId: string, payload: RiskPayload):
 
       const { error } = await (supabase as any)
         .from('learners')
-        .update({ risk_score: Math.round(score * 100) / 100 })
+        .update({ risk_score: Math.round(score) })
         .eq('id', learnerId);
 
       if (error) {

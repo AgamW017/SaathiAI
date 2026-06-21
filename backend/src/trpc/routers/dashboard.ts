@@ -5,8 +5,13 @@ import { supabase as _supabase } from '../../db/client.js';
 import { handleSupabaseError } from '../errors.js';
 import { triggerRiskScoreUpdate, computeProfileCompleteness } from '../../services/riskService.js';
 import { verificationTier, computeSalaryDiscrepancy } from '../../utils/verification.js';
+import { config } from '../../config/env.js';
+import { logger } from '../../config/logger.js';
 const supabase = _supabase as any;
 import type { LearnerRow, ApplicationRow } from '../../db/types.js';
+
+const BOT_INTERNAL_URL =
+  process.env.BOT_INTERNAL_URL || `http://localhost:${config.bot.adminWsPort}`;
 
 // ─── Sub-routers ──────────────────────────────────────────────────────────────
 
@@ -497,6 +502,7 @@ const cohortRouter = router({
       const { cohort_name, learners } = input;
       let inserted = 0;
       let skipped = 0;
+      const newLearners: Array<{ id: string; phone: string }> = [];
 
       const { data: cohort, error: cohortError } = await supabase
         .from('cohorts')
@@ -535,6 +541,7 @@ const cohortRouter = router({
         if (!error) {
           inserted++;
           if (inserted_row?.id) {
+            newLearners.push({ id: inserted_row.id, phone: l.phone });
             triggerRiskScoreUpdate(inserted_row.id, {
               days_since_last_response: 0,
               status: 'active',
@@ -548,6 +555,16 @@ const cohortRouter = router({
             });
           }
         }
+      }
+
+      if (newLearners.length > 0) {
+        fetch(`${BOT_INTERNAL_URL}/internal/trigger-onboarding`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ learners: newLearners }),
+        }).catch((error) => {
+          logger.error({ error }, 'Failed to reach bot service for onboarding trigger');
+        });
       }
 
       return { cohort: cohort_name, inserted, skipped, total: learners.length };
