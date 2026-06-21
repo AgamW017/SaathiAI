@@ -4,6 +4,7 @@ import { t, withOptions, LANGUAGE_MENU } from '../templates/messages.js';
 import { chooseScript } from '../utils/scriptDetector.js';
 import { isAffirmative, isNegative, normalizeText, parseNumberChoice } from '../utils/text.js';
 import { detectKeywordIntent, isDistressMessage } from './keywordRouter.js';
+import { verificationLabel } from '../services/jobService.js';
 
 const LANGUAGE_OPTIONS = [
   { value: 'english', script: 'english', label: 'English' },
@@ -992,6 +993,7 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
       jobSummary += `   🏢 ${job.employerName}\n`;
       jobSummary += `   📍 ${location}  💰 ${salary}\n`;
       if (job.openings > 1) jobSummary += `   👥 ${job.openings} openings\n`;
+      jobSummary += `   ${verificationLabel(job.verificationStatus)}\n`;
       jobSummary += `   📌 Source: ${job.source ?? 'SaathiAI'}\n`;
       jobSummary += '\n';
     });
@@ -1440,7 +1442,7 @@ function formatJob(job, index, total) {
       : job.openings
         ? `${job.openings} openings`
         : 'Open role';
-  const verification = job.verified ? 'Verified employer' : 'Unverified employer - ask your placement officer before proceeding';
+  const verification = verificationLabel(job.verificationStatus);
 
   return `Job ${index} of ${total}\n${job.employerName}\n${job.role}\n📍 ${distance}${job.location}\n💰 ${salary}\n🕐 ${marker} - ${job.postedText}\n${verification}`;
 }

@@ -65,7 +65,7 @@ const SignupInput = z.discriminatedUnion('role', [
         line: z.string().nullable(),
         district: z.string().nullable(),
         state: z.string().nullable(),
-        pincode: z.string().nullable(),
+        pincode: z.union([z.string(), z.number()]).transform(v => v !== null ? String(v) : null).nullable(),
       }),
       photoUrl: z.string().optional(),
     }).optional(),

@@ -204,11 +204,21 @@ export const officerRouter = router({
       }
 
       // 6. Send WhatsApp notification via bot's /internal/send-ping endpoint
+      // Ask the learner for any profile details the officer did not supply, so
+      // the bot can complete the profile conversationally.
+      const missing: string[] = [];
+      if (!skills || skills.length === 0) missing.push('your key skills');
+      if (!certificateType) missing.push('your certificate/qualification');
+      if (!state) missing.push('your state');
+      const missingPrompt = missing.length > 0
+        ? `\n\n📝 To finish your profile, please reply with ${missing.join(', ')}. A voice note is fine!`
+        : '';
+
       let whatsappNotified = false;
       try {
         const notificationPayload = {
           phone,
-          message: `🎉 Welcome to SaathiAI, ${name}! Your profile has been created and your Skill Card is ready.\n\n📋 View your Skill Card: ${skillCardUrl}${jobsMatched > 0 ? `\n\n💼 We found ${jobsMatched} job${jobsMatched > 1 ? 's' : ''} matching your skills in ${district}!` : ''}`,
+          message: `🎉 Welcome to SaathiAI, ${name}! Your profile has been created and your Skill Card is ready.\n\n📋 View your Skill Card: ${skillCardUrl}${jobsMatched > 0 ? `\n\n💼 We found ${jobsMatched} job${jobsMatched > 1 ? 's' : ''} matching your skills in ${district}!` : ''}${missingPrompt}`,
           type: 'officer_onboarding',
         };
 

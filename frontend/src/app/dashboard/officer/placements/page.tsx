@@ -285,7 +285,9 @@ function PlacementHistory() {
                 <th style={thStyle}>Learner</th>
                 <th style={thStyle}>Job / Company</th>
                 <th style={thStyle}>Date</th>
-                <th style={thStyle}>Salary</th>
+                <th style={thStyle}>Claimed</th>
+                <th style={thStyle}>Reported</th>
+                <th style={thStyle}>Status</th>
                 <th style={thStyle}>Source</th>
               </tr>
             </thead>
@@ -293,14 +295,14 @@ function PlacementHistory() {
               {isLoading
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i}>
-                      {[120, 140, 80, 70, 90].map((w, j) => (
+                      {[120, 140, 80, 70, 70, 80, 90].map((w, j) => (
                         <td key={j} style={tdStyle}><Skeleton width={`${w}px`} /></td>
                       ))}
                     </tr>
                   ))
                 : data?.data?.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ ...tdStyle, textAlign: 'center', padding: '40px', color: '#a09d99' }}>
+                      <td colSpan={7} style={{ ...tdStyle, textAlign: 'center', padding: '40px', color: '#a09d99' }}>
                         No placements recorded yet.
                       </td>
                     </tr>
@@ -328,9 +330,32 @@ function PlacementHistory() {
                         {p.placement_date ? new Date(p.placement_date).toLocaleDateString('en-IN') : '—'}
                       </td>
                       <td style={tdStyle}>
-                        {p.salary ? (
-                          <span style={{ fontWeight: 600, color: '#16a34a' }}>₹{Number(p.salary).toLocaleString('en-IN')}</span>
+                        {(p.salary_claimed ?? p.salary) ? (
+                          <span style={{ fontWeight: 600, color: '#333942' }}>₹{Number(p.salary_claimed ?? p.salary).toLocaleString('en-IN')}</span>
                         ) : '—'}
+                      </td>
+                      <td style={tdStyle}>
+                        {p.reported_salary != null ? (
+                          <span
+                            title={p.discrepancy?.flagged ? `Reported ${Math.round((p.discrepancy.shortfallPct ?? 0) * 100)}% below claim` : undefined}
+                            style={{ fontWeight: 700, color: p.discrepancy?.flagged ? '#dc2626' : '#16a34a' }}
+                          >
+                            ₹{Number(p.reported_salary).toLocaleString('en-IN')}
+                            {p.discrepancy?.flagged && ' ⚠️'}
+                          </span>
+                        ) : <span style={{ color: '#a09d99' }}>pending</span>}
+                      </td>
+                      <td style={tdStyle}>
+                        {(() => {
+                          const rs = p.retention_status ?? 'unknown';
+                          const map: Record<string, { bg: string; fg: string; label: string }> = {
+                            active: { bg: '#dcfce7', fg: '#16a34a', label: 'Working' },
+                            left: { bg: '#fee2e2', fg: '#dc2626', label: 'Left' },
+                            unknown: { bg: '#f1f0ee', fg: '#a09d99', label: 'Unknown' },
+                          };
+                          const m = map[rs] ?? map.unknown;
+                          return <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, background: m.bg, color: m.fg }}>{m.label}</span>;
+                        })()}
                       </td>
                       <td style={tdStyle}>
                         <span style={{

@@ -11,6 +11,8 @@ import { ExtractionService } from './services/extractionService.js';
 import { TranscriptionService } from './services/transcriptionService.js';
 import { SkillCardService } from './services/skillCardService.js';
 import { JobService } from './services/jobService.js';
+import { PlacementTrackerService } from './services/placementTrackerService.js';
+import { OpportunityAlertService } from './services/opportunityAlertService.js';
 import { InterviewService } from './services/interviewService.js';
 import { DocumentStorageService } from './services/documentStorageService.js';
 import { SandboxKycService } from './services/sandboxKycService.js';
@@ -44,6 +46,39 @@ const skillCardService = new SkillCardService({ store, frontendUrl: config.front
 const jobService = new JobService({ store });
 const interviewService = new InterviewService();
 
+// Send a WhatsApp message to a learner by id — resolves phone, routes through
+// the dashboard's WhatsApp sender (set once the client is ready).
+const sendToLearner = async (learnerId, text) => {
+  try {
+    const row = await store.queryOne('SELECT phone FROM learners WHERE id = $1', [learnerId]);
+    if (!row?.phone) {
+      logger.warn({ learnerId }, 'sendToLearner: learner has no phone');
+      return;
+    }
+    await dashboard.sendRaw(row.phone, text);
+  } catch (err) {
+    logger.warn({ learnerId, err: err.message }, 'sendToLearner failed');
+  }
+};
+
+// Post-placement salary capture + 30/60/90-day retention tracking.
+const placementTrackerService = new PlacementTrackerService({
+  store,
+  gemini: aiClient,
+  sendMessage: sendToLearner,
+  logger,
+});
+dashboard.setPlacementTracker(placementTrackerService);
+
+// Proactive opportunity alerts: nudge active learners when a new matching
+// vacancy appears (feature 1.2.4).
+const opportunityAlertService = new OpportunityAlertService({
+  store,
+  jobService,
+  sendMessage: sendToLearner,
+  logger,
+});
+
 // Create Supabase JS client for storage access (document uploads)
 let documentStorageService = null;
 if (config.supabase.url && config.supabase.serviceKey) {
@@ -68,6 +103,7 @@ const engine = new ConversationEngine({
   jobService,
   interviewService,
   transcriptionService,
+  placementTrackerService,
   documentStorageService,
   sandboxKycService,
   logger
@@ -78,6 +114,11 @@ const bot = new WhatsAppBot({ config, engine, eventLog, stats, dashboard, logger
 try {
   await bot.initializeWithRetry(3);
   logger.info('WhatsApp client initialization started');
+
+  // Start background loops: retention check-ins + proactive opportunity alerts.
+  placementTrackerService.startPolling();
+  opportunityAlertService.startPolling();
+  logger.info('Placement tracker + opportunity alert polling started');
 } catch (error) {
   logger.fatal({ error }, 'All WhatsApp initialization attempts failed');
   dashboard.emit('log', 'All initialization attempts failed');

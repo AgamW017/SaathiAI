@@ -31,6 +31,9 @@ export class DashboardServer {
 
     // Callback for sending WhatsApp messages: (phone, text) => Promise<void>
     this._sendMessage = null;
+
+    // Late-injected PlacementTrackerService (created after the bot is ready)
+    this.placementTrackerService = null;
   }
 
   /**
@@ -39,6 +42,17 @@ export class DashboardServer {
    */
   setSendMessage(fn) {
     this._sendMessage = fn;
+  }
+
+  /** Inject the PlacementTrackerService once it has been constructed. */
+  setPlacementTracker(svc) {
+    this.placementTrackerService = svc;
+  }
+
+  /** Send a raw WhatsApp message by phone, if the client is ready. */
+  async sendRaw(phone, text) {
+    if (!this._sendMessage) throw new Error('WhatsApp client not ready');
+    await this._sendMessage(phone, text);
   }
 
   configure() {
@@ -122,6 +136,31 @@ export class DashboardServer {
         res.json({ success: true, messageId });
       } catch (error) {
         this.logger.error({ err: error.message }, 'Internal send-ping error');
+        res.status(500).json({ success: false, error: 'Internal server error' });
+      }
+    });
+
+    // ── Internal API: Schedule Retention Check-ins ─────────────────────────
+    // Called by the backend when an employer marks a match 'hired'. Schedules
+    // the 7-day salary nudge and the 30/60/90-day retention checks. The tracker
+    // also auto-bootstraps missing checks on poll, so this is best-effort.
+    this.app.post('/internal/schedule-retention', async (req, res) => {
+      try {
+        const { learnerId, placementDate } = req.body;
+        if (!learnerId) {
+          res.status(400).json({ success: false, error: 'Missing learnerId' });
+          return;
+        }
+        if (!this.placementTrackerService) {
+          res.status(503).json({ success: false, error: 'Placement tracker not ready' });
+          return;
+        }
+        const date = placementDate ?? new Date().toISOString();
+        await this.placementTrackerService.scheduleSalaryCapture(learnerId, date);
+        await this.placementTrackerService.scheduleRetentionChecks(learnerId, date);
+        res.json({ success: true });
+      } catch (error) {
+        this.logger.error({ err: error.message }, 'Internal schedule-retention error');
         res.status(500).json({ success: false, error: 'Internal server error' });
       }
     });

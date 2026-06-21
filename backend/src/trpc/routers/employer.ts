@@ -648,7 +648,7 @@ const pipelineRouter = router({
         .select(`
           *,
           learners (
-            id, full_name, phone, trade, district, risk_score
+            id, full_name, phone, trade, district, risk_score, aadhaar_photo_url
           ),
           vacancies (
             id, title, trade_required
@@ -662,7 +662,21 @@ const pipelineRouter = router({
 
       const { data, error } = await query;
       if (error) handleSupabaseError(error, 'employer.pipeline.list');
-      return data ?? [];
+
+      // Fetch the authed employer's verification status once (Req1/Req2). We
+      // attach it to every match object so the returned shape stays an array —
+      // existing callers that iterate the array are unaffected.
+      const { data: employer } = await db
+        .from('employers')
+        .select('verification_status')
+        .eq('id', ctx.user.sub)
+        .single();
+      const employer_verification_status = employer?.verification_status ?? 'unverified';
+
+      return (data ?? []).map((m: Record<string, unknown>) => ({
+        ...m,
+        employer_verification_status,
+      }));
     }),
 
   transition: employerProcedure
@@ -713,6 +727,120 @@ const pipelineRouter = router({
         .single();
 
       if (updateErr) handleSupabaseError(updateErr, 'employer.pipeline.transition');
+
+      // 4b. On hire → idempotently bootstrap a placement, mark the learner placed,
+      // record an event, and ask the bot to schedule retention check-ins. All of
+      // this is defensive: any failure here is logged but never breaks the
+      // transition response (the bot also auto-bootstraps retention).
+      if (input.to_stage === 'hired') {
+        try {
+          const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+          const nowIso = new Date().toISOString();
+
+          // a. Load the match's vacancy + employer details.
+          const { data: vacancy } = await db
+            .from('vacancies')
+            .select('id, title, trade_required, district, location, salary_min, salary_max')
+            .eq('id', match.vacancy_id)
+            .single();
+
+          const { data: employer } = await db
+            .from('employers')
+            .select('company_name')
+            .eq('id', ctx.user.sub)
+            .single();
+
+          const companyName = employer?.company_name ?? 'Employer';
+          const placementSalary =
+            input.offer_salary ?? match.offer_salary ?? vacancy?.salary_max ?? null;
+
+          // b. placements.job_id → jobs.id, but vacancies are separate. Create one
+          // jobs row per hire and reference its id.
+          const { data: job, error: jobErr } = await db
+            .from('jobs')
+            .insert({
+              title: vacancy?.title ?? 'Placement',
+              company: companyName,
+              location: vacancy?.district ?? vacancy?.location ?? null,
+              trade: vacancy?.trade_required ?? null,
+              posted_by: ctx.user.sub,
+              is_active: true,
+            })
+            .select('id')
+            .single();
+
+          if (jobErr || !job) {
+            throw new Error((jobErr as { message?: string })?.message ?? 'Failed to create job for placement');
+          }
+
+          // c. Idempotency: only insert a placement if none exists for this
+          // (learner, job) pair. The job row is fresh per hire, so this guards
+          // against a retried transition that already created one.
+          const { data: existingPlacement } = await db
+            .from('placements')
+            .select('id')
+            .eq('learner_id', match.learner_id)
+            .eq('job_id', job.id)
+            .maybeSingle();
+
+          if (!existingPlacement) {
+            await db.from('placements').insert({
+              learner_id: match.learner_id,
+              job_id: job.id,
+              confirmed_by: ctx.user.sub,
+              placement_date: today,
+              salary: placementSalary,
+              salary_claimed: placementSalary,
+              notes: 'Auto-created on employer hire',
+            });
+          }
+
+          // d. Update the learner row with placement details.
+          await db
+            .from('learners')
+            .update({
+              status: 'placed',
+              placement_company: companyName,
+              placement_role: vacancy?.title ?? null,
+              placement_salary: placementSalary != null ? String(placementSalary) : null,
+              placement_location: vacancy?.district ?? null,
+              placement_date: today,
+              placement_reported_at: nowIso,
+              updated_at: nowIso,
+            })
+            .eq('id', match.learner_id);
+
+          // e. Audit event.
+          await db.from('events').insert({
+            learner_id: match.learner_id,
+            event_type: 'placement_confirmed',
+            source: 'backend',
+            metadata: {
+              match_id: input.match_id,
+              vacancy_id: match.vacancy_id,
+              employer_id: ctx.user.sub,
+              offer_salary: placementSalary,
+            },
+          });
+
+          // f. Fire-and-forget: ask the bot to schedule retention check-ins.
+          try {
+            await fetch(`${BOT_INTERNAL_URL}/internal/schedule-retention`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                learnerId: match.learner_id,
+                placementDate: new Date(today).toISOString(),
+              }),
+            });
+          } catch (retentionErr) {
+            console.error('schedule-retention ping failed (non-fatal):', retentionErr);
+          }
+        } catch (placementErr) {
+          // Never let placement bootstrap break the stage transition.
+          console.error('Placement bootstrap on hire failed (non-fatal):', placementErr);
+        }
+      }
 
       // 5. Fire Supabase Realtime broadcast (officer dashboard subscription)
       await db
@@ -792,6 +920,104 @@ const napsRouter = router({
       total_employees: totalEmployees,
       eligibility,
       claims: claims ?? [],
+    };
+  }),
+
+  /**
+   * NAPS compliance checklist + heuristic score for the authed employer (Req4,
+   * 3.3.1). Self-contained — no LLM. Derived from registration state, presence
+   * of a registration ref, NAPS-eligible active vacancies, and claim outcomes.
+   */
+  napsCompliance: employerProcedure.query(async ({ ctx }) => {
+    const { data: employer, error: employerError } = await db
+      .from('employers')
+      .select('naps_registered, naps_registration_ref')
+      .eq('id', ctx.user.sub)
+      .single();
+
+    if (employerError && employerError.code !== 'PGRST116') {
+      handleSupabaseError(employerError, 'employer.naps.napsCompliance');
+    }
+
+    const registered = employer?.naps_registered ?? false;
+    const hasRef = !!employer?.naps_registration_ref;
+
+    // Count NAPS-eligible active vacancies.
+    const { count: eligibleVacancies, error: vacErr } = await db
+      .from('vacancies')
+      .select('*', { count: 'exact', head: true })
+      .eq('employer_id', ctx.user.sub)
+      .eq('naps_eligible', true)
+      .eq('status', 'active');
+
+    if (vacErr) handleSupabaseError(vacErr, 'employer.naps.napsCompliance.vacancies');
+
+    // Tally claims by status.
+    const { data: claims, error: claimsErr } = await db
+      .from('naps_claims')
+      .select('status')
+      .eq('employer_id', ctx.user.sub);
+
+    if (claimsErr) handleSupabaseError(claimsErr, 'employer.naps.napsCompliance.claims');
+
+    const claims_summary = { pending: 0, submitted: 0, approved: 0, rejected: 0 };
+    for (const c of (claims ?? []) as { status: string }[]) {
+      if (c.status in claims_summary) {
+        claims_summary[c.status as keyof typeof claims_summary] += 1;
+      }
+    }
+
+    const eligibleCount = eligibleVacancies ?? 0;
+    const hasEligibleVacancy = eligibleCount >= 1;
+    const hasApprovedClaim = claims_summary.approved >= 1;
+
+    // Heuristic score (0-100).
+    let score = 0;
+    if (registered) score += 30;
+    if (hasRef) score += 20;
+    if (hasEligibleVacancy) score += 25;
+    if (hasApprovedClaim) score += 25;
+
+    const checklist = [
+      {
+        item: 'NAPS registration',
+        status: registered ? 'ok' : 'missing',
+        detail: registered
+          ? 'Employer is registered under NAPS.'
+          : 'Register under NAPS to claim apprentice reimbursements.',
+      },
+      {
+        item: 'Registration reference on file',
+        status: hasRef ? 'ok' : (registered ? 'pending' : 'missing'),
+        detail: hasRef
+          ? 'A NAPS registration reference is recorded.'
+          : 'No registration reference recorded yet.',
+      },
+      {
+        item: 'NAPS-eligible active vacancies',
+        status: hasEligibleVacancy ? 'ok' : 'missing',
+        detail: hasEligibleVacancy
+          ? `${eligibleCount} active vacancy(ies) marked NAPS-eligible.`
+          : 'No active NAPS-eligible vacancies. Mark eligible roles to qualify.',
+      },
+      {
+        item: 'Approved reimbursement claims',
+        status: hasApprovedClaim
+          ? 'ok'
+          : (claims_summary.pending + claims_summary.submitted > 0 ? 'pending' : 'missing'),
+        detail: hasApprovedClaim
+          ? `${claims_summary.approved} claim(s) approved.`
+          : (claims_summary.pending + claims_summary.submitted > 0
+              ? 'Claims submitted and awaiting approval.'
+              : 'No claims submitted yet.'),
+      },
+    ] as { item: string; status: 'ok' | 'pending' | 'missing'; detail: string }[];
+
+    return {
+      score,
+      registered,
+      checklist,
+      claims_summary,
     };
   }),
 

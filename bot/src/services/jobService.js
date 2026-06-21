@@ -3,6 +3,21 @@ import { randomUUID } from 'node:crypto';
 const BACKEND_URL = process.env.BACKEND_INTERNAL_URL ?? 'http://localhost:4000';
 const BOT_SECRET = process.env.BOT_INTERNAL_SECRET ?? 'dev-bot-secret';
 
+// Tiered employer-trust label for WhatsApp job listings. Mirrors
+// backend/src/utils/verification.ts and frontend VerificationBadge.
+const VERIFICATION_LABELS = {
+  unverified: '⚠️ Unverified employer',
+  phone_verified: '☑️ Phone verified',
+  udyam_verified: '✅ Udyam (MSME) verified',
+  aadhaar_verified: '✅ Aadhaar verified',
+  entitylocker_verified: '✅ EntityLocker verified',
+  fully_verified: '🛡️ Fully verified',
+};
+
+export function verificationLabel(status) {
+  return VERIFICATION_LABELS[status] ?? VERIFICATION_LABELS.unverified;
+}
+
 export class JobService {
   constructor({ store }) {
     this.store = store;
@@ -46,7 +61,7 @@ export class JobService {
     try {
       const rows = await this.store.query(
         `SELECT v.id, v.title, v.trade_required, v.salary_min, v.salary_max, v.district, v.state, v.openings, v.naps_eligible, v.created_at,
-                e.company_name
+                e.company_name, e.verification_status, e.verification_type
          FROM vacancies v
          LEFT JOIN employers e ON e.id = v.employer_id
          WHERE v.status = 'active'
@@ -65,6 +80,8 @@ export class JobService {
         openings: r.openings ?? 1,
         type: r.naps_eligible ? 'apprenticeship' : 'regular',
         verified: true,
+        verificationStatus: r.verification_status ?? 'unverified',
+        verificationType: r.verification_type ?? null,
         distanceKm: null,
         postedText: timeAgo(r.created_at),
         is_active: true,
@@ -104,6 +121,7 @@ export class JobService {
         openings: job.vacancyCount ?? null,
         type: 'regular',
         verified: false,
+        verificationStatus: 'unverified',
         distanceKm: null,
         postedText: job.date ?? 'Recently',
         is_active: true,

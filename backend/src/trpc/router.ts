@@ -7,6 +7,7 @@ import { reportsRouter } from './routers/reports.js';
 import { cohortsRouter } from './routers/cohorts.js';
 import { employerRouter, publicSkillCardRouter } from './routers/employer.js';
 import { officerRouter } from './routers/officer.js';
+import { districtRouter } from './routers/district.js';
 
 /**
  * Root tRPC router.
@@ -31,6 +32,7 @@ export const appRouter = router({
   employer: employerRouter,
   skillCard: publicSkillCardRouter,
   officer: officerRouter,
+  district: districtRouter,
 });
 
 /** Exported type — imported by the frontend to get full type safety */

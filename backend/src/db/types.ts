@@ -502,7 +502,7 @@ export type LearnerStatus = 'active' | 'placed' | 'dropped' | 'at_risk';
 export type ApplicationStatus = 'applied' | 'shortlisted' | 'interviewed' | 'hired' | 'rejected';
 export type VerificationStatus = 'pending' | 'verified' | 'rejected';
 export type EventSource = 'bot' | 'backend' | 'manual';
-export type EmployerVerificationStatus = 'unverified' | 'phone_verified' | 'udyam_verified' | 'fully_verified';
+export type EmployerVerificationStatus = 'unverified' | 'phone_verified' | 'udyam_verified' | 'aadhaar_verified' | 'entitylocker_verified' | 'fully_verified';
 export type VacancyStatus = 'draft' | 'active' | 'paused' | 'closed' | 'flagged';
 export type MatchStage =
   | 'new_match'

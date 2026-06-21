@@ -4,6 +4,7 @@ import { router, officerProcedure, protectedProcedure } from '../trpc.js';
 import { supabase as _supabase } from '../../db/client.js';
 import { handleSupabaseError } from '../errors.js';
 import { triggerRiskScoreUpdate, computeProfileCompleteness } from '../../services/riskService.js';
+import { verificationTier, computeSalaryDiscrepancy } from '../../utils/verification.js';
 const supabase = _supabase as any;
 import type { LearnerRow, ApplicationRow } from '../../db/types.js';
 
@@ -86,6 +87,28 @@ const learnerRouter = router({
         .select('*, jobs(*)')
         .eq('learner_id', input.id);
 
+      // Fetch the learner's latest placement for discrepancy + retention insight
+      const { data: latestPlacement } = await supabase
+        .from('placements')
+        .select('*')
+        .eq('learner_id', input.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let placement: any = null;
+      if (latestPlacement) {
+        const discrepancy = computeSalaryDiscrepancy(
+          latestPlacement.salary_claimed ?? latestPlacement.salary,
+          latestPlacement.current_salary ?? latestPlacement.salary_reported
+        );
+        placement = {
+          ...latestPlacement,
+          discrepancy,
+          reported_salary: latestPlacement.current_salary ?? latestPlacement.salary_reported ?? null,
+        };
+      }
+
       // AI summary placeholder — in production this would call LLM
       const statusLabel = ({
         active: 'actively seeking work',
@@ -107,7 +130,11 @@ const learnerRouter = router({
 
       // Suggested action based on learner state
       let suggestedAction: string | null = null;
-      if (learner.status === 'at_risk') {
+      if (placement && placement.discrepancy?.flagged) {
+        suggestedAction = 'Salary discrepancy flagged — verify reported wage with learner.';
+      } else if (placement && latestPlacement?.retention_status === 'left') {
+        suggestedAction = 'Learner left placement — re-engage with new matches.';
+      } else if (learner.status === 'at_risk') {
         suggestedAction = 'Call learner — they have been silent for too long.';
       } else if (learner.status === 'active' && (!applications || applications.length === 0)) {
         suggestedAction = 'Send first job match to this learner.';
@@ -119,6 +146,8 @@ const learnerRouter = router({
         learner: learner as LearnerRow,
         applications: (applications ?? []) as ApplicationRow[],
         placements: placements ?? [],
+        placement,
+        photo_url: learner.aadhaar_photo_url ?? null,
         aiSummary,
         suggestedAction,
       };
@@ -183,6 +212,7 @@ const placementsRouter = router({
         job_id: z.string().uuid(),
         placement_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         salary: z.number().positive().optional(),
+        salary_claimed: z.number().positive().optional(),
         notes: z.string().max(1000).optional(),
         source: z.enum(['saathai_match', 'officer_direct', 'learner_self']).default('saathai_match'),
       })
@@ -197,6 +227,7 @@ const placementsRouter = router({
           confirmed_by: ctx.user.sub,
           placement_date: input.placement_date,
           salary: input.salary ?? null,
+          salary_claimed: input.salary_claimed ?? input.salary ?? null,
           notes: input.notes ?? null,
         })
         .select()
@@ -243,7 +274,7 @@ const placementsRouter = router({
 
       let query = supabase
         .from('placements')
-        .select('*, learners(full_name, phone, trade), jobs(title, company)', { count: 'exact' })
+        .select('*, learners(full_name, phone, trade, aadhaar_photo_url), jobs(title, company)', { count: 'exact' })
         .range(start, end)
         .order('placement_date', { ascending: false });
 
@@ -254,8 +285,22 @@ const placementsRouter = router({
       const { data, error, count } = await query;
       if (error) handleSupabaseError(error, 'dashboard.placements.list');
 
+      const enriched = (data ?? []).map((row: any) => {
+        const d = computeSalaryDiscrepancy(
+          row.salary_claimed ?? row.salary,
+          row.current_salary ?? row.salary_reported
+        );
+        return {
+          ...row,
+          reported_salary: row.current_salary ?? row.salary_reported ?? null,
+          discrepancy: d,
+          photo_url: row.learners?.aadhaar_photo_url ?? null,
+          retention_status: row.retention_status,
+        };
+      });
+
       return {
-        data: data ?? [],
+        data: enriched,
         total: count ?? 0,
         page,
         limit,
@@ -307,12 +352,27 @@ const employersRouter = router({
         jobsByEmployer.get(job.posted_by)!.push(job);
       }
 
-      const enriched = (data ?? []).map((emp: any) => ({
-        ...emp,
-        total_jobs: jobsByEmployer.get(emp.id)?.length ?? 0,
-        active_jobs: jobsByEmployer.get(emp.id)?.filter((j: any) => j.is_active).length ?? 0,
-        trades: [...new Set((jobsByEmployer.get(emp.id) ?? []).map((j: any) => j.trade).filter(Boolean))],
-      }));
+      // Merge employer verification details (employers table is 1:1 with users via id)
+      const { data: employerRows } = await supabase
+        .from('employers')
+        .select('id, verification_status, verification_type, company_name')
+        .in('id', employerIds.length > 0 ? employerIds : ['__none__']);
+
+      const employerById = new Map<string, any>();
+      for (const e of employerRows ?? []) employerById.set(e.id, e);
+
+      const enriched = (data ?? []).map((emp: any) => {
+        const ev = employerById.get(emp.id);
+        return {
+          ...emp,
+          verification_status: ev?.verification_status ?? 'unverified',
+          verification_type: ev?.verification_type ?? null,
+          company_name: ev?.company_name ?? null,
+          total_jobs: jobsByEmployer.get(emp.id)?.length ?? 0,
+          active_jobs: jobsByEmployer.get(emp.id)?.filter((j: any) => j.is_active).length ?? 0,
+          trades: [...new Set((jobsByEmployer.get(emp.id) ?? []).map((j: any) => j.trade).filter(Boolean))],
+        };
+      });
 
       return {
         data: enriched,
@@ -352,7 +412,21 @@ const employersRouter = router({
         .select('*, learners(full_name, trade)')
         .in('job_id', jobIds.length > 0 ? jobIds : ['__none__']);
 
-      return { employer, jobs: jobs ?? [], placements: placements ?? [] };
+      // Merge employer verification details (employers table is 1:1 with users via id)
+      const { data: employerRow } = await supabase
+        .from('employers')
+        .select('verification_status, verification_type, company_name')
+        .eq('id', input.id)
+        .maybeSingle();
+
+      const employerWithVerification = {
+        ...employer,
+        verification_status: employerRow?.verification_status ?? 'unverified',
+        verification_type: employerRow?.verification_type ?? null,
+        company_name: employerRow?.company_name ?? null,
+      };
+
+      return { employer: employerWithVerification, jobs: jobs ?? [], placements: placements ?? [] };
     }),
 
   /**
@@ -713,6 +787,88 @@ export const dashboardRouter = router({
           applications_count: apps.length,
         };
       });
+    }),
+
+  /**
+   * Feature 2.x: New placements feed — recently confirmed placements with
+   * salary-discrepancy flags. Powers the officer "New Placements" card.
+   */
+  recentPlacements: officerProcedure
+    .input(
+      z.object({
+        days: z.number().int().min(1).max(365).default(14),
+        limit: z.number().int().min(1).max(100).default(20),
+      })
+    )
+    .query(async ({ input }) => {
+      const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data, error } = await supabase
+        .from('placements')
+        .select(
+          '*, learners(id, full_name, phone, trade, district, aadhaar_photo_url), jobs(title, company)'
+        )
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(input.limit);
+
+      if (error) handleSupabaseError(error, 'dashboard.recentPlacements');
+
+      return (data ?? []).map((row: any) => {
+        const discrepancy = computeSalaryDiscrepancy(
+          row.salary_claimed ?? row.salary,
+          row.current_salary ?? row.salary_reported
+        );
+        return {
+          ...row,
+          reported_salary: row.current_salary ?? row.salary_reported ?? null,
+          discrepancy,
+        };
+      });
+    }),
+
+  /**
+   * Feature 3.x: Global search across learners and employers.
+   */
+  search: officerProcedure
+    .input(z.object({ q: z.string().min(1) }))
+    .query(async ({ input }) => {
+      // Escape characters that have meaning inside Supabase .or() filters.
+      const q = input.q.replace(/[,()%]/g, ' ').trim();
+      const pattern = `%${q}%`;
+
+      const { data: learners } = await supabase
+        .from('learners')
+        .select('id, full_name, phone, trade, district, status, risk_score')
+        .or(`full_name.ilike.${pattern},phone.ilike.${pattern},trade.ilike.${pattern}`)
+        .limit(10);
+
+      const { data: employerUsers } = await supabase
+        .from('users')
+        .select('id, email, phone, full_name, district')
+        .eq('role', 'employer')
+        .or(`full_name.ilike.${pattern},phone.ilike.${pattern},email.ilike.${pattern}`)
+        .limit(10);
+
+      const employerIds = (employerUsers ?? []).map((e: any) => e.id);
+      const { data: employerRows } = await supabase
+        .from('employers')
+        .select('id, company_name, verification_status')
+        .in('id', employerIds.length > 0 ? employerIds : ['__none__']);
+
+      const employerById = new Map<string, any>();
+      for (const e of employerRows ?? []) employerById.set(e.id, e);
+
+      const employers = (employerUsers ?? []).map((emp: any) => {
+        const ev = employerById.get(emp.id);
+        return {
+          ...emp,
+          company_name: ev?.company_name ?? null,
+          verification_status: ev?.verification_status ?? 'unverified',
+        };
+      });
+
+      return { learners: learners ?? [], employers };
     }),
 
   // Mount sub-routers

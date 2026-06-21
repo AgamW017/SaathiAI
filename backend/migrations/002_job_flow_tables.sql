@@ -29,22 +29,22 @@ CREATE INDEX idx_messages_reply_to         ON public.messages(reply_to_id);
 CREATE INDEX idx_messages_created_at       ON public.messages(created_at);
 CREATE INDEX idx_messages_sender_receiver  ON public.messages(sender_id, receiver_learner_id, created_at);
 
--- ─── cohorts ───────────────────────────────────────────────────────────────
+-- -- ─── cohorts ───────────────────────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS public.cohorts (
-  id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name                 TEXT NOT NULL CHECK (char_length(name) BETWEEN 1 AND 200),
-  officer_id           UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
-  source_document_url  TEXT,
-  extraction_metadata  JSONB NOT NULL DEFAULT '{}',
-  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- CREATE TABLE IF NOT EXISTS public.cohorts (
+--   id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--   name                 TEXT NOT NULL CHECK (char_length(name) BETWEEN 1 AND 200),
+--   officer_id           UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+--   source_document_url  TEXT,
+--   extraction_metadata  JSONB NOT NULL DEFAULT '{}',
+--   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+--   updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- );
 
--- Unique cohort name per officer
-CREATE UNIQUE INDEX idx_cohorts_officer_name ON public.cohorts(officer_id, name);
-CREATE INDEX idx_cohorts_officer            ON public.cohorts(officer_id);
-CREATE INDEX idx_cohorts_created_at         ON public.cohorts(created_at);
+-- -- Unique cohort name per officer
+-- CREATE UNIQUE INDEX idx_cohorts_officer_name ON public.cohorts(officer_id, name);
+-- CREATE INDEX idx_cohorts_officer            ON public.cohorts(officer_id);
+-- CREATE INDEX idx_cohorts_created_at         ON public.cohorts(created_at);
 
 -- ─── retention_checks ──────────────────────────────────────────────────────
 

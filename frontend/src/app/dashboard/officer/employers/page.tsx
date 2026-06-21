@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { trpc } from '../../../../lib/trpc/client';
+import VerificationBadge from '../../../../components/ui/VerificationBadge';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,8 @@ interface EmployerCardProps {
     total_jobs: number;
     active_jobs: number;
     trades: string[];
+    verification_status?: string | null;
+    company_name?: string | null;
   };
   onClick: () => void;
 }
@@ -72,11 +75,12 @@ function EmployerCard({ employer, onClick }: EmployerCardProps) {
         </div>
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f161e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {employer.full_name ?? employer.email ?? 'Unnamed Employer'}
+            {employer.company_name ?? employer.full_name ?? employer.email ?? 'Unnamed Employer'}
           </div>
-          <div style={{ fontSize: '12px', color: '#615f5c' }}>
+          <div style={{ fontSize: '12px', color: '#615f5c', marginBottom: '6px' }}>
             {employer.district ?? 'No district'}
           </div>
+          <VerificationBadge status={employer.verification_status} compact />
         </div>
       </div>
 

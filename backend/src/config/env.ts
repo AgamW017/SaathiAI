@@ -41,7 +41,7 @@ export const config = {
   },
 
   cors: {
-    origins: (process.env.CORS_ORIGINS ?? 'http://localhost:3001,http://localhost:3000').split(','),
+    origins: (process.env.CORS_ORIGINS ?? 'http://localhost:3006,http://localhost:3000').split(','),
   },
 
   log: {

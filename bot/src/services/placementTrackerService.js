@@ -906,10 +906,44 @@ Message: ${JSON.stringify(text)}`;
    * Single polling cycle that checks both salary nudges and retention checks.
    */
   async _pollCycle() {
+    await this._bootstrapMissingChecks();
     await this._checkDueNudges();
     await this._checkDueRetentionChecks();
     await this.checkSalaryTimeouts();
     await this.checkRetentionTimeouts();
+  }
+
+  /**
+   * Resilience: placements created outside the bot (e.g. by the backend when an
+   * employer marks a match 'hired') may have no retention_checks rows if the
+   * schedule-retention ping was missed. Find any such placement that has not
+   * already left and schedule its salary capture + retention checks.
+   */
+  async _bootstrapMissingChecks() {
+    try {
+      const orphans = await this.store.query(
+        `SELECT p.id, p.learner_id, p.placement_date
+         FROM placements p
+         WHERE COALESCE(p.retention_status::text, 'unknown') <> 'left'
+           AND NOT EXISTS (
+             SELECT 1 FROM retention_checks rc WHERE rc.placement_id = p.id
+           )
+         LIMIT 100`
+      );
+
+      for (const p of orphans ?? []) {
+        try {
+          const placementDate = p.placement_date ?? new Date().toISOString();
+          await this.scheduleSalaryCapture(p.learner_id, placementDate);
+          await this.scheduleRetentionChecks(p.learner_id, placementDate);
+          this._log('info', { learnerId: p.learner_id, placementId: p.id }, 'Bootstrapped retention checks for untracked placement');
+        } catch (err) {
+          this._log('error', { placementId: p.id, err: err.message }, 'Failed to bootstrap retention checks');
+        }
+      }
+    } catch (error) {
+      this._log('error', { err: error.message }, 'Error bootstrapping missing retention checks');
+    }
   }
 
   /**

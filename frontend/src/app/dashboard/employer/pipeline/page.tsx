@@ -89,7 +89,15 @@ function CardContent({ match, onViewCard, onTransition }: { match: Match; onView
 
   return (
     <div style={{ background: '#fff', padding: 16, borderRadius: 12, border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: 12, cursor: 'grab' }}>
-      <div style={{ fontSize: 14, fontWeight: 700, color: '#0f161e', marginBottom: 4 }}>{match?.learners?.full_name}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: '#fa5d0022', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: '#fa5d00' }}>
+          {(match?.learners as any)?.aadhaar_photo_url
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={(match.learners as any).aadhaar_photo_url} alt={match?.learners?.full_name ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : (match?.learners?.full_name ?? '?').charAt(0).toUpperCase()}
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#0f161e' }}>{match?.learners?.full_name}</div>
+      </div>
       <div style={{ fontSize: 12, color: '#615f5c', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Briefcase size={12} /> {match?.learners?.trade}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={12} /> {match?.learners?.district}</div>

@@ -193,6 +193,40 @@ function UpdateStatusPanel({ learnerId, currentStatus, onSuccess }: { learnerId:
   );
 }
 
+// ─── Ping Panel (Req3: nudge inactive/high-risk learner via bot) ───────────────
+
+function PingPanel({ learnerId, suggestInactive }: { learnerId: string; suggestInactive: boolean }) {
+  const [msg, setMsg] = useState(suggestInactive
+    ? 'Namaste! We noticed you have been inactive. Are you still looking for work? Reply to continue.'
+    : '');
+  const [sent, setSent] = useState(false);
+  const ping = trpc.messaging.sendPing.useMutation({
+    onSuccess: () => { setSent(true); setMsg(''); setTimeout(() => setSent(false), 3000); },
+  });
+  return (
+    <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+      <label style={{ fontSize: '12px', fontWeight: 600, color: '#615f5c', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+        Ping via Bot {suggestInactive && <span style={{ color: '#dc2626' }}>• inactive</span>}
+      </label>
+      <textarea
+        value={msg}
+        onChange={(e) => setMsg(e.target.value)}
+        placeholder="Message to send over WhatsApp…"
+        style={{ width: '100%', minHeight: '60px', padding: '10px 12px', borderRadius: '10px', border: '1.5px solid #e0e0dc', fontSize: '13px', color: '#0f161e', background: '#fff', resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+      />
+      {ping.isError && <div style={{ marginTop: '8px', fontSize: '12px', color: '#dc2626' }}>{ping.error.message}</div>}
+      {sent && <div style={{ marginTop: '8px', fontSize: '13px', fontWeight: 600, color: '#16a34a' }}>✅ Ping sent</div>}
+      <button
+        onClick={() => msg.trim() && ping.mutate({ learnerId, message: msg.trim() })}
+        disabled={ping.isPending || !msg.trim()}
+        style={{ marginTop: '10px', padding: '9px 18px', borderRadius: '10px', border: 'none', background: (ping.isPending || !msg.trim()) ? 'rgba(250,93,0,0.5)' : '#fa5d00', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: (ping.isPending || !msg.trim()) ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+      >
+        {ping.isPending ? 'Sending…' : 'Send WhatsApp Ping'}
+      </button>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LearnerProfilePage() {
@@ -279,8 +313,12 @@ export default function LearnerProfilePage() {
                 background: 'rgba(255,255,255,0.15)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '24px', fontWeight: 700, color: '#fff', flexShrink: 0,
+                overflow: 'hidden',
               }}>
-                {(learner?.full_name ?? '?').charAt(0).toUpperCase()}
+                {data?.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={data.photo_url} alt={learner?.full_name ?? 'photo'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (learner?.full_name ?? '?').charAt(0).toUpperCase()}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '22px', fontWeight: 700, color: '#fff' }}>{learner?.full_name ?? 'Unknown'}</div>
@@ -377,6 +415,7 @@ export default function LearnerProfilePage() {
               >
                 <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#0f161e', margin: '0 0 16px' }}>Officer Actions</h3>
                 <UpdateStatusPanel learnerId={id} currentStatus={learner?.status ?? 'active'} onSuccess={() => refetch()} />
+                <PingPanel learnerId={id} suggestInactive={(learner?.risk_score ?? 0) > 70 || learner?.status === 'at_risk'} />
               </motion.div>
             </div>
 
