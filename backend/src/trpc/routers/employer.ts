@@ -1011,7 +1011,7 @@ export const publicSkillCardRouter = router({
       const { data: learner, error } = await db
         .from('learners')
         .select(`
-          id, full_name, trade, district, state, status,
+          id, full_name, phone, trade, district, state, status,
           skill_cards (
             trade, skills, verification_status
           )
@@ -1035,6 +1035,7 @@ export const publicSkillCardRouter = router({
         learner: {
           id: learner.id,
           full_name: learner.full_name,
+          phone: learner.phone,
           trade: learner.trade,
           district: learner.district,
           state: learner.state,

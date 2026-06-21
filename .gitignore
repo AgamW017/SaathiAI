@@ -12,3 +12,6 @@ pnpm-lock.yaml
 *.pyc
 
 .env
+
+# Local Netlify folder
+.netlify
