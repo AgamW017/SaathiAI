@@ -6,6 +6,7 @@ import { recordBotEvent, getRecentEvents } from '../services/eventService.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { generateAadhaarOtp, verifyAadhaarOtp } from '../services/sandboxService.js';
 import { DocumentParserService } from '../services/documentParserService.js';
+import { fetchJobsForLearner } from '../services/sidhScrapingService.js';
 
 export const internalRouter = Router();
 
@@ -227,6 +228,100 @@ internalRouter.post(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(502).json({ error: `Aadhaar extraction failed: ${message}` });
+    }
+  }
+);
+
+/**
+ * @openapi
+ * /internal/jobs/search:
+ *   post:
+ *     summary: Fetch relevant SIDH job listings for a learner
+ *     description: >
+ *       Classifies the learner's job title into a SIDH sector via LLM, then
+ *       scrapes Skill India Digital Hub for active job listings in that sector
+ *       and state. Excludes recommendation-section cards.
+ *     tags: [Internal]
+ *     security: [{ botSecret: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [jobTitle, state]
+ *             properties:
+ *               jobTitle:
+ *                 type: string
+ *                 description: The learner's job title or trade (e.g. "electrician", "NAPS Trainee")
+ *               state:
+ *                 type: string
+ *                 description: Full state/UT name (e.g. "Andhra Pradesh", "Delhi")
+ *               pageSize:
+ *                 type: integer
+ *                 default: 18
+ *                 description: Number of listings to fetch (max 18 per SIDH page)
+ *     responses:
+ *       200:
+ *         description: Job listings found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok: { type: boolean }
+ *                 sector: { type: string }
+ *                 totalJobs: { type: integer }
+ *                 jobs:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       title: { type: string, nullable: true }
+ *                       company: { type: string, nullable: true }
+ *                       cardTag: { type: string, nullable: true }
+ *                       via: { type: string, nullable: true }
+ *                       venue: { type: string, nullable: true }
+ *                       date: { type: string, nullable: true }
+ *                       location: { type: string, nullable: true }
+ *                       sector: { type: string, nullable: true }
+ *                       employmentType: { type: string, nullable: true }
+ *                       joiningType: { type: string, nullable: true }
+ *                       salaryText: { type: string, nullable: true }
+ */
+internalRouter.post(
+  '/jobs/search',
+  requireBotSecret,
+  async (req, res) => {
+    const { jobTitle, state, pageSize } = req.body as {
+      jobTitle?: string;
+      state?: string;
+      pageSize?: number;
+    };
+
+    if (!jobTitle || typeof jobTitle !== 'string' || !jobTitle.trim()) {
+      res.status(400).json({ error: 'jobTitle is required and must be a non-empty string' });
+      return;
+    }
+    if (!state || typeof state !== 'string' || !state.trim()) {
+      res.status(400).json({ error: 'state is required and must be a non-empty string' });
+      return;
+    }
+
+    const clampedPageSize =
+      typeof pageSize === 'number' && pageSize > 0 ? Math.min(pageSize, 18) : 18;
+
+    try {
+      const result = await fetchJobsForLearner(jobTitle.trim(), state.trim(), clampedPageSize);
+      res.status(200).json({
+        ok: true,
+        sector: result.sector,
+        totalJobs: result.jobs.length,
+        jobs: result.jobs,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(502).json({ error: `SIDH job fetch failed: ${message}` });
     }
   }
 );
