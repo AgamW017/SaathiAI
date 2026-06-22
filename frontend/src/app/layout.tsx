@@ -15,7 +15,7 @@ export const metadata = {
   title: "SaathiAI — AI Career Companion for India's Vocational Graduates",
   description: "SaathiAI is a WhatsApp-native AI companion that meets every ITI and PMKVY graduate where they are — in Hindi, the moment training ends. Built for Shiksha Hackathon 2026.",
   icons: {
-    icon: '/favicon.svg',
+    icon: '/icon.png',
   },
   openGraph: {
     title: "SaathiAI — AI Career Companion for India's Vocational Graduates",

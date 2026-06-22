@@ -102,19 +102,19 @@ export default function Navbar() {
               height: 64,
               borderRadius: scrolled ? '999px' : '20px',
               border: scrolled
-                ? '1px solid rgba(0, 64, 56, 0.18)'
-                : '1px solid rgba(0, 64, 56, 0.10)',
+                ? '1px solid rgba(255, 255, 255, 0.45)'
+                : '1px solid rgba(255, 255, 255, 0.35)',
               boxShadow: scrolled
-                ? '0 8px 32px -8px rgba(0, 64, 56, 0.14), 0 2px 8px rgba(0,0,0,0.06)'
-                : '0 2px 16px -8px rgba(0, 64, 56, 0.08)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
+                ? '0 8px 32px -8px rgba(0, 64, 56, 0.14), 0 2px 8px rgba(0,0,0,0.06), inset 0 2px 0 rgba(255,255,255,0.85), inset 0 -2px 0 rgba(0,0,0,0.08), inset 1px 0 0 rgba(255,255,255,0.4), inset -1px 0 0 rgba(0,0,0,0.04)'
+                : '0 4px 24px -6px rgba(0, 64, 56, 0.10), 0 1px 4px rgba(0,0,0,0.04), inset 0 2px 0 rgba(255,255,255,0.75), inset 0 -2px 0 rgba(0,0,0,0.06), inset 1px 0 0 rgba(255,255,255,0.35), inset -1px 0 0 rgba(0,0,0,0.03)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
               transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
               pointerEvents: 'auto',
               /* Base fill so the AnimatedGradient has something opaque to sit on */
               background: scrolled
-                ? 'rgba(255, 248, 241, 0.88)'
-                : 'rgba(255, 248, 241, 0.72)',
+                ? 'rgba(255, 248, 241, 0.45)'
+                : 'rgba(255, 248, 241, 0.25)',
             }}
           >
             {/* Animated Gradient background — Ghost preset, very subtle */}
