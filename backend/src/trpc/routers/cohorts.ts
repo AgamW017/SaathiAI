@@ -8,22 +8,47 @@ const supabase = _supabase as any;
 
 export const cohortsRouter = router({
   /**
-   * List all cohorts for the logged-in officer
+   * List cohorts. Pass all:true to return every cohort (any officer); default returns only the logged-in officer's cohorts.
+   * Each row includes officer_name resolved from the users table.
    */
-  list: officerProcedure.query(async ({ ctx }) => {
-    const { data, error } = await supabase
-      .from('cohorts')
-      .select('*, learners(count)')
-      .eq('officer_id', ctx.user.sub)
-      .order('created_at', { ascending: false });
+  list: officerProcedure
+    .input(z.object({ all: z.boolean().default(false) }).default({}))
+    .query(async ({ input, ctx }) => {
+      let query = supabase
+        .from('cohorts')
+        .select('*, learners(count)')
+        .order('created_at', { ascending: false });
 
-    if (error) handleSupabaseError(error, 'cohorts.list');
+      if (!input.all) {
+        query = query.eq('officer_id', ctx.user.sub);
+      }
 
-    return data.map((c: any) => ({
-      ...c,
-      learnerCount: c.learners?.[0]?.count ?? 0,
-    }));
-  }),
+      const { data, error } = await query;
+      if (error) handleSupabaseError(error, 'cohorts.list');
+
+      const cohorts = (data ?? []) as any[];
+
+      // Collect unique officer ids and fetch their names
+      const officerIds = [...new Set(cohorts.map((c: any) => c.officer_id).filter(Boolean))];
+      const officerNameById = new Map<string, string | null>();
+
+      if (officerIds.length > 0) {
+        const { data: officers } = await supabase
+          .from('users')
+          .select('id, full_name')
+          .in('id', officerIds);
+
+        for (const o of (officers ?? []) as any[]) {
+          officerNameById.set(o.id, o.full_name ?? null);
+        }
+      }
+
+      return cohorts.map((c: any) => ({
+        ...c,
+        learnerCount: c.learners?.[0]?.count ?? 0,
+        officer_name: c.officer_id ? (officerNameById.get(c.officer_id) ?? null) : null,
+      }));
+    }),
 
   /**
    * Get a single cohort with its learners
@@ -35,7 +60,6 @@ export const cohortsRouter = router({
         .from('cohorts')
         .select('*')
         .eq('id', input.id)
-        .eq('officer_id', ctx.user.sub)
         .single();
 
       if (error || !cohort) {

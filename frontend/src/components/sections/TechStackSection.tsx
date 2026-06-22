@@ -25,8 +25,8 @@ const integrations = [
     color: '#f59e0b',
   },
   {
-    icon: '💼',
-    key: 'ncs',
+    icon: '🪪',
+    key: 'sandbox',
     color: '#10b981',
   },
   {

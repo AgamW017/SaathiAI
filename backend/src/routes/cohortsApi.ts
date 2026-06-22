@@ -3,9 +3,13 @@ import { authenticate } from '../middleware/auth.js';
 import { supabase as _supabase } from '../db/client.js';
 import { logger } from '../config/logger.js';
 import { triggerRiskScoreUpdate, computeProfileCompleteness } from '../services/riskService.js';
+import { config } from '../config/env.js';
 
 const supabase = _supabase as any;
 const router = Router();
+
+const BOT_INTERNAL_URL =
+  process.env.BOT_INTERNAL_URL || `http://localhost:${config.bot.adminWsPort}`;
 
 /**
  * POST /api/cohorts
@@ -62,6 +66,7 @@ router.post('/', authenticate, async (req, res) => {
 
     let inserted = 0;
     let skipped = 0;
+    const newLearners: Array<{ id: string; phone: string }> = [];
 
     for (const l of learners) {
       if (!l.phone) continue;
@@ -84,7 +89,6 @@ router.post('/', authenticate, async (req, res) => {
         district,
         state,
         cohort_id: cohort.id,
-        cohort: cohort.name,
         status: 'active',
         risk_score: 0,
         officer_id: officerId,
@@ -93,6 +97,7 @@ router.post('/', authenticate, async (req, res) => {
       if (!insertError) {
         inserted++;
         if (inserted_row?.id) {
+          newLearners.push({ id: inserted_row.id, phone: l.phone });
           triggerRiskScoreUpdate(inserted_row.id, {
             days_since_last_response: 0,
             status: 'active',
@@ -108,6 +113,17 @@ router.post('/', authenticate, async (req, res) => {
       } else {
         logger.warn({ insertError, phone: l.phone }, 'Failed to insert learner');
       }
+    }
+
+    // Trigger bot onboarding for newly created learners (fire-and-forget)
+    if (newLearners.length > 0) {
+      fetch(`${BOT_INTERNAL_URL}/internal/trigger-onboarding`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ learners: newLearners }),
+      }).catch((error) => {
+        logger.error({ error }, 'Failed to reach bot service for onboarding trigger');
+      });
     }
 
     res.status(201).json({

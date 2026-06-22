@@ -194,6 +194,12 @@ export class ConversationEngine {
       return [this.message(withOptions(messages.empathetic, [messages.labels.showJobs, messages.labels.wait]))];
     }
 
+    // Language must be set before any other detail collection
+    if (!session.language && session.step !== Steps.NEW && session.step !== Steps.LANGUAGE_SELECT) {
+      session.step = Steps.LANGUAGE_SELECT;
+      return [this.message(LANGUAGE_MENU, { intent: 'language_menu', facts: { aiGenerated: true } })];
+    }
+
     switch (session.step) {
       case Steps.NEW:
         return this.startOnboarding(session);

@@ -14,7 +14,7 @@ export default function ImpactSection() {
   const { t } = useLocale();
 
   return (
-    <section style={{
+    <section id="impact" style={{
       background: 'radial-gradient(ellipse at 30% 50%, #00544c 0%, #004038 60%, #002d28 100%)',
       padding: '96px 0',
       position: 'relative', overflow: 'hidden',

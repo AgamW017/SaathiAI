@@ -18,11 +18,65 @@ function Skeleton({ width = '100%', height = '16px', radius = '6px' }: { width?:
   );
 }
 
+// ─── Segmented Toggle ─────────────────────────────────────────────────────────
+
+function SegmentedToggle({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  const base: React.CSSProperties = {
+    padding: '6px 16px',
+    fontSize: '13px',
+    fontWeight: 600,
+    border: 'none',
+    cursor: 'pointer',
+    transition: 'background 0.15s ease, color 0.15s ease',
+    lineHeight: 1,
+  };
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        background: '#eef1f0',
+        borderRadius: '10px',
+        padding: '3px',
+        gap: '2px',
+      }}
+    >
+      <button
+        onClick={() => onChange(false)}
+        style={{
+          ...base,
+          background: !value ? '#004038' : 'transparent',
+          color: !value ? '#fff' : '#615f5c',
+          borderRadius: '8px',
+        }}
+      >
+        My Cohorts
+      </button>
+      <button
+        onClick={() => onChange(true)}
+        style={{
+          ...base,
+          background: value ? '#004038' : 'transparent',
+          color: value ? '#fff' : '#615f5c',
+          borderRadius: '8px',
+        }}
+      >
+        All Cohorts
+      </button>
+    </div>
+  );
+}
+
 // ─── Table ────────────────────────────────────────────────────────────────────
 
-function CohortsTable() {
+function CohortsTable({ showAll }: { showAll: boolean }) {
   const router = useRouter();
-  const { data, isLoading, error, refetch } = trpc.cohorts.list.useQuery();
+  const { data, isLoading, error, refetch } = trpc.cohorts.list.useQuery({ all: showAll });
   const deleteMutation = trpc.cohorts.delete.useMutation();
 
   const thStyle: React.CSSProperties = {
@@ -58,6 +112,8 @@ function CohortsTable() {
     </div>
   );
 
+  const colCount = showAll ? 6 : 5;
+
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -67,6 +123,7 @@ function CohortsTable() {
             <th style={thStyle}>Status</th>
             <th style={thStyle}>Learners</th>
             <th style={thStyle}>Created On</th>
+            {showAll && <th style={thStyle}>Owner</th>}
             <th style={thStyle}>Actions</th>
           </tr>
         </thead>
@@ -74,14 +131,14 @@ function CohortsTable() {
           {isLoading
             ? Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
-                  {[180, 80, 60, 100, 80].map((w, j) => (
+                  {(showAll ? [180, 80, 60, 100, 120, 80] : [180, 80, 60, 100, 80]).map((w, j) => (
                     <td key={j} style={tdStyle}><Skeleton width={`${w}px`} /></td>
                   ))}
                 </tr>
               ))
             : data?.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#a09d99', fontSize: '14px' }}>
+                  <td colSpan={colCount} style={{ padding: '40px', textAlign: 'center', color: '#a09d99', fontSize: '14px' }}>
                     No cohorts found. Add one to get started.
                   </td>
                 </tr>
@@ -108,8 +165,15 @@ function CohortsTable() {
                   <td style={{ ...tdStyle, color: '#a09d99', fontSize: '13px' }}>
                     {new Date(cohort.created_at).toLocaleDateString('en-IN')}
                   </td>
+                  {showAll && (
+                    <td style={tdStyle}>
+                      <span style={{ fontSize: '12px', color: '#615f5c' }}>
+                        {cohort.officer_name ?? '—'}
+                      </span>
+                    </td>
+                  )}
                   <td style={tdStyle}>
-                    <button 
+                    <button
                       onClick={(e) => handleDelete(e, cohort.id)}
                       style={{ padding: '6px 12px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
                     >
@@ -128,6 +192,7 @@ function CohortsTable() {
 
 export default function CohortsPage() {
   const router = useRouter();
+  const [showAll, setShowAll] = useState(false);
 
   return (
     <>
@@ -151,16 +216,19 @@ export default function CohortsPage() {
               Manage your ITI batches and upload new cohorts.
             </p>
           </div>
-          <button
-            onClick={() => router.push('/dashboard/officer/cohorts/upload')}
-            style={{
-              background: '#004038', color: '#fff', border: 'none', padding: '10px 20px',
-              borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(0,64,56,0.2)'
-            }}
-          >
-            + Upload Document
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <SegmentedToggle value={showAll} onChange={setShowAll} />
+            <button
+              onClick={() => router.push('/dashboard/officer/cohorts/upload')}
+              style={{
+                background: '#004038', color: '#fff', border: 'none', padding: '10px 20px',
+                borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(0,64,56,0.2)',
+              }}
+            >
+              + Upload Document
+            </button>
+          </div>
         </motion.div>
 
         {/* Card wrapper */}
@@ -176,7 +244,7 @@ export default function CohortsPage() {
             overflow: 'hidden',
           }}
         >
-          <CohortsTable />
+          <CohortsTable showAll={showAll} />
         </motion.div>
       </div>
     </>

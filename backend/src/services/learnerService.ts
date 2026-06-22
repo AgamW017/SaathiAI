@@ -41,7 +41,14 @@ export async function getLearners(filters: LearnerFilter): Promise<PaginatedLear
     .order('created_at', { ascending: false });
 
   if (status) query = query.eq('status', status);
-  if (cohort) query = query.eq('cohort', cohort);
+  if (cohort) {
+    const { data: cohortRow } = await (supabase as any)
+      .from('cohorts')
+      .select('id')
+      .eq('name', cohort)
+      .single();
+    query = query.eq('cohort_id', cohortRow?.id ?? '__none__');
+  }
   if (district) query = query.eq('district', district);
   if (trade) query = query.eq('trade', trade);
   if (risk_score_min !== undefined) query = query.gte('risk_score', risk_score_min);

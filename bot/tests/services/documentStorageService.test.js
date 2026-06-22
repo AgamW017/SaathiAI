@@ -4,6 +4,8 @@ import { DocumentStorageService } from '../../src/services/documentStorageServic
 function createMockSupabase({ uploadError = null, publicUrl = 'https://storage.example.com/file.png' } = {}) {
   return {
     storage: {
+      getBucket: vi.fn().mockResolvedValue({ data: { id: 'cohort-documents', name: 'cohort-documents' }, error: null }),
+      createBucket: vi.fn().mockResolvedValue({ data: { name: 'cohort-documents' }, error: null }),
       from: vi.fn().mockReturnValue({
         upload: vi.fn().mockResolvedValue({ error: uploadError }),
         getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl } })

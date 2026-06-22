@@ -200,7 +200,12 @@ export class MISReportService {
 
     // Filter by cohort if specified
     if (params.cohort) {
-      query = query.eq('cohort', params.cohort);
+      const { data: cohortRow } = await (supabase as any)
+        .from('cohorts')
+        .select('id')
+        .eq('name', params.cohort)
+        .single();
+      query = query.eq('cohort_id', cohortRow?.id ?? '__none__');
     }
 
     const { data, error } = await query;

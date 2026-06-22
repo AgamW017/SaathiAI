@@ -54,8 +54,8 @@ export default function FinalCTA() {
           transition={{ delay: 0.2 }}
           style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '40px' }}
         >
-          <Button variant="flame" size="lg">{t('cta', 'btn1')}</Button>
-          <Button variant="teal-outline" size="lg">{t('cta', 'btn2')}</Button>
+          {/* <Button variant="flame" size="lg">{t('cta', 'btn1')}</Button>
+          <Button variant="teal-outline" size="lg">{t('cta', 'btn2')}</Button> */}
         </motion.div>
 
         {/* Persona chips */}

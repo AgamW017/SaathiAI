@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { authStore, useAuth } from '../../lib/auth/authStore';
+import { authStore, useAuth } from '../../../lib/auth/authStore';
 
 // ─── Nav Items ────────────────────────────────────────────────────────────────
 
@@ -28,6 +28,17 @@ const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
     exact: true,
+  },
+  {
+    href: '/dashboard/officer/district',
+    label: 'District',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="14" width="5" height="7" rx="1" />
+        <rect x="9" y="9" width="5" height="12" rx="1" />
+        <rect x="16" y="4" width="5" height="17" rx="1" />
+      </svg>
+    ),
   },
   {
     href: '/dashboard/officer/search',
@@ -186,9 +197,16 @@ function Sidebar({ pathname }: { pathname: string }) {
         </div>
       </div>
 
-      {/* Nav */}
+      {/* Nav — filtered by role */}
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-        {NAV_ITEMS.map((item) => (
+        {NAV_ITEMS.filter((item) => {
+          if (!mounted) return true; // show all during SSR to avoid flicker
+          // Placement officer: hide District overview
+          if (user?.role === 'officer' && item.href === '/dashboard/officer/district') return false;
+          // DSSDO officer: hide the Overview tab
+          if (user?.role === 'dssdo' && item.href === '/dashboard/officer' && item.exact) return false;
+          return true;
+        }).map((item) => (
           <NavLink key={item.href} item={item} pathname={pathname} />
         ))}
       </nav>
@@ -265,6 +283,7 @@ function Sidebar({ pathname }: { pathname: string }) {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { user } = useAuth();
 
   // Auth guard
   useEffect(() => {
@@ -272,6 +291,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace('/signin');
     }
   }, [router]);
+
+  // Role-based route guard:
+  // Placement officers (role='officer') cannot access the district page.
+  useEffect(() => {
+    if (user?.role === 'officer' && pathname.startsWith('/dashboard/officer/district')) {
+      router.replace('/dashboard/officer');
+    }
+  }, [user, pathname, router]);
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f7f7f5' }}>

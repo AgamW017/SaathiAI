@@ -195,7 +195,7 @@ function DistrictConsoleMock() {
 export default function SolutionSection() {
   const { t } = useLocale();
   return (
-    <section style={{ background: 'var(--color-cream-canvas)', padding: '96px 0' }}>
+    <section id="how-it-works" style={{ background: 'var(--color-cream-canvas)', padding: '96px 0' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 32px' }}>
         <SectionHeader
           eyebrow={t('solution', 'eyebrow')}

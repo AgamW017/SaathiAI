@@ -5,8 +5,13 @@ import { supabase as _supabase } from '../../db/client.js';
 import { handleSupabaseError } from '../errors.js';
 import { triggerRiskScoreUpdate, computeProfileCompleteness } from '../../services/riskService.js';
 import { verificationTier, computeSalaryDiscrepancy } from '../../utils/verification.js';
+import { config } from '../../config/env.js';
+import { logger } from '../../config/logger.js';
 const supabase = _supabase as any;
 import type { LearnerRow, ApplicationRow } from '../../db/types.js';
+
+const BOT_INTERNAL_URL =
+  process.env.BOT_INTERNAL_URL || `http://localhost:${config.bot.adminWsPort}`;
 
 // ─── Sub-routers ──────────────────────────────────────────────────────────────
 
@@ -497,6 +502,17 @@ const cohortRouter = router({
       const { cohort_name, learners } = input;
       let inserted = 0;
       let skipped = 0;
+      const newLearners: Array<{ id: string; phone: string }> = [];
+
+      const { data: cohort, error: cohortError } = await supabase
+        .from('cohorts')
+        .insert({ name: cohort_name, officer_id: ctx.user.sub })
+        .select('id, name')
+        .single();
+
+      if (cohortError) {
+        throw new Error(`Failed to create cohort: ${cohortError.message}`);
+      }
 
       for (const l of learners) {
         // Check if learner already exists (deduplication by phone)
@@ -516,7 +532,7 @@ const cohortRouter = router({
           full_name: l.full_name ?? null,
           trade: l.trade ?? null,
           district: l.district ?? null,
-          cohort: cohort_name,
+          cohort_id: cohort.id,
           status: 'active',
           risk_score: 0,
           officer_id: ctx.user.sub,
@@ -525,6 +541,7 @@ const cohortRouter = router({
         if (!error) {
           inserted++;
           if (inserted_row?.id) {
+            newLearners.push({ id: inserted_row.id, phone: l.phone });
             triggerRiskScoreUpdate(inserted_row.id, {
               days_since_last_response: 0,
               status: 'active',
@@ -538,6 +555,16 @@ const cohortRouter = router({
             });
           }
         }
+      }
+
+      if (newLearners.length > 0) {
+        fetch(`${BOT_INTERNAL_URL}/internal/trigger-onboarding`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ learners: newLearners }),
+        }).catch((error) => {
+          logger.error({ error }, 'Failed to reach bot service for onboarding trigger');
+        });
       }
 
       return { cohort: cohort_name, inserted, skipped, total: learners.length };
@@ -563,7 +590,7 @@ const reportsRouter = router({
       const { data, error } = await query;
       if (error) handleSupabaseError(error, 'dashboard.reports.cohortHealth');
 
-      const learners = (data ?? []) as Pick<LearnerRow, 'status' | 'risk_score' | 'cohort'>[];
+      const learners = (data ?? []) as Pick<LearnerRow, 'status' | 'risk_score' | 'cohort_id'>[];
       const total = learners.length;
       const placed = learners.filter((l) => l.status === 'placed').length;
       const at_risk = learners.filter((l) => l.status === 'at_risk').length;

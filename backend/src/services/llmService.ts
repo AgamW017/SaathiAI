@@ -14,7 +14,7 @@ const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const GROQ_TIMEOUT_MS = 30_000;
 
 const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent';
 const GEMINI_TIMEOUT_MS = 60_000;
 
 // --- Types ---
@@ -76,6 +76,7 @@ export class LlmService {
         return result;
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
+        logger.error({ error }, `Gemini fallback also failed: ${msg}`);
         throw new Error(`Both LLM providers failed. Gemini error: ${msg}`);
       }
     }
@@ -107,6 +108,7 @@ export class LlmService {
         return { text, provider: 'gemini' };
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
+        logger.error({ error }, `Gemini fallback also failed: ${msg}`);
         throw new Error(`Both LLM providers failed. Gemini error: ${msg}`);
       }
     }
