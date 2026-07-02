@@ -154,9 +154,15 @@ export class WhatsAppBot {
     }
 
     try {
-      const isVoice = message.hasMedia && ['ptt', 'audio'].includes(message.type);
-      const isDocument = message.hasMedia && ['image', 'document', 'sticker'].includes(message.type);
-      const media = (isVoice || isDocument) ? await message.downloadMedia() : null;
+      // Download media first so we can inspect the actual MIME type.
+      // WhatsApp sometimes sends voice notes as "document" type — we detect those via MIME.
+      const rawMedia = message.hasMedia ? await message.downloadMedia() : null;
+      const actualMime = rawMedia?.mimetype ?? '';
+      const isVoice = message.hasMedia && (
+        ['ptt', 'audio'].includes(message.type) ||
+        (message.type === 'document' && /^audio\//i.test(actualMime))
+      );
+      const isDocument = message.hasMedia && !isVoice && ['image', 'document', 'sticker'].includes(message.type);
       const author = message.author ?? message.from;
 
       // Get quoted/replied-to message body if this is a reply
@@ -177,7 +183,12 @@ export class WhatsAppBot {
         body: cleanMessageBody(message.body ?? ''),
         type: message.type,
         isVoice,
-        media,
+        isDocument,
+        // voiceMedia: used only for transcription; documentMedia: passed to document handlers.
+        // Keeping both under `media` is kept for backward compat with textFromIncoming,
+        // but we also expose a clean split so handlers can be explicit.
+        media: isDocument ? rawMedia : null,       // image/PDF/doc for document handlers
+        voiceMedia: isVoice ? rawMedia : null,     // audio for Sarvam transcription
         fromGroup: message.from.endsWith('@g.us'),
         quotedBody,
       };

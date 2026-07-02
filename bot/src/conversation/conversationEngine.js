@@ -201,7 +201,9 @@ export class ConversationEngine {
       return null;
     }
 
-    const transcript = await this.transcriptionService.transcribe(incoming.media);
+    // voiceMedia is the dedicated audio field; fall back to media for backward compat
+    const audioMedia = incoming.voiceMedia ?? incoming.media;
+    const transcript = await this.transcriptionService.transcribe(audioMedia);
     if (transcript) {
       session.context.lastVoiceTranscriptionError = null;
       session.script = chooseScript(session, transcript);
@@ -440,10 +442,17 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
   async collectAllOnboardingInfo(session, text) {
     const collected = { name: false, trade: false, district: false };
 
+    // Build a contextual text that includes recent conversation history.
+    // This allows the LLM to see what the user mentioned in earlier messages,
+    // preventing re-asking for information the user has already provided
+    // (even if the extraction failed at that moment due to low confidence).
+    const recentHistory = (session.context.chatHistory ?? []).slice(-6);
+    const contextualText = buildContextualExtractionText(text, recentHistory);
+
     // Extract name (only if not already known)
     if (!session.collected.name) {
       try {
-        const nameResult = await this.extractionService.extractName(text, { script: session.script });
+        const nameResult = await this.extractionService.extractName(contextualText, { script: session.script });
         this.addAiFlags(session, nameResult.flags, 'name');
         if (nameResult.name) {
           session.collected.name = nameResult.name;
@@ -457,7 +466,7 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
 
     // Extract trade/district/state (merge with existing, don't overwrite what we have)
     try {
-      const profileResult = await this.extractionService.extractProfile(text, session.collected);
+      const profileResult = await this.extractionService.extractProfile(contextualText, session.collected);
       this.addAiFlags(session, profileResult.flags, 'profile');
       if (profileResult.trade && !session.collected.trade) {
         session.collected.trade = profileResult.trade;
@@ -480,7 +489,7 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
     // Opportunistically extract certificate if missing
     if (!session.collected.certificateType) {
       try {
-        const certResult = await this.extractionService.extractCertificate(text);
+        const certResult = await this.extractionService.extractCertificate(contextualText);
         // FIX: Check normalizedType to prevent hallucinated certificateTypes from skipping the step
         if (certResult.certificateType && certResult.normalizedType !== 'Unknown') {
           session.collected.certificateType = certResult.certificateType;
@@ -496,7 +505,7 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
     // Opportunistically extract skills if missing
     if (!session.collected.skills || session.collected.skills.length === 0) {
       try {
-        const skillResult = await this.extractionService.extractSkills(text, []);
+        const skillResult = await this.extractionService.extractSkills(contextualText, []);
         if (skillResult.skills && skillResult.skills.length > 0) {
           session.collected.skills = skillResult.skills;
           collected.skills = true;
@@ -630,7 +639,7 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
       }
 
       // If trade changed and old trade exists, ask whether to add or replace
-      if (extracted.trade && session.collected.trade && normalize(extracted.trade) !== normalize(session.collected.trade)) {
+      if (extracted.trade && session.collected.trade && normalizeText(extracted.trade) !== normalizeText(session.collected.trade)) {
         session.context.awaitingTradeChoice = true;
         session.context.pendingNewTrade = extracted.trade;
         session.context.pendingOldTrade = session.collected.trade;
@@ -808,10 +817,25 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
    */
   async _handleAadhaarNumberPhase(session, text, media) {
     const messages = t(session.script);
-    const mediaItems = Array.isArray(media) ? media : (media ? [media] : []);
+    const allItems = Array.isArray(media) ? media : (media ? [media] : []);
+
+    // Filter out audio files — voice notes are transcribed to `text` already;
+    // attempting Docling on an audio buffer would always fail.
+    const AUDIO_MIME_RE = /^audio\//i;
+    const mediaItems = allItems.filter(item => !AUDIO_MIME_RE.test(item.mimetype || item.mimeType || ''));
+
+    // ── Caption check: typed/spoken aadhaar number even when an image is present ──
+    // We run this before the image extraction so a valid 12-digit caption wins immediately.
+    const captionCleaned = (text ?? '').trim().replace(/[\s\-]/g, '');
+    const captionIsAadhaar = /^\d{12}$/.test(captionCleaned);
 
     // ── User sent a photo/PDF: try to extract Aadhaar number via Docling ──
     if (mediaItems.length > 0) {
+      // If the caption itself contains a valid Aadhaar number, use it directly.
+      if (captionIsAadhaar) {
+        return this._triggerAadhaarOtp(session, captionCleaned);
+      }
+
       const item = mediaItems[0];
       const mimeType = item.mimetype || item.mimeType || '';
       const filename = item.filename || 'aadhaar_card';
@@ -830,6 +854,17 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
         }
       } catch (err) {
         this.logger.warn({ err, phone: session.phone }, 'Aadhaar number extraction failed');
+      }
+
+      // Extraction from image failed. The user might have also typed the number as a caption —
+      // check the text one more time (in case it didn't have exactly 12 cleaned digits above
+      // due to partial formatting like "1234-5678-9012" with other text around it).
+      if (text && text.trim()) {
+        const anyDigits = text.replace(/[\s\-]/g, '');
+        const match12 = anyDigits.match(/\d{12}/);
+        if (match12) {
+          return this._triggerAadhaarOtp(session, match12[0]);
+        }
       }
 
       const brief = `The user sent an image/document at the Aadhaar collection step. The system tried to extract an Aadhaar number from it but failed (it might not be an Aadhaar card, or the photo might be too blurry).
@@ -857,11 +892,19 @@ Keep it encouraging, human, and very short (1-2 sentences).`;
       return [this.message(messages.aadhaarPhotoUnclear, { intent: 'aadhaar_photo_unclear' })];
     }
 
-    // ── User typed something: check if it's a valid Aadhaar number ──────────
+    // ── User typed/spoke something: check for a valid Aadhaar number ─────────
+    // This handles:
+    //   • Typed number: "1234 5678 9012" or "123456789012"
+    //   • Voice transcribed: "my aadhaar is 1234 5678 9012"
     if (text && text.trim()) {
-      const cleaned = text.trim().replace(/[\s\-]/g, '');
-      if (/^\d{12}$/.test(cleaned)) {
-        return this._triggerAadhaarOtp(session, cleaned);
+      // First: exact 12-digit match after stripping spaces/hyphens
+      if (captionIsAadhaar) {
+        return this._triggerAadhaarOtp(session, captionCleaned);
+      }
+      // Second: 12 contiguous digits anywhere in the message (handles "mera aadhaar 123456789012 hai")
+      const embeddedMatch = text.replace(/[\s\-]/g, '').match(/\d{12}/);
+      if (embeddedMatch) {
+        return this._triggerAadhaarOtp(session, embeddedMatch[0]);
       }
 
       // Not 12 digits — re-prompt
@@ -1054,8 +1097,33 @@ Keep it to 2-3 sentences. Be warm and encouraging.`;
       return [this.message(messages.askCertificate, { intent: 'ask_certificate' })];
     }
 
-    const mediaItems = Array.isArray(media) ? media : (media ? [media] : []);
+    // Filter audio files — voice notes are transcribed to `text` already.
+    const AUDIO_MIME_RE = /^audio\//i;
+    const allItems = Array.isArray(media) ? media : (media ? [media] : []);
+    const mediaItems = allItems.filter(item => !AUDIO_MIME_RE.test(item.mimetype || item.mimeType || ''));
+
     if (mediaItems.length === 0) {
+      // ── Check if user explicitly says they have no certificate ──────────
+      // This handles: "no cert", "nahi hai", "N/A", "no training", spoken transcripts, etc.
+      if (text && text.trim() && isNoCertificateText(text)) {
+        // Mark certificate as N/A and advance to skills
+        session.collected.certificateType = session.collected.certificateType ?? 'N/A';
+        session.collected.certificateNormalizedType = 'None';
+        session.context.aadhaarPhase = 'done';
+        session.step = Steps.SKILL_EXTRACTION;
+
+        const naCertMsg = session.script === 'devanagari'
+          ? '✅ कोई बात नहीं! Certificate के बिना भी आपका skill card बन जाएगा। अब आपकी skills बताइए।'
+          : session.script === 'english'
+            ? '✅ No problem! Your skill card can still be created without a certificate. Now tell me about your skills.'
+            : '✅ Koi baat nahi! Certificate ke bina bhi aapka skill card ban jayega. Ab aapki skills batao.';
+
+        return [
+          this.message(naCertMsg, { intent: 'cert_na', facts: { aiGenerated: true } }),
+          this.message(messages.askSkills, { intent: 'ask_skills' })
+        ];
+      }
+
       // User typed a message instead of sending a file — use AI to address it
       if (text && text.trim()) {
         session.context.certPromptCount = (session.context.certPromptCount ?? 0) + 1;
@@ -1063,7 +1131,8 @@ Keep it to 2-3 sentences. Be warm and encouraging.`;
 
         const brief = `The learner said "${text}" when asked to upload their skill/training certificate (attempt #${attempt}).
 Address what they said naturally. Explain that uploading their certificate helps employers verify their skills, which gets them better job matches.
-If they don't have it right now, suggest they find it and take a clear photo (PNG, JPEG, or PDF).
+If they say they don't have a certificate at all, let them know they can skip it and their profile will still be created.
+If they don't have it right now but might have it, suggest they find it and take a clear photo (PNG, JPEG, or PDF).
 Keep it short (2-3 sentences) and encouraging.`;
 
         try {
@@ -1790,4 +1859,38 @@ function formatSalary(job) {
 
 function withoutEmptyValues(value) {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined && item !== null && item !== ''));
+}
+
+/**
+ * Returns true if the user's text clearly indicates they have NO certificate.
+ * Handles Hindi, Hinglish, English variants.
+ */
+function isNoCertificateText(text) {
+  const t = text.toLowerCase().trim();
+  // Standalone "N/A", "NA", "no", "none"
+  if (/^\s*n[\s\/]?a\s*$/i.test(t)) return true;
+  if (/^\s*(no|none|nahi|nai|nhi|nahin)\s*$/i.test(t)) return true;
+  // Phrases indicating absence of certificate/training
+  const noCertPatterns = [
+    /\b(no|koi nahi|kuch nahi|nahi hai|nahin hai|nai hai|nahi mila|nahi mili|nhi hai)\b/,
+    /\b(no certificate|no cert|no training|no course|no qualification)\b/,
+    /\b(certificate nahi|cert nahi|nahi mila certificate|training nahi ki)\b/,
+    /\b(nhi li|nahi li|nahin li|nahi kiya|nai kiya)\b/,
+    /\b(mere paas nahi|mere pass nahi|hamare paas nahi)\b/,
+    /\b(i don'?t have|i have no|don'?t have any|didn'?t do any)\b/,
+  ];
+  return noCertPatterns.some(p => p.test(t));
+}
+
+/**
+ * Build contextual text for LLM extraction tasks.
+ * Prepends recent chat history so the model can see what the user has already said,
+ * enabling context-aware extraction even when current message is brief.
+ */
+function buildContextualExtractionText(currentText, recentHistory) {
+  if (!recentHistory || recentHistory.length === 0) return currentText;
+  const lines = recentHistory
+    .map(m => `${m.role === 'user' ? 'User' : 'Bot'}: ${m.text}`)
+    .join('\n');
+  return `[Recent conversation]\n${lines}\n\n[Current message]\n${currentText}`;
 }

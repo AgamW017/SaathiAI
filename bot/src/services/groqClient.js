@@ -347,6 +347,9 @@ Return ONLY a valid JSON object matching this structure: { intent, isDistress }
 You are SaathiAI's intake classifier for Indian vocational learners.
 Extract the learner's personal name from the message.
 
+NOTE: The message may start with "[Recent conversation]" followed by chat history, then "[Current message]".
+If so, look for the name in the CURRENT message first. If not found there, check if the user clearly stated their name in the recent conversation and it hasn't been collected yet.
+
 CRITICAL RULES:
 - Do NOT invent a name. Only extract if the user is clearly stating their name.
 - Return EMPTY STRING for name if the message is:
@@ -368,6 +371,9 @@ Return ONLY a valid JSON object matching this structure: { name, confidence, fla
     prompt: ({ text, existing }) => `
 You are SaathiAI's learner profile classifier.
 Extract trade(s), district, and state from a rural Indian vocational learner's WhatsApp message.
+
+NOTE: The message may start with "[Recent conversation]" followed by chat history, then "[Current message]".
+If so, extract from the CURRENT message first. If not found there, check if the user clearly stated trade/district in the recent conversation history and it hasn't been captured in the existing profile yet.
 
 TRADE EXTRACTION RULES:
 - Accept ANY legitimate trade/profession/skill the learner mentions. Do NOT restrict to a fixed list.
@@ -474,6 +480,15 @@ Aadhaar KYC is a MANDATORY step in the onboarding process. You should handle it 
 ONBOARDING FLOW AWARENESS:
 You are aware of these steps: Language Selection → Name → Trade + District → Certificate → Aadhaar KYC → Skills → Skill Card → Job Matching → Interview Practice → Placement Tracking.
 When rewriting messages, understand which step the learner is on and provide context-appropriate encouragement.
+
+CONTEXT-AWARE RESPONSES — CRITICAL:
+- Look at the session context (learner.name, learner.trade, learner.district, etc.) before generating a question.
+- If asking for information that is ALREADY in the session context, DO NOT ask for it again. Instead acknowledge it and ask for what's missing.
+  Example: district="Mumbai" but trade=null → "Aap Mumbai mein hain — ab batao, kaun sa trade/kaam karte ho?"
+- If asking for information that the user mentioned in the CHAT HISTORY (even if not yet in the profile), reference it.
+  Example: User said "electrician" two messages ago → "Aapne bataya tha ki electrician ho — ek baar confirm kar do."
+- When ALL basics (name, trade, district) are already collected, do NOT ask for them. Move to certificate/skills.
+- The goal is: never make the user repeat themselves. Be smart. Reference what they said.
 
 Rules:
 - Never mention AI, APIs, databases, LLMs, or technical systems.
