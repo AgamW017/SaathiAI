@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { trpc } from '../../../../lib/trpc/client';
+import { useAuth } from '../../../../lib/auth/authStore';
 
 function Skeleton({ width = '100%', height = '16px', radius = '6px' }: { width?: string; height?: string; radius?: string }) {
   return (
@@ -192,6 +193,8 @@ function CohortsTable({ showAll }: { showAll: boolean }) {
 
 export default function CohortsPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const canViewAll = user?.role === 'dssdo' || user?.role === 'admin';
   const [showAll, setShowAll] = useState(false);
 
   return (
@@ -217,7 +220,7 @@ export default function CohortsPage() {
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <SegmentedToggle value={showAll} onChange={setShowAll} />
+            {canViewAll && <SegmentedToggle value={showAll} onChange={setShowAll} />}
             <button
               onClick={() => router.push('/dashboard/officer/cohorts/upload')}
               style={{

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { requireBotSecret } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { BotEventSchema } from '../schemas/index.js';
@@ -7,6 +8,8 @@ import { authenticate, authorize } from '../middleware/auth.js';
 import { generateAadhaarOtp, verifyAadhaarOtp } from '../services/sandboxService.js';
 import { DocumentParserService } from '../services/documentParserService.js';
 import { fetchJobsForLearner } from '../services/sidhScrapingService.js';
+
+const demoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 export const internalRouter = Router();
 
@@ -322,6 +325,31 @@ internalRouter.post(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(502).json({ error: `SIDH job fetch failed: ${message}` });
+    }
+  }
+);
+
+/**
+ * POST /admin/docling-demo
+ * No auth — demo-only endpoint for presentation use.
+ * Accepts a file upload, runs it through Docling, returns raw markdown text.
+ */
+internalRouter.post(
+  '/docling-demo',
+  demoUpload.single('file'),
+  async (req, res) => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+    try {
+      const parser = new DocumentParserService();
+      const result = await parser.parseDocument(file.buffer, file.mimetype, file.originalname);
+      res.json({ markdown: result.text, pages: result.pages ?? null });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: `Docling parse failed: ${message}` });
     }
   }
 );

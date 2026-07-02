@@ -1,87 +1,125 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-export default function AdminPage() {
-  const [botStatus, setBotStatus] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export default function AdminLogin() {
+  const [user, setUser] = useState("");
+  const [pass, setPass] = useState("");
+  const [error, setError] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-
-    async function fetchStatus() {
-      try {
-        const res = await fetch("http://localhost:4000/admin/bot-status");
-        if (!res.ok) throw new Error("Failed to fetch status");
-        const data = await res.json();
-        setBotStatus(data);
-        setError(null);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+    // If already logged in, redirect to whatsapp
+    if (sessionStorage.getItem("admin_authed") === "true") {
+      router.push("/admin/whatsapp");
     }
+  }, [router]);
 
-    // Initial fetch
-    fetchStatus();
-
-    // Poll every 3 seconds
-    interval = setInterval(fetchStatus, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (user === "admin" && pass === "admin") {
+      sessionStorage.setItem("admin_authed", "true");
+      router.push("/admin/whatsapp");
+    } else {
+      setError("Invalid credentials");
+      // setPass("");
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-white flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-neutral-800 p-8 rounded-xl shadow-lg border border-neutral-700">
-        <div>
-          <h2 className="text-center text-3xl font-extrabold text-white">
-            SaathiAI Admin
-          </h2>
-          <p className="mt-2 text-center text-sm text-neutral-400">
-            WhatsApp Bot Status & Management
-          </p>
-        </div>
-
-        <div className="mt-8 space-y-6">
-          <div className="rounded-md bg-neutral-900/50 p-4 border border-neutral-700">
-            <h3 className="text-lg font-medium leading-6 text-white mb-4">
-              Connection Status
-            </h3>
-            
-            {loading && !botStatus ? (
-              <p className="text-neutral-400 text-center py-4">Loading...</p>
-            ) : error ? (
-              <p className="text-red-400 text-center py-4">Error: {error}</p>
-            ) : (
-              <div className="flex flex-col items-center space-y-6">
-                <div className="flex items-center space-x-2">
-                  <span className={`h-3 w-3 rounded-full ${botStatus?.connected ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`}></span>
-                  <span className="text-xl font-semibold capitalize">
-                    {botStatus?.status?.replace('_', ' ') || 'Unknown'}
-                  </span>
-                </div>
-
-                {botStatus?.qr && !botStatus?.connected && (
-                  <div className="flex flex-col items-center space-y-4">
-                    <p className="text-sm text-neutral-400">Scan this QR code with WhatsApp</p>
-                    <div className="bg-white p-4 rounded-xl shadow-inner">
-                      <img src={botStatus.qr} alt="WhatsApp QR Code" className="w-64 h-64 object-contain" />
-                    </div>
-                  </div>
-                )}
-                
-                {botStatus?.connected && (
-                  <div className="bg-green-900/30 text-green-400 px-4 py-3 rounded-lg border border-green-800/50 w-full text-center">
-                    Bot is connected and ready to process messages.
-                  </div>
-                )}
-              </div>
-            )}
+    <div style={{
+      minHeight: "100vh",
+      background: "#0f161e",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontFamily: "system-ui, sans-serif",
+    }}>
+      <div style={{
+        background: "#1a2330",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: "20px",
+        padding: "40px",
+        width: "360px",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+      }}>
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: "32px" }}>
+          <div style={{
+            width: "48px", height: "48px", borderRadius: "12px",
+            background: "#fa5d00",
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            marginBottom: "12px",
+          }}>
+            <svg width="26" height="26" viewBox="0 0 36 36" fill="none">
+              <path d="M9 27c0-5 4-8.5 9-8.5s9 3.5 9 8.5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
+              <circle cx="18" cy="13" r="5" fill="#fff" />
+            </svg>
           </div>
+          <div style={{ fontSize: "22px", fontWeight: 700, color: "#fff" }}>SaathiAI Admin</div>
+          <div style={{ fontSize: "13px", color: "#6b7a8d", marginTop: "4px" }}>Internal tools & demos</div>
         </div>
+
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+          <div>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#8a96a3", display: "block", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Username
+            </label>
+            <input
+              type="text"
+              value={user}
+              onChange={(e) => { setUser(e.target.value); setError(""); }}
+              placeholder="admin"
+              style={{
+                width: "100%", padding: "11px 14px", borderRadius: "10px",
+                border: "1.5px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.05)", color: "#fff",
+                fontSize: "14px", fontFamily: "inherit", outline: "none",
+                boxSizing: "border-box",
+              }}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#8a96a3", display: "block", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Password
+            </label>
+            <input
+              type="password"
+              value={pass}
+              onChange={(e) => { setPass(e.target.value); setError(""); }}
+              placeholder="••••••"
+              style={{
+                width: "100%", padding: "11px 14px", borderRadius: "10px",
+                border: `1.5px solid ${error ? "#dc2626" : "rgba(255,255,255,0.1)"}`,
+                background: "rgba(255,255,255,0.05)", color: "#fff",
+                fontSize: "14px", fontFamily: "inherit", outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ fontSize: "13px", color: "#f87171", background: "rgba(220,38,38,0.1)", padding: "10px 14px", borderRadius: "8px", border: "1px solid rgba(220,38,38,0.2)" }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            style={{
+              marginTop: "6px", padding: "12px", borderRadius: "10px",
+              border: "none", background: "#004038", color: "#fff",
+              fontSize: "14px", fontWeight: 600, cursor: "pointer",
+              fontFamily: "inherit", transition: "background 0.15s",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#005c50"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#004038"; }}
+          >
+            Sign in
+          </button>
+        </form>
       </div>
     </div>
   );

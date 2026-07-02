@@ -1,5 +1,6 @@
 import { supabase } from '../db/client.js';
 import { logger } from '../config/logger.js';
+import { llmService } from './llmService.js';
 import type { LearnerRow } from '../db/types.js';
 
 // --- Types ---
@@ -42,6 +43,7 @@ export interface ReportData {
   retentionRates: RetentionRates;
   employerBreakdown: EmployerBreakdownEntry[];
   tradeDistribution: TradeDistributionEntry[];
+  aiAnalysis: string | null;
   generatedAt: string;
   filters: ReportParams;
 }
@@ -175,6 +177,17 @@ export class MISReportService {
     // 8. Compute trade-wise distribution
     const tradeDistribution = this.computeTradeDistribution(learners);
 
+    // 9. Generate AI narrative analysis (non-blocking — failure returns null)
+    const aiAnalysis = await this.generateAIAnalysis({
+      summary,
+      placementRate,
+      averageSalary,
+      retentionRates,
+      employerBreakdown,
+      tradeDistribution,
+      filters: params,
+    });
+
     const reportData: ReportData = {
       summary,
       placementRate,
@@ -182,6 +195,7 @@ export class MISReportService {
       retentionRates,
       employerBreakdown,
       tradeDistribution,
+      aiAnalysis,
       generatedAt: new Date().toISOString(),
       filters: params,
     };
@@ -389,6 +403,53 @@ export class MISReportService {
     return [...employerCounts.entries()]
       .map(([employer, count]) => ({ employer, count }))
       .sort((a, b) => b.count - a.count);
+  }
+
+  /**
+   * Generate an AI narrative analysis from aggregated metrics.
+   * Returns null if the LLM call fails — callers must handle gracefully.
+   */
+  private async generateAIAnalysis(data: {
+    summary: ReportSummary;
+    placementRate: number;
+    averageSalary: number | null;
+    retentionRates: RetentionRates;
+    employerBreakdown: EmployerBreakdownEntry[];
+    tradeDistribution: TradeDistributionEntry[];
+    filters: ReportParams;
+  }): Promise<string | null> {
+    try {
+      const topTrades = data.tradeDistribution.slice(0, 3).map((t) => `${t.trade} (${t.count})`).join(', ');
+      const topEmployers = data.employerBreakdown.slice(0, 3).map((e) => `${e.employer} (${e.count})`).join(', ');
+      const retention = data.retentionRates;
+
+      const prompt = `You are an ITI placement analyst writing a concise MIS report analysis for a government officer.
+
+Data:
+- Period: ${data.filters.periodFrom} to ${data.filters.periodTo}${data.filters.cohort ? ` | Cohort: ${data.filters.cohort}` : ''}
+- Total learners: ${data.summary.total}
+- Placed: ${data.summary.placed} (${data.placementRate}%)
+- Active: ${data.summary.active}, At risk: ${data.summary.at_risk}, Dropped: ${data.summary.dropped}
+- Average salary: ${data.averageSalary !== null ? `₹${data.averageSalary.toLocaleString()}` : 'N/A'}
+- Retention — 30-day: ${retention.day30 !== null ? `${retention.day30}%` : 'N/A'}, 60-day: ${retention.day60 !== null ? `${retention.day60}%` : 'N/A'}, 90-day: ${retention.day90 !== null ? `${retention.day90}%` : 'N/A'}
+- Top trades: ${topTrades || 'N/A'}
+- Top employers: ${topEmployers || 'N/A'}
+
+Write 4-5 concise bullet points (each starting with "• ") that:
+1. Assess overall placement performance vs a 60% target
+2. Highlight retention health (drop-off risk)
+3. Identify the strongest trade/employer combination
+4. Flag any at-risk or drop-out concern
+5. Give one concrete action recommendation for the officer
+
+Write in formal English suitable for a government report. No headers, just the bullets.`;
+
+      const text = await llmService.generateContent(prompt);
+      return text.trim();
+    } catch (error) {
+      logger.warn({ error }, 'AI analysis generation failed — continuing without it');
+      return null;
+    }
   }
 
   /**

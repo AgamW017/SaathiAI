@@ -26,6 +26,7 @@ const learnerRouter = router({
         cohort_id: z.string().uuid().optional(),
         district: z.string().optional(),
         trade: z.string().optional(),
+        search: z.string().optional(),
         risk_score_min: z.number().min(0).max(100).optional(),
         risk_score_max: z.number().min(0).max(100).optional(),
         page: z.number().int().min(1).default(1),
@@ -33,7 +34,7 @@ const learnerRouter = router({
       })
     )
     .query(async ({ input }) => {
-      const { status, cohort_id, district, trade, risk_score_min, risk_score_max, page, limit } = input;
+      const { status, cohort_id, district, trade, search, risk_score_min, risk_score_max, page, limit } = input;
       const from = (page - 1) * limit;
       const to = from + limit - 1;
 
@@ -47,6 +48,7 @@ const learnerRouter = router({
       if (cohort_id) query = query.eq('cohort_id', cohort_id);
       if (district) query = query.eq('district', district);
       if (trade) query = query.eq('trade', trade);
+      if (search) query = query.ilike('full_name', `%${search}%`);
       if (risk_score_min !== undefined) query = query.gte('risk_score', risk_score_min);
       if (risk_score_max !== undefined) query = query.lte('risk_score', risk_score_max);
 
@@ -618,6 +620,32 @@ const reportsRouter = router({
     }),
 });
 
+const jobsRouter = router({
+  /**
+   * Search active job postings by title or company name.
+   * Used by the officer UI to pick a job without knowing its UUID.
+   */
+  search: officerProcedure
+    .input(
+      z.object({
+        q: z.string().min(1).max(200),
+        limit: z.number().int().min(1).max(50).default(20),
+      })
+    )
+    .query(async ({ input }) => {
+      const { q, limit } = input;
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, title, company, district, trade, is_active')
+        .or(`title.ilike.%${q}%,company.ilike.%${q}%`)
+        .eq('is_active', true)
+        .limit(limit);
+
+      if (error) handleSupabaseError(error, 'dashboard.jobs.search');
+      return { data: (data ?? []) as Array<{ id: string; title: string | null; company: string | null; district: string | null; trade: string | null; is_active: boolean | null }> };
+    }),
+});
+
 // ─── Main Dashboard Router ────────────────────────────────────────────────────
 
 export const dashboardRouter = router({
@@ -905,4 +933,5 @@ export const dashboardRouter = router({
   employers: employersRouter,
   cohort: cohortRouter,
   reports: reportsRouter,
+  jobs: jobsRouter,
 });
