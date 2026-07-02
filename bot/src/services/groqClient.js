@@ -326,7 +326,8 @@ Possible intents:
 - 'practice': user wants to practice interviews.
 - 'card': user wants to see or share their skill card.
 - 'help': user needs help or assistance.
-- 'stop': user wants to stop, unsubscribe, or opt out.
+- 'stop': user wants to stop, unsubscribe, or opt out of the service entirely. Refusing to answer a specific question (e.g. "I won't give my Aadhaar") is NOT 'stop', it is 'refuse_aadhaar' or 'none'.
+- 'refuse_aadhaar': user explicitly refuses to provide Aadhaar details, asks why it's needed, or says they don't have it right now.
 - 'start': user wants to start or resume.
 - 'status': user wants to check their application status.
 - 'placed': user got a job, got placed, or has been selected.
@@ -345,8 +346,16 @@ Return ONLY a valid JSON object matching this structure: { intent, isDistress }
     prompt: ({ text, script }) => `
 You are SaathiAI's intake classifier for Indian vocational learners.
 Extract the learner's personal name from the message.
-Do not invent. If the message is a greeting, command, emoji, phone number, or not a name, return an empty string for name.
-Return professional flags for suspicious/ambiguous input.
+
+CRITICAL RULES:
+- Do NOT invent a name. Only extract if the user is clearly stating their name.
+- Return EMPTY STRING for name if the message is:
+  • A question (e.g., "kyu chahiye mera naam", "why do you need my name", "naam kyu batau")
+  • A complaint or pushback (e.g., "I don't want to tell", "nahi bataunga")
+  • A greeting, command, emoji, phone number, or random text
+  • Conversational filler that is NOT a personal name
+- If the message contains words like kyu, kya, chahiye, nahi, why, what, how — it is NOT a name. Return empty string.
+- Set confidence to 0.0 when returning empty string.
 
 Script: ${script}
 Message: ${JSON.stringify(text)}
@@ -374,6 +383,7 @@ CRITICAL — District/State resolution:
 - If the learner mentions a city/area, map it to the correct district and state.
 - Never leave state empty if district is known.
 - Do not overwrite existing correct fields unless the message clearly corrects them.
+- CRITICAL: If the message is completely unrelated to jobs, trades, or locations (e.g., random chat, weather, greetings), do NOT hallucinate. Return empty strings for trade, district, and state.
 
 Existing profile: ${JSON.stringify(existing)}
 Message: ${JSON.stringify(text)}
@@ -385,8 +395,11 @@ Return ONLY a valid JSON object matching this structure: { trade, district, stat
     schema: certificateSchema,
     prompt: ({ text }) => `
 Classify the learner's training/certificate source.
-Common normalized types: PMKVY, ITI, JSS, Polytechnic, Private Training Centre, Government Skill Centre, Unknown.
-Keep certificateType as the learner-friendly label. Add flags if ambiguous.
+Common normalized types: PMKVY, ITI, JSS, Polytechnic, Private Training Centre, Government Skill Centre, None, Unknown.
+Keep certificateType as the learner-friendly label (e.g., if they say "ITI", keep it "ITI").
+CRITICAL: If the user explicitly says they do NOT have a certificate, didn't do any training, or says "no" (e.g., "nhi li", "nahi hai", "none", "kuch nahi"), set BOTH certificateType and normalizedType to "None".
+CRITICAL: If the message is completely random, conversational filler, or unrelated to certificates, set BOTH certificateType and normalizedType to "Unknown".
+Add flags if ambiguous.
 
 Message: ${JSON.stringify(text)}
 
@@ -401,6 +414,7 @@ Prefer concrete tasks over broad subjects. Example: "3-phase panel wiring", "fau
 Keep each skill short and employer-readable.
 Do not invent skills. Merge mentally with existing skills but return only clean distinct skills.
 Flag vague answers, non-career content, safety concerns, distress, fraud risk, or unrelated input.
+CRITICAL: If the message is completely random, conversational filler, or unrelated to skills, return an empty array for skills_mentioned.
 
 Existing skills: ${JSON.stringify(existingSkills)}
 Message: ${JSON.stringify(text)}
@@ -467,6 +481,8 @@ Rules:
 - Never ask for bank details or passwords.
 - Keep messages under 800 characters unless listing multiple jobs.
 - If listing jobs, format them cleanly with bullet points and emojis.
+- If the brief contains numbered options, preserve them clearly for number-based replies.
+- **CRITICAL**: If the brief asks the user to upload a photo/image (e.g., Aadhaar card), you MUST explicitly mention that they can send a photo. Do not omit the photo option.
 - If the brief contains numbered options, preserve them clearly for number-based replies.
 - Ask only ONE clarifying question at a time — never bombard.
 - Add motivational touches naturally (not forced).

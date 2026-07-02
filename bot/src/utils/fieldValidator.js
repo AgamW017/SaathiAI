@@ -120,6 +120,20 @@ function validateName(value, confidence) {
   // Name should not be a common word or phrase
   const lower = value.toLowerCase();
   
+  // Reject if any word is a question/complaint word — these are never part of a name
+  const QUESTION_WORDS = new Set([
+    'kyu', 'kyun', 'kyon', 'why', 'kya', 'what', 'kaise', 'how', 'kab', 'when',
+    'kaun', 'who', 'kidhar', 'kahan', 'where', 'kitna', 'kitne', 'kitni',
+    'chahiye', 'chahie', 'nahi', 'nahin', 'mat', 'batao', 'bolo', 'batana',
+    'matlab', 'zaruri', 'zaroori', 'jaruri', 'jaroori', 'padta', 'padega',
+    'क्यों', 'क्या', 'कैसे', 'कब', 'कौन', 'कहाँ', 'कितना', 'चाहिए', 'नहीं', 'मत',
+    'बताओ', 'बोलो', 'मतलब', 'ज़रूरी'
+  ]);
+  const words = lower.split(/\s+/);
+  if (words.some(w => QUESTION_WORDS.has(w))) {
+    return { valid: false, value: null, reason: 'contains_question_or_complaint_word' };
+  }
+
   // Reject if it looks like a sentence (has spaces and common sentence words)
   if (/^(i am|my name|mera naam|main|mai|hum|mere|meri)\b/i.test(value)) {
     // Try to extract the actual name from "I am X" or "Mera naam X hai"

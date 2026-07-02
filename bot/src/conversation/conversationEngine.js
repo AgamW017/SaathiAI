@@ -1,8 +1,9 @@
 import { EventTypes, PlacementStatus, StepNames, Steps } from '../constants/steps.js';
 import { isDocumentUploadEnabled } from '../constants/config.js';
 import { t, withOptions, LANGUAGE_MENU } from '../templates/messages.js';
-import { chooseScript } from '../utils/scriptDetector.js';
+import { chooseScript, detectScript } from '../utils/scriptDetector.js';
 import { isAffirmative, isNegative, normalizeText, parseNumberChoice } from '../utils/text.js';
+import { detectKeywordIntent } from './keywordRouter.js';
 
 import { verificationLabel } from '../services/jobService.js';
 
@@ -66,8 +67,23 @@ export class ConversationEngine {
       return { replies: draftedReplies, session };
     }
 
-    // Only auto-detect script if the user hasn't locked their language preference
-    if (!session.language) {
+    // Seamless language auto-switching: always detect what the user is typing
+    // and silently adapt if they switch languages mid-conversation
+    if (session.language) {
+      const detected = detectScript(text);
+      if (detected.detectedLanguage && detected.confidence >= 0.6 && detected.detectedLanguage !== session.language) {
+        const match = LANGUAGE_OPTIONS.find(o => o.value === detected.detectedLanguage);
+        if (match) {
+          this.logger.info(
+            { phone: session.phone, from: session.language, to: match.value, confidence: detected.confidence },
+            'Seamless language switch detected'
+          );
+          session.language = match.value;
+          session.script = match.script;
+        }
+      }
+    } else {
+      // No language set yet — use basic script detection
       session.script = chooseScript(session, text);
     }
     session.lastInteractionAt = new Date().toISOString();
@@ -202,17 +218,29 @@ export class ConversationEngine {
     const { intent, isDistress } = await this.extractionService.extractIntent(text, StepNames[session.step]);
 
     if (intent && intent !== 'none') {
-      const isOnboarding = session.step < Steps.JOBS_SHOWN && session.step !== Steps.NEW;
-      const globalKeywords = ['stop', 'start', 'help', 'placed', 'distress'];
-      
-      // Prevent random feature jumps during onboarding
-      if (isOnboarding && !globalKeywords.includes(intent)) {
-        this.logger.debug({ phone: session.phone, intent, step: session.step }, 'Ignored feature intent during onboarding');
-      } else {
-        if (intent === 'distress' || isDistress) {
-          return [this.message(withOptions(messages.empathetic, [messages.labels.showJobs, messages.labels.wait]))];
+      if (intent === 'refuse_aadhaar') {
+        if (session.step === Steps.ONBOARDING_DOCUMENTS || session.step === Steps.AADHAAR_OTP_SENT) {
+          session.context.aadhaarRefusals = (session.context.aadhaarRefusals ?? 0) + 1;
+          if (session.context.aadhaarRefusals >= 2) {
+            session.step = Steps.STOPPED;
+            session.placementStatus = PlacementStatus.STOPPED;
+            return [this.message(messages.aadhaarMandatoryStop, { intent: 'aadhaar_mandatory_stop' })];
+          }
         }
-        return this.handleKeyword(session, intent);
+        // Let it fall through so handleDocumentUpload/LLM can explain the privacy benefits for the first refusal
+      } else {
+        const isOnboarding = session.step < Steps.JOBS_SHOWN && session.step !== Steps.NEW;
+        const globalKeywords = ['stop', 'start', 'help', 'placed', 'distress'];
+        
+        // Prevent random feature jumps during onboarding
+        if (isOnboarding && !globalKeywords.includes(intent)) {
+          this.logger.debug({ phone: session.phone, intent, step: session.step }, 'Ignored feature intent during onboarding');
+        } else {
+          if (intent === 'distress' || isDistress) {
+            return [this.message(withOptions(messages.empathetic, [messages.labels.showJobs, messages.labels.wait]))];
+          }
+          return this.handleKeyword(session, intent);
+        }
       }
     }
 
@@ -399,86 +427,161 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
     const messages = t(session.script);
     session.step = Steps.ONBOARDING_NAME;
     return [
-      this.message(messages.languageSet, { intent: 'language_set', facts: { aiGenerated: true } }),
+      this.message(messages.languageSet, { intent: 'language_set', facts: { selectedLanguage: lang.value } }),
       this.message(`${messages.welcomeNew}\n\n${messages.askName}`, { intent: 'welcome' })
     ];
+  }
+
+  /**
+   * Opportunistically extract ALL onboarding fields (name, trade, district, state)
+   * from any message, regardless of which step we're on. This ensures the bot never
+   * forgets information the user has already volunteered.
+   */
+  async collectAllOnboardingInfo(session, text) {
+    const collected = { name: false, trade: false, district: false };
+
+    // Extract name (only if not already known)
+    if (!session.collected.name) {
+      try {
+        const nameResult = await this.extractionService.extractName(text, { script: session.script });
+        this.addAiFlags(session, nameResult.flags, 'name');
+        if (nameResult.name) {
+          session.collected.name = nameResult.name;
+          collected.name = true;
+          this.logger.info({ phone: session.phone, name: nameResult.name }, 'Collected name');
+        }
+      } catch (error) {
+        this.logger.error({ error, phone: session.phone }, 'Name extraction failed');
+      }
+    }
+
+    // Extract trade/district/state (merge with existing, don't overwrite what we have)
+    try {
+      const profileResult = await this.extractionService.extractProfile(text, session.collected);
+      this.addAiFlags(session, profileResult.flags, 'profile');
+      if (profileResult.trade && !session.collected.trade) {
+        session.collected.trade = profileResult.trade;
+        collected.trade = true;
+        this.logger.info({ phone: session.phone, trade: profileResult.trade }, 'Collected trade');
+      }
+      if (profileResult.district && !session.collected.district) {
+        session.collected.district = profileResult.district;
+        session.collected.state = profileResult.state ?? session.collected.state ?? null;
+        collected.district = true;
+        this.logger.info({ phone: session.phone, district: profileResult.district }, 'Collected district');
+      }
+      if (profileResult.state && !session.collected.state) {
+        session.collected.state = profileResult.state;
+      }
+    } catch (error) {
+      this.logger.error({ error, phone: session.phone }, 'Profile extraction failed');
+    }
+
+    // Opportunistically extract certificate if missing
+    if (!session.collected.certificateType) {
+      try {
+        const certResult = await this.extractionService.extractCertificate(text);
+        // FIX: Check normalizedType to prevent hallucinated certificateTypes from skipping the step
+        if (certResult.certificateType && certResult.normalizedType !== 'Unknown') {
+          session.collected.certificateType = certResult.certificateType;
+          session.collected.certificateNormalizedType = certResult.normalizedType;
+          collected.certificate = true;
+          this.logger.info({ phone: session.phone, cert: certResult.certificateType }, 'Collected certificate opportunistically');
+        }
+      } catch (error) {
+        this.logger.error({ error, phone: session.phone }, 'Certificate extraction failed');
+      }
+    }
+
+    // Opportunistically extract skills if missing
+    if (!session.collected.skills || session.collected.skills.length === 0) {
+      try {
+        const skillResult = await this.extractionService.extractSkills(text, []);
+        if (skillResult.skills && skillResult.skills.length > 0) {
+          session.collected.skills = skillResult.skills;
+          collected.skills = true;
+          this.logger.info({ phone: session.phone, count: skillResult.skills.length }, 'Collected skills opportunistically');
+        }
+      } catch (error) {
+        this.logger.error({ error, phone: session.phone }, 'Skills extraction failed');
+      }
+    }
+
+    return collected;
+  }
+
+  /**
+   * Determine what onboarding info is still missing and return the appropriate
+   * prompt for the NEXT missing field. If everything is collected, advance to
+   * the certificate step.
+   */
+  advanceToNextMissing(session) {
+    const messages = t(session.script);
+
+    if (!session.collected.name) {
+      session.step = Steps.ONBOARDING_NAME;
+      return [this.message(messages.askName, { intent: 'ask_name' })];
+    }
+
+    if (!session.collected.trade || !session.collected.district) {
+      session.step = Steps.ONBOARDING_TRADE;
+
+      if (!session.collected.trade && !session.collected.district) {
+        return [this.message(messages.askTradeDistrict(session.collected.name), { intent: 'ask_trade_district' })];
+      }
+      if (!session.collected.trade) {
+        session.context.awaitingProfileField = 'trade';
+        return [this.message(messages.askMissingTrade, { intent: 'clarify_trade' })];
+      }
+      // district missing
+      session.context.awaitingProfileField = 'district';
+      return [this.message(messages.askMissingDistrict, { intent: 'clarify_district' })];
+    }
+
+    if (!session.collected.certificateType) {
+      // All basics collected — move to certificate
+      session.step = Steps.ONBOARDING_CERTIFICATE;
+      session.context.awaitingProfileField = null;
+      return [this.message(messages.profileBasicsCaptured(session.collected), { intent: 'ask_certificate', facts: session.collected })];
+    }
+
+    // Basics and certificate both collected (opportunistically). Jump to confirmation.
+    session.step = Steps.ONBOARDING_CERTIFICATE;
+    session.context.awaitingProfileField = null;
+    session.context.profileConfirmation = true;
+    return [this.message(this.profileConfirmationText(session), { intent: 'confirm_profile', facts: session.collected })];
   }
 
   async handleName(session, text) {
     const messages = t(session.script);
 
-    // If user types yes/no/number, they're probably responding to a previous question
-    // Don't interpret these as names
+    // If user types yes/no, they're probably responding to a previous question
     if (isAffirmative(text) || isNegative(text)) {
-      // If they already have a name stored, treat "yes" as confirming it
       if (session.collected.name && isAffirmative(text)) {
-        session.step = Steps.ONBOARDING_TRADE;
-        return [this.message(messages.askTradeDistrict(session.collected.name), { intent: 'ask_trade_district' })];
+        return this.advanceToNextMissing(session);
       }
-      // Otherwise re-ask for name
       return [this.message(messages.askName, { intent: 'clarify_name', facts: { reason: 'got_yes_no_instead_of_name' } })];
     }
 
-    try {
-      const extraction = await this.extractionService.extractName(text, { script: session.script });
-      this.addAiFlags(session, extraction.flags, 'name');
+    // Extract ALL fields from this message (name, trade, district)
+    await this.collectAllOnboardingInfo(session, text);
 
-      if (!extraction.name) {
-        return [this.message(messages.askName, { intent: 'clarify_name', facts: { reason: 'name_not_clear' } })];
-      }
-
-      session.collected.name = extraction.name;
-      session.step = Steps.ONBOARDING_TRADE;
-      return [this.message(messages.askTradeDistrict(session.collected.name), { intent: 'ask_trade_district' })];
-    } catch (error) {
-      this.logger.error({ error, phone: session.phone }, 'Name extraction failed unexpectedly');
-      this.addAiFlags(session, [{ code: 'ai_error', severity: 'warning', reason: error.message, field: 'name' }], 'name');
-      // Ask again — don't advance state, don't guess
-      return [this.message(messages.askName, { intent: 'clarify_name', facts: { reason: 'extraction_error' } })];
+    if (!session.collected.name) {
+      return [this.message(messages.askName, { intent: 'clarify_name', facts: { reason: 'name_not_clear' } })];
     }
+
+    return this.advanceToNextMissing(session);
   }
 
   async handleTradeDistrict(session, text) {
     const messages = t(session.script);
-    let extracted;
-    try {
-      extracted = await this.extractionService.extractProfile(text, session.collected);
-      this.addAiFlags(session, extracted.flags, 'profile');
-    } catch (error) {
-      this.logger.error({ error, phone: session.phone }, 'Profile extraction failed unexpectedly');
-      this.addAiFlags(session, [{ code: 'ai_error', severity: 'warning', reason: error.message, field: 'profile' }], 'profile');
-      // Use a minimal result so the flow still works — ask again for what's missing
-      extracted = { trade: null, district: null, state: null, flags: [] };
-    }
-    const profilePatch = withoutEmptyValues({
-      trade: extracted.trade,
-      district: extracted.district,
-      state: extracted.state
-    });
 
-    if (session.context.awaitingProfileField === 'trade') {
-      session.collected.trade = extracted.trade ?? null;
-      session.context.awaitingProfileField = null;
-    } else if (session.context.awaitingProfileField === 'district') {
-      session.collected.district = extracted.district ?? null;
-      session.collected.state = extracted.state ?? session.collected.state ?? null;
-      session.context.awaitingProfileField = null;
-    }
+    // Extract ALL fields — user might give their name here too
+    // e.g. "I'm Raj, electrician from Pune"
+    await this.collectAllOnboardingInfo(session, text);
 
-    session.collected = { ...session.collected, ...profilePatch };
-
-    if (!session.collected.trade) {
-      session.context.awaitingProfileField = 'trade';
-      return [this.message(messages.askMissingTrade, { intent: 'clarify_trade', facts: { extraction: extracted } })];
-    }
-
-    if (!session.collected.district) {
-      session.context.awaitingProfileField = 'district';
-      return [this.message(messages.askMissingDistrict, { intent: 'clarify_district', facts: { extraction: extracted } })];
-    }
-
-    session.step = Steps.ONBOARDING_CERTIFICATE;
-    return [this.message(messages.profileBasicsCaptured(session.collected), { intent: 'ask_certificate', facts: session.collected })];
+    // If name was given during this step but wasn't known before, great — it's captured
+    return this.advanceToNextMissing(session);
   }
 
   async handleCertificateAndConfirmation(session, text) {
@@ -583,32 +686,55 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
         return [this.message(messages.askCorrection, { intent: 'ask_profile_correction', facts: { userChoice: 'wants_to_correct_profile', currentProfile: session.collected } })];
       }
 
-      // Implicit confirmation/correction: Not a clear yes/no. Use AI to clarify.
-      const brief = `You asked the user to confirm if these details are correct: ${JSON.stringify(session.collected)}.
-The user replied: "${text}".
-Acknowledge what they said. 
-If they seem to be confirming (e.g. "haan", "sahi hai"), say "Great!" and ask them to reply with exactly "Yes" so the system can proceed.
-If they seem to be correcting something (e.g. "change my name", "I live in Delhi"), acknowledge the correction and ask them to reply with exactly "No" so you can help them fix it.
-Keep it to 1-2 short sentences. Be warm and helpful.`;
-
+      // Implicit confirmation/correction: Check if they provided new info directly in this message
       try {
-        const aiResponse = await this.aiClient.draftReply({
-          script: session.script ?? 'roman',
-          intent: 'profile_confirmation_clarification',
-          brief,
-          facts: { incomingText: text, step: 'profile_confirmation', chatHistory: session.context.chatHistory ?? [] },
-          session
-        });
-
-        if (aiResponse?.text) {
-          return [this.message(aiResponse.text, { intent: 'profile_confirmation_clarification', facts: { aiGenerated: true } })];
+        const profileHint = await this.extractionService.extractProfile(text, {});
+        const nameHint = await this.extractionService.extractName(text, { script: session.script });
+        
+        const hasNewInfo = profileHint.trade || profileHint.district || profileHint.state || nameHint.name;
+        
+        if (hasNewInfo) {
+          this.logger.info({ phone: session.phone }, 'Implicit profile correction detected during confirmation');
+          session.context.profileConfirmation = false;
+          session.context.profileCorrection = true;
+          // Recursively process this exact message through the correction block at the top of this function
+          return this.handleCertificateAndConfirmation(session, text);
         }
       } catch (error) {
-        this.logger.error({ error, phone: session.phone }, 'Profile confirmation AI response failed');
+        this.logger.error({ error, phone: session.phone }, 'Implicit correction extraction failed');
       }
 
-      // Fallback
-      return [this.message(this.profileConfirmationText(session), { intent: 'confirm_profile', facts: session.collected })];
+      // If no new info, use AI to classify the ambiguous response
+      const aiDecision = await this.extractionService.extractDecision(text, 'profile_confirmation', ['confirm', 'reject', 'none']);
+      
+      if (aiDecision === 'confirm') {
+        session.context.profileConfirmation = false;
+        if (isDocumentUploadEnabled()) {
+          session.step = Steps.ONBOARDING_DOCUMENTS;
+          session.context.aadhaarPhase = 'number';
+          return [this.message(messages.askAadhaarUpload ?? 'Please upload your Aadhaar card (photo or PDF)', { intent: 'ask_document_upload' })];
+        }
+        session.step = Steps.SKILL_EXTRACTION;
+        if (session.collected.skills && session.collected.skills.length > 0) {
+          session.context.skillAddition = false;
+          session.context.skillConfirmation = true;
+          return [
+            this.message(withOptions(messages.skillsSummary(session.collected.skills), [messages.labels.noMoreSkills, messages.labels.addSkills]), {
+              intent: 'confirm_skills',
+              facts: { skills: session.collected.skills }
+            })
+          ];
+        }
+        return [this.message(messages.askSkills, { intent: 'ask_skills' })];
+      }
+      
+      if (aiDecision === 'reject') {
+        session.context.profileCorrection = true;
+        return [this.message(messages.askCorrection, { intent: 'ask_profile_correction', facts: { userChoice: 'wants_to_correct_profile' } })];
+      }
+      
+      // Still completely ambiguous — gracefully ask again
+      return [this.message(messages.confirmProfile(session.collected), { intent: 'confirm_profile', facts: { reason: 'ambiguous_response' } })];
     }
 
     let certificate;
@@ -1016,7 +1142,10 @@ Keep it short (2-3 sentences) and encouraging.`;
     session.context.certificateUrl = uploadResult.url;
     session.step = Steps.SKILL_EXTRACTION;
 
-    return [this.message(messages.certificateSaved, { intent: 'certificate_saved', facts: { url: uploadResult.url } })];
+    return [
+      this.message(messages.certificateSaved, { intent: 'certificate_saved', facts: { url: uploadResult.url } }),
+      this.message(messages.askSkills, { intent: 'ask_skills' })
+    ];
   }
 
   async handleSkillExtraction(session, text) {

@@ -119,7 +119,9 @@ const copy = {
     askPlacementDetails:
       '🎊 बहुत बधाई! नई job के बारे में बताइए:\n\n• Company का नाम\n• आपका Role/Position\n• Salary (अगर share करना हो)\n• Location / शहर\n• Joining date (अगर पता हो)\n\nएक message में सब बता दीजिए।',
     placementSaved:
-      '✅ आपकी placement details save हो गई! आपका placement officer इन्हें देख सकते हैं।\n\nAll the best नई job पर! 🌟'
+      '✅ आपकी placement details save हो गई! आपका placement officer इन्हें देख सकते हैं।\n\nAll the best नई job पर! 🌟',
+    aadhaarMandatoryStop:
+      'चूंकि employers के लिए Aadhaar verification ज़रूरी है, इसलिए हमें आपकी onboarding यहाँ रोकनी पड़ रही है। जब भी आप तैयार हों, बस START लिखकर फिर शुरू कर सकते हैं।'
   },
   roman: {
     welcomeNew:
@@ -189,7 +191,9 @@ const copy = {
     askPlacementDetails:
       '🎊 Bahut badhai! Apni new job ke baare mein batao:\n\n• Company ka naam\n• Aapka Role/Position\n• Salary (agar batana ho)\n• Location / sheher\n• Joining date (agar pata ho)\n\nEk message mein sab bata do.',
     placementSaved:
-      '✅ Aapki placement details save ho gayi! Aapka placement officer inhe dekh sakte hain.\n\nAll the best nai job par! 🌟'
+      '✅ Aapki placement details save ho gayi! Aapka placement officer inhe dekh sakte hain.\n\nAll the best nai job par! 🌟',
+    aadhaarMandatoryStop:
+      'Kyunki employers ke liye Aadhaar verification zaroori hai, isliye humein aapki onboarding yahan rokni pad rahi hai. Jab bhi aap taiyar hon, bas START likhkar phir shuru kar sakte hain.'
   },
   english: {
     welcomeNew:
@@ -258,7 +262,9 @@ const copy = {
     askPlacementDetails:
       '🎊 Congratulations! Please share your new job details:\n\n• Company name\n• Your Role/Position\n• Salary (if you want to share)\n• Location / city\n• Joining date (if known)\n\nSend everything in one message.',
     placementSaved:
-      '✅ Your placement details have been saved! Your placement officer can now view them.\n\nAll the best at the new job! 🌟'
+      '✅ Your placement details have been saved! Your placement officer can now view them.\n\nAll the best at the new job! 🌟',
+    aadhaarMandatoryStop:
+      'Since Aadhaar verification is required for employers, we have to pause your onboarding here. Whenever you are ready to continue, just type START.'
   }
 };
 
