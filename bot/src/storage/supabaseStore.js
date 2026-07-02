@@ -205,14 +205,18 @@ export class SupabaseStore {
     });
 
     const row = await this.queryOne(
-      `INSERT INTO skill_cards (id, learner_id, trade, skills, certificate_type, verification_status)
-       VALUES ($1,$2,$3,$4,$5,$6)
+      // Pull certificate_url from the learners row so we inherit any already-uploaded certificate.
+      // (Certificate upload happens before skill card creation in the onboarding flow.)
+      `INSERT INTO skill_cards (id, learner_id, trade, skills, certificate_type, certificate_url, verification_status)
+       SELECT $1, $2, $3, $4::jsonb, $5,
+              (SELECT certificate_url FROM learners WHERE id = $2),
+              $6
        RETURNING *`,
       [
         card.id,
         learner.id,
         card.trade,
-        card.skills ?? [],
+        JSON.stringify(card.skills ?? []),
         card.certificateType ?? null,
         mapVerificationStatus(card.verificationStatus)
       ]

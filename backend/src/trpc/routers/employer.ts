@@ -1233,13 +1233,14 @@ export const publicSkillCardRouter = router({
         }).eq('id', payload.match_id);
       }
 
-      // Fetch learner + skill card data
+      // Fetch learner + skill card data (including KYC and certificate fields)
       const { data: learner, error } = await db
         .from('learners')
         .select(`
           id, full_name, phone, trade, district, state, status,
+          dob, gender, kyc_status, aadhaar_photo_url, certificate_url,
           skill_cards (
-            trade, skills, verification_status
+            id, trade, skills, certificate_type, certificate_url, verification_status
           )
         `)
         .eq('id', payload.learner_id)
@@ -1256,6 +1257,8 @@ export const publicSkillCardRouter = router({
         .eq('id', payload.match_id)
         .single();
 
+      const skillCard = learner.skill_cards?.[0] ?? null;
+
       return {
         match_id: payload.match_id,
         learner: {
@@ -1265,7 +1268,12 @@ export const publicSkillCardRouter = router({
           trade: learner.trade,
           district: learner.district,
           state: learner.state,
-          skill_card: learner.skill_cards?.[0] ?? null,
+          dob: learner.dob ?? null,
+          gender: learner.gender ?? null,
+          kyc_status: learner.kyc_status ?? 'unverified',
+          aadhaar_photo_url: learner.aadhaar_photo_url ?? null,
+          certificate_url: skillCard?.certificate_url ?? learner.certificate_url ?? null,
+          skill_card: skillCard,
         },
         vacancy: matchFull?.vacancies ?? null,
         expires_at: new Date(payload.exp! * 1000).toISOString(),
@@ -1361,9 +1369,10 @@ export const publicSkillCardRouter = router({
       const { data, error } = await db
         .from('skill_cards')
         .select(`
-          id, trade, skills, certificate_type, verification_status,
+          id, trade, skills, certificate_type, certificate_url, verification_status,
           learners (
-            full_name, trade, district, state
+            full_name, trade, district, state,
+            dob, gender, kyc_status, aadhaar_photo_url, certificate_url
           )
         `)
         .eq('id', input.id)
@@ -1373,7 +1382,11 @@ export const publicSkillCardRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Skill card not found' });
       }
 
-      const learner = data.learners;
+      const learner = data.learners as {
+        full_name: string; trade: string; district: string; state: string;
+        dob: string | null; gender: string | null; kyc_status: string;
+        aadhaar_photo_url: string | null; certificate_url: string | null;
+      };
 
       return {
         learner: {
@@ -1381,12 +1394,18 @@ export const publicSkillCardRouter = router({
           trade: learner.trade,
           district: learner.district,
           state: learner.state,
+          dob: learner.dob ?? null,
+          gender: learner.gender ?? null,
+          kyc_status: learner.kyc_status ?? 'unverified',
+          aadhaar_photo_url: learner.aadhaar_photo_url ?? null,
         },
         skillCard: {
           id: data.id,
           trade: data.trade,
-          skills: data.skills,
+          skills: data.skills as string[],
           certificate_type: data.certificate_type,
+          // Certificate URL: prefer skill_card level, fall back to learner level
+          certificate_url: data.certificate_url ?? learner.certificate_url ?? null,
           verification_status: data.verification_status,
         },
       };
