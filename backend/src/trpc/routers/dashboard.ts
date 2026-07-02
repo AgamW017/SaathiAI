@@ -71,7 +71,7 @@ const learnerRouter = router({
     .query(async ({ input }) => {
       const { data: learner, error } = await supabase
         .from('learners')
-        .select('*')
+        .select('*, cohorts(name)')
         .eq('id', input.id)
         .single();
 
@@ -149,6 +149,7 @@ const learnerRouter = router({
 
       return {
         learner: learner as LearnerRow,
+        cohort_name: (learner as any).cohorts?.name ?? null,
         applications: (applications ?? []) as ApplicationRow[],
         placements: placements ?? [],
         placement,

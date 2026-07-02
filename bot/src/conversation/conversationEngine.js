@@ -3,7 +3,7 @@ import { isDocumentUploadEnabled } from '../constants/config.js';
 import { t, withOptions, LANGUAGE_MENU } from '../templates/messages.js';
 import { chooseScript } from '../utils/scriptDetector.js';
 import { isAffirmative, isNegative, normalizeText, parseNumberChoice } from '../utils/text.js';
-import { detectKeywordIntent, isDistressMessage } from './keywordRouter.js';
+
 import { verificationLabel } from '../services/jobService.js';
 
 const LANGUAGE_OPTIONS = [
@@ -42,6 +42,8 @@ export class ConversationEngine {
     }
 
     this.markMessageProcessed(session, incoming.messageId);
+    // Persist immediately to prevent concurrent webhook retries from duplicating processing
+    await this.store.saveSession(session);
 
     const learner = await this.store.getLearnerByPhone(incoming.phone);
     await this.eventLog.record({
@@ -96,8 +98,8 @@ export class ConversationEngine {
     for (const reply of finalReplies) {
       session.context.chatHistory.push({ role: 'bot', text: reply.text, at: new Date().toISOString() });
     }
-    // Keep only last 10 messages to avoid bloating session
-    session.context.chatHistory = session.context.chatHistory.slice(-10);
+    // Keep last 30 messages for rich conversational context
+    session.context.chatHistory = session.context.chatHistory.slice(-30);
 
     await this.persistSessionAndLearner(session);
 
@@ -117,16 +119,29 @@ export class ConversationEngine {
 
   async loadOrCreateSession(phone) {
     const existingSession = await this.store.getSession(phone);
+    const learner = await this.store.getLearnerByPhone(phone); // Always fetch the true database record
+
     if (existingSession) {
+      // Sync critical properties from the database so dashboard updates are reflected instantly
+      // and we never lose language preference across cache restarts
       return {
         ...existingSession,
+        learnerId: existingSession.learnerId ?? learner?.id ?? null,
+        language: existingSession.language ?? learner?.language ?? null,
+        script: existingSession.script ?? learner?.script ?? null,
+        placementStatus: learner?.placementStatus ?? existingSession.placementStatus,
         context: existingSession.context ?? {},
-        collected: existingSession.collected ?? {},
+        collected: {
+          ...existingSession.collected,
+          name: existingSession.collected?.name ?? learner?.name ?? null,
+          trade: existingSession.collected?.trade ?? learner?.trade ?? null,
+          district: existingSession.collected?.district ?? learner?.district ?? null,
+          state: existingSession.collected?.state ?? learner?.state ?? null,
+        },
         lastProcessedMessageIds: existingSession.lastProcessedMessageIds ?? []
       };
     }
 
-    const learner = await this.store.getLearnerByPhone(phone);
     const session = {
       phone,
       learnerId: learner?.id ?? null,
@@ -184,14 +199,21 @@ export class ConversationEngine {
 
   async routeText(session, text, incoming = {}) {
     const messages = t(session.script);
-    const keyword = detectKeywordIntent(text);
+    const { intent, isDistress } = await this.extractionService.extractIntent(text, StepNames[session.step]);
 
-    if (keyword) {
-      return this.handleKeyword(session, keyword);
-    }
-
-    if (isDistressMessage(text)) {
-      return [this.message(withOptions(messages.empathetic, [messages.labels.showJobs, messages.labels.wait]))];
+    if (intent && intent !== 'none') {
+      const isOnboarding = session.step < Steps.JOBS_SHOWN && session.step !== Steps.NEW;
+      const globalKeywords = ['stop', 'start', 'help', 'placed', 'distress'];
+      
+      // Prevent random feature jumps during onboarding
+      if (isOnboarding && !globalKeywords.includes(intent)) {
+        this.logger.debug({ phone: session.phone, intent, step: session.step }, 'Ignored feature intent during onboarding');
+      } else {
+        if (intent === 'distress' || isDistress) {
+          return [this.message(withOptions(messages.empathetic, [messages.labels.showJobs, messages.labels.wait]))];
+        }
+        return this.handleKeyword(session, intent);
+      }
     }
 
     // Language must be set before any other detail collection
@@ -280,7 +302,7 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
         script: session.script ?? 'roman',
         intent: 'freeform_conversation',
         brief: prompt,
-        facts: { incomingText: text, step: stepName },
+        facts: { incomingText: text, step: stepName, chatHistory: session.context.chatHistory ?? [] },
         session
       });
 
@@ -354,7 +376,18 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
 
   handleLanguageSelect(session, text) {
     const choice = parseNumberChoice(text, LANGUAGE_OPTIONS.length);
-    const lang = choice ? LANGUAGE_OPTIONS[choice - 1] : null;
+    let lang = choice ? LANGUAGE_OPTIONS[choice - 1] : null;
+
+    // Intent-based fallback if number isn't provided
+    if (!lang && text) {
+      const n = text.toLowerCase();
+      if (n.includes('hinglish')) lang = LANGUAGE_OPTIONS.find(o => o.value === 'hinglish');
+      else if (n.includes('hindi') || n.includes('hin') || n.includes('हिंदी')) lang = LANGUAGE_OPTIONS.find(o => o.value === 'hindi');
+      else if (n.includes('english') || n.includes('eng')) lang = LANGUAGE_OPTIONS.find(o => o.value === 'english');
+      else if (n.includes('marathi') || n.includes('मराठी')) lang = LANGUAGE_OPTIONS.find(o => o.value === 'marathi');
+      else if (n.includes('gujarati') || n.includes('guj') || n.includes('ગુજરાતી')) lang = LANGUAGE_OPTIONS.find(o => o.value === 'gujarati');
+      else if (n.includes('bengali') || n.includes('bangla') || n.includes('beng') || n.includes('bang') || n.includes('বাংলা')) lang = LANGUAGE_OPTIONS.find(o => o.value === 'bengali');
+    }
 
     if (!lang) {
       return [this.message(LANGUAGE_MENU, { intent: 'language_reprompt', facts: { aiGenerated: true } })];
@@ -457,7 +490,17 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
         const newTrade = session.context.pendingNewTrade;
         const oldTrade = session.context.pendingOldTrade;
 
-        if (isAffirmative(text) || normalizeText(text).includes('add') || normalizeText(text).includes('jod') || normalizeText(text).includes('dono') || text.trim() === '1') {
+        let decision = 'replace';
+        if (isAffirmative(text) || text.trim() === '1') {
+          decision = 'merge';
+        } else if (isNegative(text) || text.trim() === '2') {
+          decision = 'replace';
+        } else {
+          const aiDecision = await this.extractionService.extractDecision(text, 'choose_trade_action', ['merge_both_trades', 'replace_old_with_new']);
+          decision = aiDecision === 'merge_both_trades' ? 'merge' : 'replace';
+        }
+
+        if (decision === 'merge') {
           // Merge — combine both trades
           session.collected.trade = `${oldTrade}, ${newTrade}`;
         } else {
@@ -540,6 +583,31 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
         return [this.message(messages.askCorrection, { intent: 'ask_profile_correction', facts: { userChoice: 'wants_to_correct_profile', currentProfile: session.collected } })];
       }
 
+      // Implicit confirmation/correction: Not a clear yes/no. Use AI to clarify.
+      const brief = `You asked the user to confirm if these details are correct: ${JSON.stringify(session.collected)}.
+The user replied: "${text}".
+Acknowledge what they said. 
+If they seem to be confirming (e.g. "haan", "sahi hai"), say "Great!" and ask them to reply with exactly "Yes" so the system can proceed.
+If they seem to be correcting something (e.g. "change my name", "I live in Delhi"), acknowledge the correction and ask them to reply with exactly "No" so you can help them fix it.
+Keep it to 1-2 short sentences. Be warm and helpful.`;
+
+      try {
+        const aiResponse = await this.aiClient.draftReply({
+          script: session.script ?? 'roman',
+          intent: 'profile_confirmation_clarification',
+          brief,
+          facts: { incomingText: text, step: 'profile_confirmation', chatHistory: session.context.chatHistory ?? [] },
+          session
+        });
+
+        if (aiResponse?.text) {
+          return [this.message(aiResponse.text, { intent: 'profile_confirmation_clarification', facts: { aiGenerated: true } })];
+        }
+      } catch (error) {
+        this.logger.error({ error, phone: session.phone }, 'Profile confirmation AI response failed');
+      }
+
+      // Fallback
       return [this.message(this.profileConfirmationText(session), { intent: 'confirm_profile', facts: session.collected })];
     }
 
@@ -638,10 +706,32 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
         this.logger.warn({ err, phone: session.phone }, 'Aadhaar number extraction failed');
       }
 
+      const brief = `The user sent an image/document at the Aadhaar collection step. The system tried to extract an Aadhaar number from it but failed (it might not be an Aadhaar card, or the photo might be too blurry).
+Acknowledge the image they sent politely, but explain that you couldn't read the 12-digit Aadhaar number from it.
+Ask them to either send a clearer photo of their Aadhaar card, or simply type the 12-digit number.
+Keep it encouraging, human, and very short (1-2 sentences).`;
+
+      try {
+        const aiResponse = await this.aiClient.draftReply({
+          script: session.script ?? 'roman',
+          intent: 'aadhaar_extraction_failed',
+          brief,
+          facts: { step: 'aadhaar_number', chatHistory: session.context.chatHistory ?? [] },
+          session
+        });
+
+        if (aiResponse?.text) {
+          return [this.message(aiResponse.text, { intent: 'aadhaar_extraction_failed', facts: { aiGenerated: true } })];
+        }
+      } catch (err) {
+        this.logger.error({ err, phone: session.phone }, 'AI Aadhaar image fallback failed');
+      }
+
+      // Fallback if AI fails
       return [this.message(messages.aadhaarPhotoUnclear, { intent: 'aadhaar_photo_unclear' })];
     }
 
-    // ── User typed a number: validate ──────────────────────────────────────
+    // ── User typed something: check if it's a valid Aadhaar number ──────────
     if (text && text.trim()) {
       const cleaned = text.trim().replace(/[\s\-]/g, '');
       if (/^\d{12}$/.test(cleaned)) {
@@ -699,6 +789,34 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
     const otp = (text ?? '').trim().replace(/\s/g, '');
 
     if (!otp || !/^\d{4,8}$/.test(otp)) {
+      // User typed something that isn't a valid OTP — use AI to address their concern
+      if (text && text.trim() && !/^\d+$/.test(otp)) {
+        session.context.otpPromptCount = (session.context.otpPromptCount ?? 0) + 1;
+        const attempt = session.context.otpPromptCount;
+
+        const brief = `The learner said "${text}" when asked for their Aadhaar OTP (attempt #${attempt}).
+Address what they said naturally. If they are confused, explain that a 6-digit OTP was sent to the mobile number linked to their Aadhaar card.
+If they say they didn't get it, ask them to wait a minute or check their network, and let them know they can enter an incorrect code 3 times to automatically trigger a resend.
+Keep it to 2-3 sentences. Be warm and encouraging.`;
+
+        try {
+          const aiResponse = await this.aiClient.draftReply({
+            script: session.script ?? 'roman',
+            intent: 'aadhaar_otp_clarification',
+            brief,
+            facts: { incomingText: text, step: 'aadhaar_otp', attempt, chatHistory: session.context.chatHistory ?? [] },
+            session
+          });
+
+          if (aiResponse?.text) {
+            return [this.message(aiResponse.text, { intent: 'aadhaar_otp_clarification', facts: { aiGenerated: true } })];
+          }
+        } catch (error) {
+          this.logger.error({ error, phone: session.phone }, 'OTP clarification AI response failed');
+        }
+      }
+
+      // Fallback to template if AI fails or if they typed a non-OTP digit string
       return [this.message(messages.aadhaarOtpInvalid, { intent: 'aadhaar_otp_format_invalid' })];
     }
 
@@ -812,6 +930,34 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
 
     const mediaItems = Array.isArray(media) ? media : (media ? [media] : []);
     if (mediaItems.length === 0) {
+      // User typed a message instead of sending a file — use AI to address it
+      if (text && text.trim()) {
+        session.context.certPromptCount = (session.context.certPromptCount ?? 0) + 1;
+        const attempt = session.context.certPromptCount;
+
+        const brief = `The learner said "${text}" when asked to upload their skill/training certificate (attempt #${attempt}).
+Address what they said naturally. Explain that uploading their certificate helps employers verify their skills, which gets them better job matches.
+If they don't have it right now, suggest they find it and take a clear photo (PNG, JPEG, or PDF).
+Keep it short (2-3 sentences) and encouraging.`;
+
+        try {
+          const aiResponse = await this.aiClient.draftReply({
+            script: session.script ?? 'roman',
+            intent: 'certificate_clarification',
+            brief,
+            facts: { incomingText: text, step: 'certificate_upload', attempt, chatHistory: session.context.chatHistory ?? [] },
+            session
+          });
+
+          if (aiResponse?.text) {
+            return [this.message(aiResponse.text, { intent: 'certificate_clarification', facts: { aiGenerated: true } })];
+          }
+        } catch (error) {
+          this.logger.error({ error, phone: session.phone }, 'Certificate clarification AI response failed');
+        }
+      }
+
+      // Fallback to template if AI fails or empty message
       return [this.message(messages.askCertificate, { intent: 'certificate_reprompt' })];
     }
 
@@ -877,13 +1023,19 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
     const messages = t(session.script);
 
     if (session.context.skillConfirmation) {
-      if (wantsToAddSkill(text)) {
+      let decision = 'none';
+      if (isAffirmative(text) || isNegative(text) || text.trim() === '1') decision = 'confirm';
+      else if (text.trim() === '2') decision = 'add_skills';
+      else {
+        const aiDecision = await this.extractionService.extractDecision(text, 'skill_confirmation', ['confirm', 'add_skills']);
+        decision = aiDecision;
+      }
+
+      if (decision === 'add_skills') {
         session.context.skillConfirmation = false;
         session.context.skillAddition = true;
         return [this.message(messages.askSkills, { intent: 'ask_more_skills' })];
-      }
-
-      if (isNegative(text) || isAffirmative(text)) {
+      } else if (decision === 'confirm') {
         session.context.skillConfirmation = false;
         return this.createSkillCard(session);
       }
@@ -943,12 +1095,21 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
 
   async handleJobsReady(session, text) {
     const messages = t(session.script);
-    if (isNegative(text) || normalizeText(text).includes('later') || normalizeText(text).includes('baad')) {
+
+    let decision = 'none';
+    if (isAffirmative(text)) decision = 'show_jobs';
+    else if (isNegative(text)) decision = 'later';
+    else {
+      const aiDecision = await this.extractionService.extractDecision(text, 'jobs_ready', ['show_jobs', 'later']);
+      decision = aiDecision;
+    }
+
+    if (decision === 'later') {
       session.context.jobsReady = false;
       return [this.message(messages.jobsLater)];
     }
 
-    if (isAffirmative(text) || normalizeText(text).includes('job')) {
+    if (decision === 'show_jobs') {
       return this.showJobs(session);
     }
 
@@ -1073,9 +1234,26 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
       return [this.message(moreMsg, { intent: 'more_jobs_shown', facts: { aiGenerated: true } })];
     }
 
-    const choice = parseNumberChoice(text, jobs.length + 1);
 
-    if (normalizedText.includes('koi nahi') || normalizedText.includes('none') || normalizedText.includes('nahi')) {
+    let choice = parseNumberChoice(text, jobs.length + 1);
+
+    if (!choice && text.trim()) {
+      const aiDecision = await this.extractionService.extractDecision(
+        text, 
+        'job_selection', 
+        [...jobs.map((j, i) => `job_${i + 1}`), 'none']
+      );
+      if (aiDecision.startsWith('job_')) {
+        choice = parseInt(aiDecision.split('_')[1], 10);
+      } else if (aiDecision === 'none') {
+        if (normalizedText.includes('koi nahi') || normalizedText.includes('none') || normalizedText.includes('nahi')) {
+          session.context.jobDeclineReason = true;
+          return [this.message(messages.jobDeclineReason)];
+        }
+      }
+    }
+
+    if (!choice && (normalizedText.includes('koi nahi') || normalizedText.includes('none') || normalizedText.includes('nahi'))) {
       session.context.jobDeclineReason = true;
       return [this.message(messages.jobDeclineReason)];
     }
@@ -1152,11 +1330,19 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
   async handlePostApply(session, text) {
     const messages = t(session.script);
 
-    if (isAffirmative(text) || normalizeText(text).includes('practice')) {
+    let decision = 'none';
+    if (isAffirmative(text)) decision = 'practice';
+    else if (isNegative(text)) decision = 'wait';
+    else {
+      const aiDecision = await this.extractionService.extractDecision(text, 'post_apply', ['practice', 'wait']);
+      decision = aiDecision;
+    }
+
+    if (decision === 'practice') {
       return this.startInterview(session);
     }
 
-    if (isNegative(text) || normalizeText(text).includes('wait')) {
+    if (decision === 'wait') {
       session.context.awaitingPracticeAfterApply = false;
       session.step = Steps.TRACKING;
       session.placementStatus = PlacementStatus.TRACKING;
@@ -1382,7 +1568,7 @@ Don't just say "I can only help with jobs" — be conversational and human.`;
             ...(reply.metadata?.facts ?? {}),
             incomingText,
             replyingTo: session.context.lastQuotedBody ?? null,
-            chatHistory: (session.context.chatHistory ?? []).slice(-8)
+            chatHistory: session.context.chatHistory ?? []
           },
           session
         });

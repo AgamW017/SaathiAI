@@ -254,6 +254,7 @@ export default function LearnerProfilePage() {
   }
 
   const learner = data?.learner;
+  const cohortName = data?.cohort_name;
   const applications = data?.applications ?? [];
 
   return (
@@ -323,7 +324,7 @@ export default function LearnerProfilePage() {
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '22px', fontWeight: 700, color: '#fff' }}>{learner?.full_name ?? 'Unknown'}</div>
                 <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>
-                  {learner?.trade ?? 'No trade'} • {learner?.district ?? 'No district'} • {learner?.cohort ?? 'No cohort'}
+                  {learner?.trade ?? 'No trade'} • {learner?.district ?? 'No district'} • {cohortName ?? learner?.cohort_id ?? 'No cohort'}
                 </div>
                 <div style={{ marginTop: '12px' }}>
                   <StatusBadge status={learner?.status ?? 'active'} />
@@ -399,7 +400,7 @@ export default function LearnerProfilePage() {
                   <DetailRow label="Phone" value={learner?.phone} />
                   <DetailRow label="Trade" value={learner?.trade} />
                   <DetailRow label="District" value={learner?.district} />
-                  <DetailRow label="Cohort" value={learner?.cohort} />
+                  <DetailRow label="Cohort" value={cohortName ?? learner?.cohort_id} />
                   <DetailRow label="Status" value={<StatusBadge status={learner?.status ?? 'active'} />} />
                   <DetailRow label="Risk Score" value={<RiskMeter score={learner?.risk_score ?? 0} />} />
                   <DetailRow label="Enrolled" value={learner?.created_at ? new Date(learner.created_at).toLocaleDateString('en-IN') : '—'} />

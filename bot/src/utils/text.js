@@ -8,13 +8,14 @@ export function normalizeText(text = '') {
 }
 
 export function includesAny(normalizedText, patterns) {
-  return patterns.some((pattern) => normalizedText.includes(pattern));
+  // Enforce strong keyword matching (the whole message must match the keyword)
+  return patterns.some((pattern) => normalizedText === pattern);
 }
 
 export function isAffirmative(text = '') {
   const value = normalizeText(text);
   return (
-    ['1', 'yes', 'y', 'haan', 'ha', 'han', 'ok', 'okay', 'start', 'sure'].includes(value) ||
+    ['1', 'yes', 'yeah', 'yea', 'y', 'haan', 'ha', 'han', 'ok', 'haa', 'okay', 'start', 'sure'].includes(value) ||
     includesAny(value, ['हाँ', 'हां', 'sahi', 'correct', 'ठीक', 'theek'])
   );
 }

@@ -1,5 +1,6 @@
 import { uniqueList } from '../utils/text.js';
 import { validateField, validateExtraction } from '../utils/fieldValidator.js';
+import { detectKeywordIntent, isDistressMessage } from '../conversation/keywordRouter.js';
 
 const MIN_PROFILE_CONFIDENCE = 0.62;
 const MIN_NAME_CONFIDENCE = 0.55;
@@ -8,6 +9,41 @@ export class ExtractionService {
   constructor({ aiClient, logger }) {
     this.aiClient = aiClient;
     this.logger = logger;
+  }
+
+  async extractIntent(text, step = 'unknown') {
+    if (!text || text.trim() === '') {
+      return { intent: 'none', isDistress: false };
+    }
+
+    try {
+      const result = await this.aiClient.runTask('extract_intent', { text, step });
+      if (result && result.intent) {
+        return { intent: result.intent, isDistress: Boolean(result.isDistress) };
+      }
+    } catch (error) {
+      this.logger.error({ error, text }, 'AI intent extraction failed, falling back to keywords');
+    }
+
+    // Fallback to strict keywords
+    const keyword = detectKeywordIntent(text) || 'none';
+    const isDistress = isDistressMessage(text);
+    return { intent: isDistress ? 'distress' : keyword, isDistress };
+  }
+
+  async extractDecision(text, step, options) {
+    if (!text || text.trim() === '') return 'none';
+
+    try {
+      const result = await this.aiClient.runTask('extract_decision', { text, step, options });
+      if (result && result.decision && result.decision !== 'none') {
+        return result.decision;
+      }
+    } catch (error) {
+      this.logger.error({ error, text, step }, 'AI decision extraction failed');
+    }
+
+    return 'none';
   }
 
   async extractName(text, { script } = {}) {

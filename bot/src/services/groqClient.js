@@ -9,7 +9,7 @@
  */
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+const DEFAULT_MODEL = 'openai/gpt-oss-120b';
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 export class GroqClient {
@@ -73,23 +73,53 @@ export class GroqClient {
   }
 
   /**
-   * Draft a reply — delegates to generateJson with the reply prompt.
+   * Draft a reply using proper multi-turn conversation history.
+   * Chat history is sent as real user/assistant message turns instead of
+   * being serialized as JSON inside a single prompt.
    */
   async draftReply({ script, intent, facts = {}, brief, session = {} }) {
-    const prompt = buildReplyPrompt({ script, intent, facts, brief, session });
-    const response = await this.generateJson({
-      prompt,
-      schema: replySchema
-    });
+    if (!this._configured) return null;
 
-    if (response !== null) {
-      return {
-        text: sanitizeReply(response.text),
-        flags: response.flags ?? []
-      };
+    const effectiveLanguage = session?.language ?? script;
+    const systemPrompt = buildReplySystemPrompt(effectiveLanguage);
+
+    // Build proper multi-turn messages array
+    const messages = [{ role: 'system', content: systemPrompt }];
+
+    // Add chat history as actual conversation turns
+    const history = (facts.chatHistory ?? []).slice(-20);
+    for (const entry of history) {
+      messages.push({
+        role: entry.role === 'user' ? 'user' : 'assistant',
+        content: entry.text
+      });
     }
 
-    return null; // Let the fallback layer handle it
+    // Final user message with current context and template to rewrite
+    messages.push({ role: 'user', content: buildReplyUserMessage({ intent, facts, brief, session }) });
+
+    try {
+      const response = await this._callApi({
+        messages,
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+        max_tokens: 2048
+      });
+
+      const parsed = parseJson(response);
+      if (parsed !== null) {
+        return {
+          text: sanitizeReply(parsed.text),
+          flags: parsed.flags ?? []
+        };
+      }
+      return null;
+    } catch (error) {
+      const msg = `Groq draftReply failed: ${error.message ?? error}`;
+      if (this.logger) this.logger.error({ error }, msg);
+      else console.error('[GroqClient]', msg);
+      throw error; // Propagate to LlmClient for Gemini fallback
+    }
   }
 
   /**
@@ -212,6 +242,23 @@ const profileSchema = {
   required: ['trade', 'district', 'state', 'confidence', 'missingFields', 'flags']
 };
 
+const decisionSchema = {
+  type: 'object',
+  properties: {
+    decision: { type: 'string' }
+  },
+  required: ['decision']
+};
+
+const intentSchema = {
+  type: 'object',
+  properties: {
+    intent: { type: 'string', enum: ['jobs', 'practice', 'card', 'help', 'stop', 'start', 'status', 'placed', 'distress', 'none'] },
+    isDistress: { type: 'boolean' }
+  },
+  required: ['intent', 'isDistress']
+};
+
 const nameSchema = {
   type: 'object',
   properties: {
@@ -257,6 +304,42 @@ const feedbackSchema = {
 };
 
 const taskSpecs = {
+  extract_decision: {
+    schema: decisionSchema,
+    prompt: ({ text, step, options }) => `
+The user is at the step: ${step}.
+They were given these options: ${JSON.stringify(options)}.
+Based on their message, which option did they choose?
+If they clearly chose one of the options, return that exact option string.
+If they chose none, or their intent doesn't match any option, return "none".
+Message: ${JSON.stringify(text)}
+
+Return ONLY a valid JSON object matching this structure: { decision }
+`
+  },
+  extract_intent: {
+    schema: intentSchema,
+    prompt: ({ text, step }) => `
+Classify the user's intent based on their message.
+Possible intents:
+- 'jobs': user wants to see jobs, search for jobs, or says they need work.
+- 'practice': user wants to practice interviews.
+- 'card': user wants to see or share their skill card.
+- 'help': user needs help or assistance.
+- 'stop': user wants to stop, unsubscribe, or opt out.
+- 'start': user wants to start or resume.
+- 'status': user wants to check their application status.
+- 'placed': user got a job, got placed, or has been selected.
+- 'distress': user is in distress, very frustrated, out of money, or expressing desperation (e.g., "thak gaya", "paisa nahi").
+- 'none': None of the above. User is answering a question, giving their name, trade, confirmation, or making conversational small talk.
+
+Current step: ${step}
+
+Message: ${JSON.stringify(text)}
+
+Return ONLY a valid JSON object matching this structure: { intent, isDistress }
+`
+  },
   extract_name: {
     schema: nameSchema,
     prompt: ({ text, script }) => `
@@ -342,44 +425,75 @@ Return ONLY a valid JSON object matching this structure: { feedback, score, flag
   }
 };
 
-function buildReplyPrompt({ script, intent, facts, brief, session }) {
-  const effectiveLanguage = session?.language ?? script;
-  return `
-You are SaathiAI, a WhatsApp career companion for Indian vocational graduates (ITI/PMKVY/JSS).
-You talk like a helpful elder brother/sister who genuinely cares about the learner's career.
+/**
+ * System prompt for reply drafting — sent as the system message.
+ * Contains mission, persona, onboarding context, and rules.
+ */
+function buildReplySystemPrompt(language) {
+  return `You are SaathiAI, a WhatsApp assistant that helps job seekers across India get real opportunities.
 
-Language/script: ${languageName(effectiveLanguage)}
-Tone: warm, encouraging, slightly informal, practical. Like a supportive friend who knows the job market.
-- Use the learner's name with "ji" naturally
+YOUR MISSION:
+You onboard learners through a structured flow — collecting their name, skills, location, training certificates (if any), verifying their identity via Aadhaar KYC, extracting detailed skills, then matching them with verified job opportunities. You also provide interview practice and post-placement support.
+
+Language/script: ${languageName(language)}
+Personality: You are like a supportive elder brother/sister (bhaiya/didi) who genuinely cares.
+- Use the learner's name with "ji" naturally (e.g., "Raj ji")
 - Use WhatsApp formatting: *bold* for emphasis, emojis sparingly but meaningfully
-- Sound human, not robotic. Vary your sentence structure.
-- Show you understand their situation (blue-collar job seekers, often first-generation workers)
+- Sound human, not robotic. Vary your phrasing.
+- Show you understand their world — job seekers from all backgrounds looking for real opportunities.
 
-Audience: Young adults (18-25) on low-end Android phones, often in small towns/rural India.
-They respond better to encouragement and practical next steps.
+Audience: Job seekers from diverse backgrounds across India.
+They respond best to encouragement, simple language, and clear next steps.
+
+AADHAAR VERIFICATION — IMPORTANT CONTEXT:
+Aadhaar KYC is a MANDATORY step in the onboarding process. You should handle it naturally:
+- If a learner hesitates or asks "why?", explain the real benefits conversationally:
+  • Verified profiles get noticed by employers first — "Employers verified candidates ko zyada prefer karte hain"
+  • It protects THEM from fake job scams — "Aapki safety ke liye bhi zaroori hai"
+  • Better job matches happen with verified identity — "Bina verify ke job match nahi ho paata"
+  • Their data is secure — only used for identity, never shared
+- If they say "mere paas abhi nahi hai" — be understanding, suggest they come back when ready, but be clear it IS required
+- If they have privacy concerns — empathize first, then reassure with specifics
+- NEVER be robotic or repetitive. Each response about Aadhaar should feel fresh and address their specific concern
+- NEVER skip Aadhaar verification or suggest it's optional
+
+ONBOARDING FLOW AWARENESS:
+You are aware of these steps: Language Selection → Name → Trade + District → Certificate → Aadhaar KYC → Skills → Skill Card → Job Matching → Interview Practice → Placement Tracking.
+When rewriting messages, understand which step the learner is on and provide context-appropriate encouragement.
 
 Rules:
-- Never mention AI, APIs, databases, technical systems, or classification.
-- Never guarantee a job or salary.
-- Never ask for Aadhaar, bank details, OTPs, passwords.
+- Never mention AI, APIs, databases, LLMs, or technical systems.
+- Never guarantee a specific job or salary amount.
+- Never ask for bank details or passwords.
 - Keep messages under 800 characters unless listing multiple jobs.
 - If listing jobs, format them cleanly with bullet points and emojis.
 - If the brief contains numbered options, preserve them clearly for number-based replies.
-- If something is unclear, ask ONE clarifying question — don't bombard with multiple.
-- Add a small motivational touch when appropriate (not forced).
-- Match the user's energy — if they're excited, be excited. If they're frustrated, be empathetic first.
-- NEVER say "samajh nahi aaya" or "I don't understand" when rewriting. The system already understood the user — you are just making the reply sound natural.
-- If the user typed a number (1, 2, etc.), they were selecting from a menu. The system handled it. Your job is just to rephrase the response naturally, NOT to express confusion about what the number means.
+- Ask only ONE clarifying question at a time — never bombard.
+- Add motivational touches naturally (not forced).
+- Match the user's energy — excited → be excited, frustrated → empathize first.
+- NEVER say "samajh nahi aaya" or "I don't understand" when rewriting. The system already understood — you are making the reply sound natural.
+- If the user typed a number (1, 2, etc.), they were selecting from a menu. Rephrase the response naturally, don't express confusion.
 
-Intent: ${intent}
-The user said: ${JSON.stringify(facts.incomingText ?? '')}${facts.replyingTo ? `\nThe user is REPLYING TO this bot message: ${JSON.stringify(facts.replyingTo)}` : ''}
-Recent conversation history: ${JSON.stringify((facts.chatHistory ?? []).slice(-6))}
-Session context: ${JSON.stringify(publicSessionSummary(session))}
-Key facts: ${JSON.stringify({ ...facts, chatHistory: undefined, replyingTo: undefined })}
-Template to rewrite (make it sound natural and personal): ${JSON.stringify(brief)}
+You MUST respond with valid JSON only — no markdown, no code fences, no extra text.
+Return a JSON object: { "text": "your reply message", "flags": [{ "code": "...", "severity": "info|warning|urgent", "reason": "...", "field": "..." }] }
+For unknown flag.field, use an empty string.`;
+}
 
-Return ONLY a valid JSON object with text and flags. For unknown flag.field, use an empty string.
-`;
+/**
+ * User message for the current turn — contains intent, context, and template.
+ * Chat history is sent as separate message turns before this.
+ */
+function buildReplyUserMessage({ intent, facts, brief, session }) {
+  let msg = `[Current message context]\n`;
+  msg += `Intent: ${intent}\n`;
+  msg += `The user just said: ${JSON.stringify(facts.incomingText ?? '')}`;
+  if (facts.replyingTo) {
+    msg += `\nThe user is REPLYING TO this bot message: ${JSON.stringify(facts.replyingTo)}`;
+  }
+  msg += `\n\nSession context: ${JSON.stringify(publicSessionSummary(session))}`;
+  msg += `\nKey facts: ${JSON.stringify({ ...facts, chatHistory: undefined, replyingTo: undefined })}`;
+  msg += `\n\nTemplate to rewrite (make it sound natural and personal): ${JSON.stringify(brief)}`;
+  return msg;
 }
 
 function publicSessionSummary(session) {
