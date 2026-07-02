@@ -102,6 +102,7 @@ export const reportsRouter = router({
           reportId: reportRecord.id,
           status: reportRecord.status,
           createdAt: reportRecord.created_at,
+          aiAnalysis: result.data.aiAnalysis ?? null,
         },
       };
     }),

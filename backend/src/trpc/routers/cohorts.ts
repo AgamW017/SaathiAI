@@ -14,6 +14,11 @@ export const cohortsRouter = router({
   list: officerProcedure
     .input(z.object({ all: z.boolean().default(false) }).default({}))
     .query(async ({ input, ctx }) => {
+      // Only dssdo/admin may list all cohorts across officers
+      if (input.all && ctx.user.role !== 'dssdo' && ctx.user.role !== 'admin') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Only DSSDO/admin can view all cohorts' });
+      }
+
       let query = supabase
         .from('cohorts')
         .select('*, learners(count)')

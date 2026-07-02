@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { trpc } from '../../../../lib/trpc/client';
+import LearnerSearch from '../../../../components/ui/LearnerSearch';
+import JobSearch from '../../../../components/ui/JobSearch';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -108,23 +110,19 @@ function ConfirmPlacementForm() {
       <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           <div>
-            <label style={labelStyle}>Learner ID *</label>
-            <input
-              style={inputStyle}
-              placeholder="UUID of the learner"
+            <label style={labelStyle}>Learner *</label>
+            <LearnerSearch
               value={form.learner_id}
-              onChange={(e) => setForm((f) => ({ ...f, learner_id: e.target.value }))}
-              required
+              onChange={(id) => setForm((f) => ({ ...f, learner_id: id }))}
+              placeholder="Search learner by name…"
             />
           </div>
           <div>
-            <label style={labelStyle}>Job ID *</label>
-            <input
-              style={inputStyle}
-              placeholder="UUID of the job"
+            <label style={labelStyle}>Job *</label>
+            <JobSearch
               value={form.job_id}
-              onChange={(e) => setForm((f) => ({ ...f, job_id: e.target.value }))}
-              required
+              onChange={(id) => setForm((f) => ({ ...f, job_id: id }))}
+              placeholder="Search job by title or company…"
             />
           </div>
         </div>

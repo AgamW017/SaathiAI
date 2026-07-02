@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { trpc } from '../../../../lib/trpc/client';
 import VerificationBadge from '../../../../components/ui/VerificationBadge';
+import LearnerSearch from '../../../../components/ui/LearnerSearch';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -182,8 +183,12 @@ function ManualMatchModal({
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#615f5c', display: 'block', marginBottom: '6px' }}>Learner ID</label>
-            <input style={inputStyle} placeholder="Paste learner UUID…" value={learnerId} onChange={(e) => setLearnerId(e.target.value)} />
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#615f5c', display: 'block', marginBottom: '6px' }}>Learner</label>
+            <LearnerSearch
+              value={learnerId}
+              onChange={(id) => setLearnerId(id)}
+              placeholder="Search learner by name…"
+            />
           </div>
           <div>
             <label style={{ fontSize: '12px', fontWeight: 600, color: '#615f5c', display: 'block', marginBottom: '6px' }}>Job</label>
